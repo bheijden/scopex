@@ -5,7 +5,7 @@ function from a unit to a hashable key, and ``attribute`` counts them. ``by=`` t
 :data:`BY` or ANY callable you write, because the view you need is usually not one we thought of.
 
 The distinction that matters most in practice is between the ``*_path`` views and the others.
-``by='author'`` keys on the FULL nesting (``Col.residual/Col.cell``), so a unit reached through two
+``by='author'`` keys on the FULL nesting (``MyModel.residual/MyModel.forward``), so a unit reached through two
 user methods is its own bucket. ``by='innermost_author'`` keys on the last one. The first answers
 "which combination", the second "who most directly". Reporting the second as though it were the
 first is how 4,567 equations once became 1,168.

@@ -8,7 +8,7 @@ WHAT SURVIVES, MEASURED. XLA rewrites instruction names freely, so joining level
 name barely works at all. What does survive is the ``op_name`` metadata, which carries the rendered
 JAX name stack verbatim::
 
-    op_name="jit(f)/mylib:lib.solve/mylib:user.Col.residual/tanh"
+    op_name="jit(f)/mylib:lib.solve/mylib:user.MyModel.residual/tanh"
 
 That string is present on optimized-HLO instructions, and it is the whole basis of cross-level
 attribution: measured across eight real programs the op_name join ran 0.9976-1.0000.

@@ -93,8 +93,8 @@ class _Unit:
     def marks(self) -> tuple[tuple[str, str, str], ...]:
         """Every contract-shaped scope on the path, outermost first, as ``(pkg, role, detail)``.
 
-        Full sequence on purpose: a unit inside ``mylib:user.Col.cell`` inside
-        ``mylib:lib.solve`` inside ``mylib:user.Col.residual`` has three, and which one you want
+        Full sequence on purpose: a unit inside ``mylib:user.MyModel.forward`` inside
+        ``mylib:lib.solve`` inside ``mylib:user.MyModel.residual`` has three, and which one you want
         depends on the question."""
         out = []
         for s in self.scopes:

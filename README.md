@@ -10,7 +10,7 @@ to one record per unit of your program.
 
 It has one dependency, `jax`. It asks **nothing** of the libraries whose programs you profile.
 
-**[Blueprint](docs/blueprint_scopex.html)** — the same material as a single
+**[Blueprint](docs/blueprint_scopex.html)** · **[Runnable example](examples/marked_framework.py)** — the same material as a single
 page: the two routes, the naming contract, the silent failures, and what this will not tell you.
 
 ## Install
@@ -56,18 +56,19 @@ print(scopex.table(scopex.attribute(units, "site")))
 ```
 
 ```
-site                          count    share
---------------------------------------------
-/home/me/model/nrtl.py:312     2841    17.1%
-/home/me/model/nrtl.py:272     1904    11.5%
-/home/me/model/nrtl.py:292     1655    10.0%
-<no-frame>                     2686    16.2%
+site                                  count    share
+----------------------------------------------------
+<no-frame>                               84    33.6%
+examples/marked_framework.py:70          75    30.0%   <- the user's residual
+examples/marked_framework.py:69          36    14.4%
+examples/marked_framework.py:47          27    10.8%   <- the library's assemble
+examples/marked_framework.py:40          24     9.6%
 ```
 
-That `<no-frame>` bucket is real and stays visible. Some equations genuinely have no user frame —
+That `<no-frame>` bucket is real and stays visible. A third of this program has no user frame —
 JAX's own `jaxpr_util.source_locations` reports the same bucket. Filling it in by borrowing the
-caller's line turns a 16.2% honest gap into a reported 0% and quietly inflates whatever file
-happens to be above it.
+caller's line turns an honest gap into a reported 0% and quietly inflates whatever file happens
+to be above it. Pass `inherit_site=True` if you want the estimate.
 
 Swap the view for a different question — `"kind"`, `"transform"`, `"scope_path"`, `"file"`,
 `"depth"`, or any callable you write:
@@ -90,7 +91,7 @@ imports `scopex`:
 
 ```
 <pkg>:<role>              e.g.  mylib:lib.solve
-<pkg>:<role>.<detail>     e.g.  mylib:user.MyColumn.residual
+<pkg>:<role>.<detail>     e.g.  mylib:user.MyModel.residual
 ```
 
 `role` is `lib` or `user`. `pkg` namespaces it, so two marked frameworks in one program can't
@@ -137,7 +138,7 @@ Then:
 
 ```python
 scopex.attribute(units, "split")     # user / library / <unmarked>
-scopex.attribute(units, "author")    # the full nesting: Col.residual/Col.cell
+scopex.attribute(units, "author")    # the full nesting: MyModel.residual/MyModel.forward
 scopex.attribute(units, "library")   # which of your subsystems
 ```
 
@@ -176,7 +177,7 @@ four:
 
 ```python
 u.marks     # (('flax','lib','apply'), ('flax','user','UserMod.__call__'),
-            #  ('mylib','lib','solve'), ('mylib','user','UserBlock.residual'))
+            #  ('mylib','lib','solve'), ('mylib','user','MyModel.residual'))
 u.packages  # ('flax', 'mylib')
 ```
 

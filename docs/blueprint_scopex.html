@@ -84,8 +84,9 @@
 <p class="lede">Two routes. The quick one works on any jitted function from any library, unmodified.
 The instrumented one needs fifteen lines in a framework and answers one more question: whose code
 is this?</p>
-<div class="meta">scopex 0.1.0 · jax 0.10.2 · every number below is measured on this stack, not
-illustrative · <a href="https://github.com/bheijden/scopex">github.com/bheijden/scopex</a></div>
+<div class="meta">scopex 0.1.0 · jax 0.10.2 · every number below is measured and reproducible:
+<code>python examples/marked_framework.py</code> ·
+<a href="https://github.com/bheijden/scopex">github.com/bheijden/scopex</a></div>
 
 <h2 id="what"><span class="num">§0</span>What this answers, and in what order</h2>
 <p>A slow compile has several possible causes living in different stages, and they want opposite
@@ -105,29 +106,31 @@ time spent in kernel autotuning — that time is spent RUNNING candidate kernels
 code, so the prettiest line-level report will point at code that is not the problem.</div>
 
 <h2 id="quick"><span class="num">§1</span>The quick way — any jitted function, unmodified</h2>
-<p>You maintain a training script. It compiled in 4&nbsp;s; after a refactor it takes 40. You do not
-control the libraries it calls.</p>
+<p>You have a jitted function that got slower, and you do not control the libraries it calls. The
+outputs below come from <code>examples/marked_framework.py</code> — a 24-dimensional fixed-point
+solve, small enough to run in a second and large enough that every view says something.</p>
 
 <h3>1. Which stage?</h3>
 <pre><code><span class="k">import</span> scopex
-<span class="k">print</span>(scopex.record(train_step, params, batch))</code></pre>
+<span class="k">print</span>(scopex.record(program, x0))</code></pre>
 <pre><code>stage        seconds   share
----------------------------
-trace          0.412    2.8%
-lower          0.331    2.2%
-backend       13.847   93.1%
-unaccounted    0.281    1.9%
-WALL          14.871</code></pre>
+----------------------------
+trace          0.144   12.1%
+lower          0.515   43.2%
+backend        0.527   44.2%
+unaccounted    0.006    0.5%
+WALL           1.192</code></pre>
 <p>This is the fork in the road and it costs one compile. Had <code>trace</code> dominated, the
-problem is your Python and XLA is innocent — there would be no point reading HLO at all. It does not;
-the backend does. The numbers come from <code>jax.monitoring</code>, which JAX emits itself: not
+problem would be your Python and XLA innocent — no point reading HLO at all. Here it splits almost
+evenly between lowering and the backend, so both are worth looking at and neither is a runaway. The numbers come from <code>jax.monitoring</code>, which JAX emits itself: not
 sampled, not estimated.</p>
 
 <h3>2. Which XLA pass?</h3>
 <p><code>backend</code> is ONE number covering HLO passes, autotuning and codegen. Split it:</p>
 <pre><code>r = scopex.pass_timings(<span class="s">"""
-import jax, mymodel
-jax.jit(mymodel.train_step).lower(*mymodel.args).compile()
+import jax, sys; sys.path.insert(0, "examples")
+from marked_framework import program, X0
+jax.jit(program).lower(X0).compile()
 """</span>)
 r[<span class="s">"passes"</span>]   <span class="c"># {'simplification': 0.00117, 'layout-assignment': 0.00065, ...} — 93 passes</span>
 r[<span class="s">"n_lines"</span>]  <span class="c"># 832 — if this is ~0, the log never happened</span></code></pre>
@@ -139,24 +142,32 @@ r[<span class="s">"n_lines"</span>]  <span class="c"># 832 — if this is ~0, th
 and no amount of source attribution will help. Change autotuning flags instead.</p>
 
 <h3>3. Which lines?</h3>
-<pre><code>units = <span class="k">list</span>(scopex.walk(jax.make_jaxpr(train_step)(params, batch)))
+<pre><code>units = <span class="k">list</span>(scopex.walk(jax.make_jaxpr(program)(x0)))
 <span class="k">print</span>(scopex.table(scopex.attribute(units, <span class="s">"site"</span>)))</code></pre>
-<pre><code>site                          count    share
---------------------------------------------
-/home/me/model/attn.py:312     2841    17.1%
-/home/me/model/attn.py:272     1904    11.5%
-&lt;no-frame&gt;                     2686    16.2%</code></pre>
+<pre><code>site                                  count    share
+----------------------------------------------------
+&lt;no-frame&gt;                               84    33.6%
+examples/marked_framework.py:70          75    30.0%   &lt;- the user's residual
+examples/marked_framework.py:69          36    14.4%
+examples/marked_framework.py:47          27    10.8%   &lt;- the library's assemble
+examples/marked_framework.py:40          24     9.6%</code></pre>
 <div class="box anti"><span class="lab">the unknown bucket stays</span>
-Some equations genuinely have no user frame, and JAX's own <code>jaxpr_util.source_locations</code>
+A third of this program has no user frame at all, and JAX's own <code>jaxpr_util.source_locations</code>
 reports the same gap. Filling it in by borrowing the caller's line once turned a real 16.2% gap into
 a reported 0% and inflated one file's share from 48.6% to 60.0%. Pass
 <code>inherit_site=True</code> if you want the estimate, and know that you asked for it.</div>
 
 <h3>4. What survived to the backend?</h3>
-<pre><code>opt = <span class="k">list</span>(scopex.walk_hlo(jax.jit(train_step).lower(params, batch).compile()))
+<pre><code>opt = <span class="k">list</span>(scopex.walk_hlo(jax.jit(program).lower(x0).compile()))
 scopex.attribute(opt, <span class="s">"site"</span>)</code></pre>
-<p>A line that is 17% of the jaxpr but 2% of the optimized HLO was folded away and is not your
-problem. One that <em>grows</em> is where XLA expanded your code.</p>
+<p>250 jaxpr equations become 597 optimized instructions, and the shares MOVE:</p>
+<pre><code>              jaxpr        hlo_opt
+user          46.0%   -&gt;    19.6%
+library       54.0%   -&gt;    46.9%
+&lt;unmarked&gt;     0.0%   -&gt;    33.5%</code></pre>
+<p>A third of the shipped module belongs to no line anyone wrote — XLA's own bookkeeping. Reading
+the jaxpr split as "what the backend spends its time on" would have been wrong by more than a factor
+of two on the user's share.</p>
 <div class="box lens"><span class="lab">source lines exist below the jaxpr, indirected</span>
 It is tempting to read a metadata dict of <code>{op_name="..."}</code> and conclude the optimized
 module carries no source location. It does: jaxlib emits <code>stack_frame_id=N</code> indexing
@@ -170,11 +181,11 @@ library's, undifferentiated, because nothing has told scopex where the boundary 
 
 <h2 id="marked"><span class="num">§2</span>The instrumented way — a framework maintainer</h2>
 <p>You maintain <code>mylib</code>. Users subclass <code>Block</code> and implement
-<code>residual</code>. When they report a slow compile you cannot tell whether it is your engine or
-their model.</p>
+<code>forward</code> and <code>residual</code>. When they report a slow compile you cannot tell
+whether it is your engine or their model.</p>
 
 <h3>The whole integration</h3>
-<pre><code><span class="f">@scopex.mark_framework</span>(<span class="s">"mylib"</span>, (<span class="s">"residual"</span>, <span class="s">"cell"</span>, <span class="s">"operator"</span>))
+<pre><code><span class="f">@scopex.mark_framework</span>(<span class="s">"mylib"</span>, (<span class="s">"forward"</span>, <span class="s">"residual"</span>))
 <span class="k">class</span> <span class="f">Block</span>:
     ...</code></pre>
 <p>Or with no scopex dependency at all — the contract is a naming convention, so your library keeps
@@ -183,7 +194,7 @@ depending on <code>jax</code> alone:</p>
     <span class="k">def</span> <span class="f">__init_subclass__</span>(cls, **kw):
         <span class="k">super</span>().__init_subclass__(**kw)                  <span class="c"># a REAL super() — see §3</span>
         <span class="k">if</span> cls.__module__.split(<span class="s">"."</span>)[0] != <span class="s">"mylib"</span>:      <span class="c"># FOREIGN subclass = a user's</span>
-            <span class="k">for</span> name <span class="k">in</span> (<span class="s">"residual"</span>, <span class="s">"cell"</span>, <span class="s">"operator"</span>):
+            <span class="k">for</span> name <span class="k">in</span> (<span class="s">"forward"</span>, <span class="s">"residual"</span>):
                 fn = cls.__dict__.get(name)
                 <span class="k">if</span> fn <span class="k">is</span> <span class="k">None</span>: <span class="k">continue</span>
                 <span class="k">def</span> <span class="f">wrap</span>(fn=fn, tag=<span class="s">f"mylib:user.{cls.__qualname__}.{name}"</span>):
@@ -195,35 +206,39 @@ depending on <code>jax</code> alone:</p>
 
 <h3>What it buys</h3>
 <pre><code>scopex.attribute(units, <span class="s">"split"</span>)</code></pre>
-<pre><code>split          count    share
------------------------------
-user            6219    81.0%
-library         1448    18.9%
-&lt;unmarked&gt;        10     0.1%</code></pre>
-<p><strong>81% of this compile is the user's model, not the engine.</strong> That is the sentence you
-could not say before, and it reframes the conversation.</p>
+<pre><code>split       count    share
+--------------------------
+library       135    54.0%
+user          115    46.0%</code></pre>
+<p><strong>46% of this program is the user's model, not the engine.</strong> That is the sentence
+you could not say before, and it reframes the conversation. (On a larger real program the same view
+read 81% user / 19% library — the ratio is a property of the program, not of the tool.)</p>
 <p>Then, where inside the engine — <code>by="library"</code> keeps the full nesting:</p>
-<pre><code>solve.ethanol_water/solve.ETOH/assemble/block.ETOH/residual/cell   2587   33.7%
-solve.ethanol_water/solve.ETOH/assemble/block.ETOH.operator/band   1327   17.3%
-solve.ethanol_water/solve.ETOH/driver.Dogleg/linsolve               575    7.5%</code></pre>
+<pre><code>mylib subsystem         count    share
+--------------------------------------
+solve/step                135    54.0%
+solve/step/assemble       111    44.4%
+solve                       4     1.6%</code></pre>
 <p>And the one only instrumentation reaches — the <em>interaction</em>:</p>
 <pre><code>scopex.crosstab(units, rows=<span class="s">"library"</span>, cols=<span class="s">"transform"</span>)
-<span class="c"># .../assemble/block.ETOH...  ×  vmap/transpose/jvp/vmap  =  526</span></code></pre>
-<p>526 equations of a user's hook compiled under <code>transpose</code> — the reverse-mode adjoint —
-in a program that only called <code>solve</code>. That is a <code>jacrev</code> running over user
-code inside the engine's assemble path, and now it is visible.</p>
+<span class="c"># solve/step/assemble  ×  vmap/transpose/jvp  =  51</span>
+<span class="c"># solve/step           ×  transpose           =   6</span></code></pre>
+<p>51 equations compiled under <code>transpose</code> — the reverse-mode adjoint — in a program
+that only called <code>solve</code>. That is <code>assemble</code> running <code>jacrev</code> over
+the user's <code>residual</code> to build its operator. Nothing in the user's code asked for reverse
+mode; the library's own construction put it there, and the crosstab is what makes that visible.</p>
 <div class="box anti"><span class="lab">full sequences, never a first match</span>
-<code>by="author"</code> keys on the WHOLE nesting. On one real program <code>residual/cell</code> is
-3,373 equations and <code>cell</code> alone is 1,168 — overlapping populations answering different
-questions. An accessor that returned only the innermost once collapsed 4,567 equations into a
-reported 1,168. Every accessor here returns the full ordered sequence for that reason;
+<code>by="author"</code> keys on the WHOLE nesting, so a hook reached through another hook is its
+own bucket rather than being merged into either. On one real program the nested and the direct
+populations were 3,373 and 1,168 equations — different questions with different answers. An accessor
+that returned only the innermost once collapsed 4,567 equations into a reported 1,168. Every accessor here returns the full ordered sequence for that reason;
 <code>by="innermost_author"</code> is the explicit opt-in.</div>
 
 <h2 id="contract"><span class="num">§3</span>The naming contract</h2>
 <pre><code>&lt;pkg&gt;:&lt;role&gt;[.&lt;detail&gt;]        role ∈ {lib, user}
 
 <span class="s">"mylib:lib.assemble"</span>              <span class="c"># engine internals</span>
-<span class="s">"mylib:user.CrudeColumn.residual"</span>  <span class="c"># a user's hook implementation</span></code></pre>
+<span class="s">"mylib:user.MyModel.residual"</span>  <span class="c"># a user's hook implementation</span></code></pre>
 <p>A convention, not an API — which is the point. Were it an API, every framework adopting it would
 take a runtime dependency on a profiler and the two would be version-locked forever.
 <code>pkg</code> namespaces the mark, so two marked frameworks in one program do not collide: marks

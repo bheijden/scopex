@@ -24,7 +24,7 @@ THE SHAPE
 Examples::
 
     mylib:lib.solve
-    mylib:user.MyColumn.residual
+    mylib:user.MyModel.residual
     flax:user.MyModule.__call__
 
 THE ONE HARD RULE: NO ``/`` INSIDE A NAME
@@ -85,7 +85,7 @@ def validate(name: str) -> str:
 
 
 def scope(pkg: str, role: str, detail: str = "") -> str:
-    """Build a contract-shaped scope string. ``scope('mylib', USER, 'MyColumn.residual')``."""
+    """Build a contract-shaped scope string. ``scope('mylib', USER, 'MyModel.residual')``."""
     if role not in (LIB, USER):
         raise InvalidScopeName(f"role must be {LIB!r} or {USER!r}, got {role!r}")
     for part in (pkg, role, detail):
@@ -97,14 +97,14 @@ def scope(pkg: str, role: str, detail: str = "") -> str:
 @contextlib.contextmanager
 def named_scope(pkg: str, role: str, detail: str = ""):
     """Sugar over ``jax.named_scope``. Entirely optional -- a framework that would rather not
-    import scopex writes ``jax.named_scope("mylib:user.MyColumn.residual")`` and gets the identical
+    import scopex writes ``jax.named_scope("mylib:user.MyModel.residual")`` and gets the identical
     result. This exists so the validation runs."""
     with jax.named_scope(scope(pkg, role, detail)):
         yield
 
 
 def parse(name: str) -> tuple[str, str, str] | None:
-    """``'mylib:user.MyColumn.residual'`` -> ``('mylib', 'user', 'MyColumn.residual')``.
+    """``'mylib:user.MyModel.residual'`` -> ``('mylib', 'user', 'MyModel.residual')``.
 
     Returns None for anything not contract-shaped, which is most scopes in most programs -- an
     unmarked scope is not an error, it just carries no authorship."""

@@ -29,8 +29,8 @@ def test_slash_is_rejected():
 
 
 def test_round_trip():
-    assert scopex.parse(scopex.scope("mylib", scopex.USER, "Col.residual")) == \
-        ("mylib", "user", "Col.residual")
+    assert scopex.parse(scopex.scope("mylib", scopex.USER, "MyModel.residual")) == \
+        ("mylib", "user", "MyModel.residual")
     assert scopex.parse("not a mark") is None
     assert scopex.parse("pkg:notarole.x") is None
 
