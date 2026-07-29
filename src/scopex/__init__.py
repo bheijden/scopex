@@ -17,7 +17,7 @@ never imports scopex at all. See :mod:`scopex.mark`.
 from __future__ import annotations
 
 from .flags import check_env, dump_flags, hlo_text, stablehlo_text, vmodule_env
-from .mark import LIB, USER, mark_methods, mark_subclasses, named_scope, parse, scope
+from .mark import LIB, USER, mark_callable, mark_framework, mark_methods, named_scope, parse, scope
 from .monitor import Timings, record, regime
 from .record import LEVELS, Eqn, Ins
 from .views import BY, attribute, crosstab, table
@@ -33,7 +33,7 @@ __all__ = [
     # views
     "attribute", "crosstab", "table", "BY",
     # the marking contract
-    "scope", "named_scope", "mark_methods", "mark_subclasses", "parse", "LIB", "USER",
+    "scope", "named_scope", "mark_methods", "mark_framework", "mark_callable", "parse", "LIB", "USER",
     # getting text out without hitting a silent trap
     "stablehlo_text", "hlo_text", "dump_flags", "vmodule_env", "check_env",
     "__version__",

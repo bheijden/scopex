@@ -94,16 +94,25 @@ imports `scopex`:
 collide.
 
 Wrap your own internals as you like, and wrap the user's implementations of your interface at the
-point you call them:
+point you call them. The whole integration is one decorator:
+
+```python
+import scopex
+
+@scopex.mark_framework("mylib", ("residual", "cell", "operator"))
+class Block:
+    ...
+```
+
+Or, with no scopex dependency at all — this is exactly what the decorator installs:
 
 ```python
 import jax
 
 class Block:
-    """Your framework's extension point."""
     def __init_subclass__(cls, **kw):
-        super().__init_subclass__(**kw)
-        if cls.__module__.split(".")[0] != "mylib":        # a FOREIGN subclass is a user's
+        super().__init_subclass__(**kw)                     # note: a REAL super(), see below
+        if cls.__module__.split(".")[0] != "mylib":         # a FOREIGN subclass is a user's
             for name in ("residual", "cell", "operator"):
                 fn = cls.__dict__.get(name)
                 if fn is None:
@@ -116,8 +125,10 @@ class Block:
                 setattr(cls, name, wrap())
 ```
 
-That is the whole integration. `scopex` offers sugar for it (`scopex.mark_subclasses("mylib",
-(...))`) but the fifteen lines above are equivalent and keep your dependency list at `jax`.
+Both are tested to produce identical output. The `super()` call matters: it must be the real
+zero-argument form inside a class body, or the `super(base, cls)` form closing over the *defining*
+class. Writing `super(cls, cls).__init_subclass__` — where `cls` is the subclass being created —
+resolves straight back into the wrapper and recurses until the stack blows.
 
 Then:
 
@@ -126,6 +137,48 @@ scopex.attribute(units, "split")     # user / library / <unmarked>
 scopex.attribute(units, "author")    # the full nesting: Col.residual/Col.cell
 scopex.attribute(units, "library")   # which of your subsystems
 ```
+
+### If your library has no classes
+
+The subclass hook only reaches frameworks whose extension point *is* subclassing. A library of
+plain functions — an optimiser taking a user's update rule, an ODE solver taking a vector field, a
+linear solver taking a matvec — has nothing to hook, and **the failure is not silence, it is a
+wrong answer**:
+
+```python
+# measured, on a diffrax-shaped solver calling an unmarked user vector field
+unmarked        split={'library': 4}          # 100% of the USER's code credited to the framework
+mark_callable   split={'user': 3, 'library': 1}
+```
+
+So mark at the point of ingestion:
+
+```python
+def diffeqsolve(term, ...):
+    term = scopex.mark_callable(term, "diffrax", "vector_field")
+```
+
+### The split is binary, and that has a cost
+
+`user` vs `library` is decided by one comparison: `cls.__module__.split(".")[0] != pkg`. Ecosystem
+middleware — a flaxformer module under flax, say — is *foreign*, so it reads as user-authored, and
+the user's own twenty-line subclass is one row among hundreds. `scopex` warns the first time a
+framework marks subclasses from more than one package root. When that fires, use `by="author"` or
+`by="file"`, which keep the roots apart.
+
+### Two frameworks at once
+
+Marks nest and none is overwritten. A unit inside a dflux hook inside a flax module carries all
+four:
+
+```python
+u.marks     # (('flax','lib','apply'), ('flax','user','UserMod.__call__'),
+            #  ('dflux','lib','solve'), ('dflux','user','UserBlock.residual'))
+u.packages  # ('flax', 'dflux')
+```
+
+That is why every accessor returns the full ordered sequence. A design carrying ownership in one
+metadata key loses the outer namespace here, and there is no residual signal to detect the loss.
 
 ### Two rules that are not negotiable
 
@@ -143,13 +196,6 @@ Nothing measurable. jax 0.10.2, 60-leaf trace, 21 rounds, order-rotated and pair
 one scope per leaf 1.029×, two nested scopes per leaf 1.007×, with a per-round range of 0.485–1.157
 — the effect is below this measurement's noise. Building the representation costs 1.7 µs/equation
 unmarked, 3.5 µs/equation marked.
-
-### If your library has no classes
-
-The subclass hook only reaches frameworks whose extension point *is* subclassing. A library of
-plain functions has nothing to hook, and should mark its own entry points directly or rely on the
-unmarked fallback — source-line and package attribution from tracebacks, which needs no marking at
-all.
 
 ## Getting text out without hitting a silent trap
 

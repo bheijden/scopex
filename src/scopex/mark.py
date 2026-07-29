@@ -55,7 +55,7 @@ import jax
 
 __all__ = [
     "LIB", "USER", "scope", "named_scope", "parse", "validate",
-    "mark_methods", "mark_subclasses", "InvalidScopeName",
+    "mark_methods", "mark_framework", "mark_callable", "InvalidScopeName",
 ]
 
 SEP = ":"
@@ -141,28 +141,85 @@ def mark_methods(cls, pkg: str, role: str, methods: Iterable[str]):
     return cls
 
 
-def mark_subclasses(pkg: str, methods: Iterable[str]):
-    """Return an ``__init_subclass__`` that marks FOREIGN subclasses as user code.
+def mark_framework(pkg: str, methods: Iterable[str], *, warn_multi_root: bool = True):
+    """Class DECORATOR for a framework's extension point. Marks foreign subclasses as user code.
+
+    ::
+
+        @scopex.mark_framework("dflux", ("residual", "cell", "operator"))
+        class Block:
+            ...
 
     A subclass is foreign when its top-level module package differs from ``pkg``. That is a
     package-identity test, deliberately not a file-path test: file layout changes with refactors,
     package identity does not.
 
-    Usage in a framework's base class::
+    WHY A DECORATOR AND NOT A DROP-IN ``__init_subclass__``. A function built outside a class body
+    has no ``__class__`` cell, so it cannot call bare ``super()``. Spelling it
+    ``super(cls, cls).__init_subclass__`` -- where ``cls`` is the SUBCLASS being created -- resolves
+    right back to the wrapper and recurses forever; that is measured, not theoretical. The decorator
+    closes over the defining class, so ``super(base, cls)`` starts at the correct point in the MRO.
 
-        class Block:
-            __init_subclass__ = classmethod(
-                scopex.mark_subclasses("dflux", ("residual", "cell", "operator")))
+    CHAINING, EXACTLY ONCE. If ``base`` already defines its own ``__init_subclass__``, that one is
+    called and is left to chain to ``super()`` itself. Only when it does not is ``super(base, cls)``
+    called here. Doing both fires an ancestor's hook twice per subclass -- which silently corrupts
+    any base whose hook maintains a registry, counts subclasses, or applies a dataclass transform.
 
-    The equivalent with no scopex dependency is ~15 lines of ``jax.named_scope`` in the framework's
-    own ``__init_subclass__``; see the README.
-
-    LIMIT: this only reaches frameworks whose extension point is subclassing. A library of plain
-    functions (optax-style) has no class to hook and must mark its own entry points directly, or
-    rely on the unmarked fallback (traceback package attribution).
+    LIMIT: this reaches frameworks whose extension point is SUBCLASSING. A library of plain
+    functions has no class to hook -- use :func:`mark_callable` on the user callables it ingests.
     """
-    def __init_subclass__(cls, **kw):
-        super(cls, cls).__init_subclass__(**kw)
-        if (getattr(cls, "__module__", "") or "").split(DOT)[0] != pkg:
-            mark_methods(cls, pkg, USER, methods)
-    return __init_subclass__
+    methods = tuple(methods)
+
+    def deco(base):
+        prev = base.__dict__.get("__init_subclass__")
+        prev_fn = prev.__func__ if isinstance(prev, classmethod) else prev
+        seen_roots: set[str] = set()
+
+        def __init_subclass__(cls, **kw):
+            if prev_fn is not None:
+                prev_fn(cls, **kw)                  # chains to super() on its own
+            else:
+                super(base, cls).__init_subclass__(**kw)
+            root = (getattr(cls, "__module__", "") or "").split(DOT)[0]
+            if root != pkg:
+                mark_methods(cls, pkg, USER, methods)
+                seen_roots.add(root)
+                if warn_multi_root and len(seen_roots) > 1:
+                    import warnings
+                    warnings.warn(
+                        f"scopex: {pkg!r} has now marked subclasses from more than one package "
+                        f"root ({sorted(seen_roots)}). The user/library split is BINARY -- every "
+                        f"one of those roots is reported as 'user'. If some are ecosystem "
+                        f"middleware rather than this user's own code, prefer by='author' or "
+                        f"by='file', which keep them apart.",
+                        RuntimeWarning, stacklevel=3)
+
+        base.__init_subclass__ = classmethod(__init_subclass__)
+        return base
+
+    return deco
+
+
+def mark_callable(fn, pkg: str, detail: str = "", *, role: str = USER):
+    """Mark ONE callable, for frameworks with no class to hook.
+
+    This is the only mechanism available to a library of plain functions -- an optimiser that
+    ingests a user's update rule, an ODE solver given a user's vector field, a linear solver given a
+    user's matvec. Wrap at the point of ingestion::
+
+        def diffeqsolve(term, ...):
+            term = scopex.mark_callable(term, "diffrax", "vector_field")
+
+    Without this, the user's function is traced inside the framework's own scope and every view
+    that asks "whose code is this" answers with the FRAMEWORK -- a confidently wrong answer rather
+    than an absent one.
+    """
+    tag = scope(pkg, role, detail or getattr(fn, "__qualname__", "callable"))
+
+    @functools.wraps(fn)
+    def marked(*a, **kw):
+        with jax.named_scope(tag):
+            return fn(*a, **kw)
+
+    marked._scopex_marked = True
+    return marked
