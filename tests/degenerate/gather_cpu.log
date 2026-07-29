@@ -1,0 +1,20 @@
+6 case(s) x 1 platform(s) x 1 round(s), one subprocess each
+
+  cpu   round 1  gather2d_4                               0.33s compile
+  cpu   round 1  gather2d_4_control                       0.32s compile
+  cpu   round 1  gather2d_6                               2.47s compile
+  cpu   round 1  gather2d_6_control                       0.27s compile
+  cpu   round 1  gather2d_8                              44.38s compile
+  cpu   round 1  gather2d_8_control                       0.60s compile
+
+=== PLATFORM: cpu ==================================================
+case                                   compile    runtime     ratio  reproduced
+-------------------------------------------------------------------------------
+gather2d_4                                0.33   0.025940        13  no (below floor)
+gather2d_4_control                        0.32   0.023645        14  no (below floor)
+gather2d_6                                2.47   0.031186        79  no (below floor)
+gather2d_6_control                        0.27   0.030792         9  no (below floor)
+gather2d_8                               44.38   0.021010      2112  YES (74x control)
+gather2d_8_control                        0.60   0.032989        18  no (below floor)
+
+wrote gather_cpu.json

@@ -1,0 +1,50 @@
+{
+ "cpu/gather2d_4": {
+  "compile_s": 0.33375200699083507,
+  "runtime_s": 0.02594036266479331,
+  "lower_s": 0.9480575539928395,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)"
+ },
+ "cpu/gather2d_4_control": {
+  "compile_s": 0.32390134601155296,
+  "runtime_s": 0.023645093004840117,
+  "lower_s": 0.7938268499856349,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)"
+ },
+ "cpu/gather2d_6": {
+  "compile_s": 2.4700849920045584,
+  "runtime_s": 0.03118582566579183,
+  "lower_s": 0.5958006430009846,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)"
+ },
+ "cpu/gather2d_6_control": {
+  "compile_s": 0.2722252480161842,
+  "runtime_s": 0.030792200666231413,
+  "lower_s": 1.168963595002424,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)"
+ },
+ "cpu/gather2d_8": {
+  "compile_s": 44.37773629502044,
+  "runtime_s": 0.021009812005407486,
+  "lower_s": 0.7882968619815074,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (74x control)"
+ },
+ "cpu/gather2d_8_control": {
+  "compile_s": 0.6014301720133517,
+  "runtime_s": 0.03298917467085024,
+  "lower_s": 1.041680425987579,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)"
+ }
+}

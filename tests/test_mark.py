@@ -218,3 +218,37 @@ def test_hand_written_convention_is_read_identically():
     u = list(scopex.walk(jax.make_jaxpr(lambda x: jnp.sum(Kid().f(x)))(X)))
     assert any(y.authored for y in u), "hand-written convention produced no readable mark"
     assert scopex.attribute(u, "split")["user"] > 0
+
+
+# ── the package's own API surface: three defects found by running it, not by reading it ──────────
+def test_record_is_the_function_not_the_module():
+    """`scopex.record` was the SUBMODULE. `from .records import ...` ran after
+    `from .monitor import record`, and importing a submodule binds it on the parent package --
+    so the headline API call in the README was uncallable. Same shadowing class as the
+    Op/Ins collision this project hit in dflux."""
+    assert callable(scopex.record), f"scopex.record is {type(scopex.record).__name__}"
+
+
+def test_monitor_metric_names_actually_match_jax():
+    """`_KEYS` once appended '_secs' to every metric name -- a suffix jax does not emit -- so
+    record() matched nothing and reported 0.0 for all three stages while looking healthy."""
+    seen = set()
+    jax.monitoring.register_event_duration_secs_listener(lambda n, v, **k: seen.add(n))
+    jax.jit(lambda x: jnp.sum(jnp.tanh(x))).lower(X).compile()
+    from scopex import monitor
+    assert seen & set(monitor._KEYS), (
+        f"no jax metric matches scopex.monitor._KEYS.\n  jax emits: {sorted(seen)}\n"
+        f"  scopex expects: {sorted(monitor._KEYS)}")
+
+
+def test_timings_shouts_when_nothing_matched():
+    """A silent zero is indistinguishable from an instant compile. It must not be silent."""
+    from scopex.monitor import Timings
+    t = Timings({"wall": 1.0, "seen_names": ["/jax/core/compile/something_renamed"]})
+    assert not t.matched
+    assert "NO JAX METRICS MATCHED" in str(t)
+
+
+def test_levels_are_exported():
+    for name in ("walk_hlo", "walk_stablehlo", "hlo_instructions"):
+        assert hasattr(scopex, name), f"scopex.{name} is not exported"

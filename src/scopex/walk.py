@@ -28,7 +28,7 @@ from collections.abc import Iterator
 
 import jax
 
-from .record import Eqn
+from .records import Eqn
 
 __all__ = ["walk", "subjaxprs", "verify_parity", "at"]
 

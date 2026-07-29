@@ -29,11 +29,20 @@ import jax
 
 __all__ = ["record", "Timings", "regime"]
 
-_KEYS = {
-    "/jax/core/compile/jaxpr_trace_duration_secs": "trace",
-    "/jax/core/compile/jaxpr_to_mlir_module_duration_secs": "lower",
-    "/jax/core/compile/backend_compile_duration_secs": "backend",
+# The metric names JAX actually emits, verified by listening on jax 0.10.2 rather than by reading
+# documentation. An earlier version of this table appended "_secs" to each -- a suffix JAX does NOT
+# use -- so NOTHING ever matched and `record()` returned 0.0 for all three stages while looking
+# perfectly healthy. Both spellings are accepted now so a rename degrades to a duplicate rather than
+# to a silent zero, and `Timings.matched` makes a total miss impossible to overlook.
+_STAGES = {
+    "jaxpr_trace_duration": "trace",
+    "jaxpr_to_mlir_module_duration": "lower",
+    "backend_compile_duration": "backend",
 }
+_KEYS = {}
+for _stem, _lab in _STAGES.items():
+    _KEYS[f"/jax/core/compile/{_stem}"] = _lab
+    _KEYS[f"/jax/core/compile/{_stem}_secs"] = _lab
 
 
 class Timings(dict):
@@ -44,6 +53,12 @@ class Timings(dict):
         return sum(self.get(k, 0.0) for k in ("trace", "lower", "backend"))
 
     @property
+    def matched(self) -> bool:
+        """Did any JAX metric actually match? False means the names moved and every stage reads
+        0.0 -- a failure that is otherwise indistinguishable from a genuinely instant compile."""
+        return any(self.get(k, 0.0) > 0.0 for k in ("trace", "lower", "backend"))
+
+    @property
     def unaccounted(self) -> float:
         """Wall time minus the three stages. Large values mean the time is somewhere JAX does not
         instrument -- dispatch, host transfer, or your own code."""
@@ -51,6 +66,11 @@ class Timings(dict):
 
     def __str__(self) -> str:
         w = self.get("wall", 0.0)
+        if not self.matched:
+            return (f"NO JAX METRICS MATCHED -- every stage would read 0.0.\n"
+                    f"jax.monitoring's metric names have moved; scopex.monitor._KEYS needs "
+                    f"updating.\nSaw these names: {sorted(self.get('seen_names', []))}\n"
+                    f"WALL {w:.3f} s (the only trustworthy number here)")
         rows = [f"{'stage':10s} {'seconds':>9s} {'share':>7s}"]
         rows.append("-" * len(rows[0]))
         for k in ("trace", "lower", "backend"):
@@ -65,8 +85,9 @@ class Timings(dict):
 
 
 @contextmanager
-def _listen(acc, events):
+def _listen(acc, events, seen):
     def cb(name, value, **kw):
+        seen.add(name)
         if name in _KEYS:
             acc[_KEYS[name]] += float(value)
         elif "cache" in name:
@@ -94,15 +115,23 @@ def record(fn, *args, clear_caches: bool = True, **kwargs) -> Timings:
     """
     acc: defaultdict = defaultdict(float)
     events: defaultdict = defaultdict(int)
+    seen: set = set()
     if clear_caches:
         jax.clear_caches()
-    with _listen(acc, events):
+    with _listen(acc, events, seen):
         t0 = time.perf_counter()
         jax.jit(fn).lower(*args, **kwargs).compile()
         wall = time.perf_counter() - t0
     t = Timings(acc)
     t["wall"] = wall
     t["cache_events"] = dict(events)
+    t["seen_names"] = sorted(seen)
+    if not t.matched:
+        import warnings
+        warnings.warn(
+            "scopex.record matched no jax.monitoring metrics; all stage times are 0.0. "
+            f"jax emitted: {sorted(seen)}. Update scopex.monitor._KEYS.",
+            RuntimeWarning, stacklevel=2)
     return t
 
 

@@ -16,10 +16,11 @@ never imports scopex at all. See :mod:`scopex.mark`.
 
 from __future__ import annotations
 
+from .levels import hlo_instructions, walk_hlo, walk_stablehlo
 from .flags import check_env, dump_flags, hlo_text, stablehlo_text, vmodule_env
 from .mark import LIB, USER, mark_callable, mark_framework, mark_methods, named_scope, parse, scope
 from .monitor import Timings, record, regime
-from .record import LEVELS, Eqn, Ins
+from .records import LEVELS, Eqn, Ins
 from .views import BY, attribute, crosstab, table
 from .walk import at, subjaxprs, verify_parity, walk
 
@@ -30,6 +31,7 @@ __all__ = [
     "record", "Timings", "regime",
     # traversal and records
     "walk", "at", "subjaxprs", "verify_parity", "Eqn", "Ins", "LEVELS",
+    "walk_hlo", "walk_stablehlo", "hlo_instructions",
     # views
     "attribute", "crosstab", "table", "BY",
     # the marking contract

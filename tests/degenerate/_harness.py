@@ -15,8 +15,21 @@ survived four rounds of un-rotated measurement and vanished under rotation.
 the ratio of medians. Pairing across rounds instead of within once manufactured a 2.41x multiplier
 from 1.89x data.
 
+**Device is an axis, not a footnote.** Which backend you compile for decides which passes run at
+all, so it decides whether a pathology exists. Measured on jax#32704 (chained 2D fancy indexing),
+ncycles=9, same code, same sizes:
+
+    CPU   218.666 s   against a 0.882 s control   -- 248x, and XLA prints its own "Very slow
+                                                     compile?" warning
+    GPU     ~1 s      against a ~1 s control      -- no growth at all across ncycles 4..9
+
+Had only the GPU been run, that case would have been filed "does not reproduce" and discarded. So
+every result here is labelled with its platform, a verdict is never rendered without one, and
+`--platform` takes a comma-separated list. An absence on one backend is a result ABOUT that
+backend, never about the case.
+
 A case is REPRODUCED when compile >= MIN_COMPILE_S and compile/runtime >= MIN_RATIO and, where a
-control exists, compile >= MIN_VS_CONTROL x the control's compile.
+control exists, compile >= MIN_VS_CONTROL x the control's compile -- on a NAMED platform.
 """
 
 from __future__ import annotations
@@ -59,20 +72,67 @@ except Exception:
     n_instr = -1
 print("__RESULT__" + json.dumps({
     "name": name, "note": note,
+    "platform": jax.devices()[0].platform,
+    "device": str(jax.devices()[0]),
     "lower_s": t1 - t0, "compile_s": t2 - t1, "first_run_s": t3 - t2,
     "runtime_s": (t4 - t3) / 3, "hlo_lines": n_instr}))
 '''
 
 
-def _run_one(path: pathlib.Path, name: str, timeout: int = 900) -> dict:
+def _run_one(path: pathlib.Path, name: str, timeout: int = 900, platform: str = "") -> dict:
     env = dict(os.environ)
     env.pop("JAX_COMPILATION_CACHE_DIR", None)
+    if platform:
+        env["JAX_PLATFORMS"] = platform
     p = subprocess.run([sys.executable, "-c", _CHILD, str(path), name],
                        capture_output=True, text=True, timeout=timeout, env=env)
     for line in p.stdout.splitlines():
         if line.startswith("__RESULT__"):
-            return json.loads(line[len("__RESULT__"):])
-    return {"name": name, "error": (p.stderr or p.stdout)[-800:]}
+            r = json.loads(line[len("__RESULT__"):])
+            # XLA prints this itself when a single module is slow. It is a free second opinion on
+            # the verdict, emitted by the compiler rather than inferred by us.
+            r["xla_slow_warning"] = "Very slow compile?" in (p.stdout + p.stderr)
+            return r
+    return {"name": name, "error": (p.stderr or p.stdout)[-800:],
+            "requested_platform": platform or "<default>"}
+
+
+def gpu_contention() -> tuple[int, int, list[str]]:
+    """(used_MiB, total_MiB, other_pids). Empty pid list when nothing else holds the device."""
+    try:
+        q = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=20)
+        used, total = (int(x) for x in q.stdout.strip().splitlines()[0].split(","))
+        a = subprocess.run(["nvidia-smi", "--query-compute-apps=pid", "--format=csv,noheader"],
+                           capture_output=True, text=True, timeout=20)
+        pids = [x.strip() for x in a.stdout.splitlines() if x.strip()]
+        return used, total, pids
+    except Exception:
+        return -1, -1, []
+
+
+def preflight(strict: bool = True) -> bool:
+    """Refuse to publish absolute seconds measured on a contended device.
+
+    This is not hypothetical. During one mining pass another workload on this box held 11-14 GB of
+    16 GB across up to 17 processes; it caused CUDA_ERROR_OUT_OF_MEMORY inside the conv autotuner
+    and blocked CUDA init outright for two probes. Every absolute compile time measured then is an
+    UPPER BOUND. Control RATIOS survive contention when the two arms run back-to-back under the
+    same load -- which is the deeper reason every case here ships a control.
+    """
+    used, total, pids = gpu_contention()
+    if used < 0:
+        print("  preflight: no nvidia-smi; assuming CPU-only run")
+        return True
+    busy = len(pids) > 0 or (total > 0 and used / total > 0.15)
+    print(f"  preflight: GPU {used}/{total} MiB, {len(pids)} other compute process(es)"
+          + ("   <== CONTENDED" if busy else "   ok"))
+    if busy:
+        print("  Absolute seconds from this run are UPPER BOUNDS. Control ratios remain usable\n"
+              "  because each arm meets the same load. Re-baseline on a quiet device before\n"
+              "  quoting any absolute number.")
+    return not busy or not strict
 
 
 def discover(root: pathlib.Path = HERE) -> dict[str, tuple[pathlib.Path, str]]:
@@ -94,15 +154,24 @@ def discover(root: pathlib.Path = HERE) -> dict[str, tuple[pathlib.Path, str]]:
 
 
 def classify(r: dict, control: dict | None) -> str:
+    """Verdict for one case on one platform.
+
+    THE CONTROL OUTRANKS EVERYTHING. When a near-identical fast twin exists, the difference between
+    the two arms IS the pathology and nothing else has to be inferred. ``compile/runtime`` is only
+    a stand-in for "is this compile-bound at all", needed when no control exists -- and it is a bad
+    stand-in whenever the case does real work at runtime. Applying it above the control comparison
+    scored jax#32704 at ncycles=6 as "no" while it was compiling 9.7x slower than its own control,
+    purely because a 200k-element gather takes 55 ms to run.
+    """
     if "error" in r:
         return "ERROR"
     if r["compile_s"] < MIN_COMPILE_S:
         return "no (below floor)"
-    if r["compile_s"] / max(1e-9, r["runtime_s"]) < MIN_RATIO:
-        return "no (compile/runtime low)"
     if control and not control.get("error"):
         f = r["compile_s"] / max(1e-9, control["compile_s"])
         return f"YES ({f:.0f}x control)" if f >= MIN_VS_CONTROL else f"no ({f:.1f}x control)"
+    if r["compile_s"] / max(1e-9, r["runtime_s"]) < MIN_RATIO:
+        return "no (compile/runtime low, no control)"
     return "YES (no control)"
 
 
@@ -111,6 +180,10 @@ def main() -> int:
     ap.add_argument("cases", nargs="*", help="case names; default all discovered")
     ap.add_argument("--rounds", type=int, default=1)
     ap.add_argument("--timeout", type=int, default=900)
+    ap.add_argument("--platform", default="",
+                    help="comma-separated backends, e.g. 'cpu,cuda'. Default: whatever jax picks. "
+                         "A pathology can exist on one backend and not another -- see the module "
+                         "docstring -- so a sweep is usually what you want.")
     ap.add_argument("--out", default=str(HERE / "results.json"))
     a = ap.parse_args()
 
@@ -120,43 +193,64 @@ def main() -> int:
     if missing:
         print(f"unknown cases: {missing}\nknown: {sorted(found)}")
         return 2
-    print(f"{len(names)} case(s), {a.rounds} round(s), one subprocess each\n")
+    plats = [x.strip() for x in a.platform.split(",") if x.strip()] or [""]
+    quiet = preflight(strict=False)
+    if not quiet:
+        print("  -> results will be tagged contended=true\n")
+    print(f"{len(names)} case(s) x {len(plats)} platform(s) x {a.rounds} round(s), "
+          f"one subprocess each\n")
 
-    runs: dict[str, list[dict]] = {n: [] for n in names}
-    for rd in range(a.rounds):
-        seq = names[rd % len(names):] + names[:rd % len(names)]      # rotate, never reverse
-        for n in seq:
-            f, key = found[n]
-            t0 = time.perf_counter()
-            r = _run_one(f, key, a.timeout)
-            r["wall_s"] = time.perf_counter() - t0
-            runs[n].append(r)
-            tag = "ERR" if "error" in r else f"{r['compile_s']:8.2f}s compile"
-            print(f"  round {rd + 1}  {n:38s} {tag}")
+    out: dict = {}
+    for plat in plats:
+        runs: dict[str, list[dict]] = {n: [] for n in names}
+        for rd in range(a.rounds):
+            seq = names[rd % len(names):] + names[:rd % len(names)]   # rotate, never reverse
+            for n in seq:
+                f, key = found[n]
+                t0 = time.perf_counter()
+                r = _run_one(f, key, a.timeout, plat)
+                r["wall_s"] = time.perf_counter() - t0
+                runs[n].append(r)
+                tag = "ERR" if "error" in r else f"{r['compile_s']:8.2f}s compile"
+                warn = "  [XLA: very slow compile]" if r.get("xla_slow_warning") else ""
+                print(f"  {r.get('platform', plat or '?'):5s} round {rd + 1}  "
+                      f"{n:36s} {tag}{warn}")
 
-    print()
-    hdr = f"{'case':38s} {'compile':>9s} {'runtime':>10s} {'ratio':>9s}  reproduced"
-    print(hdr); print("-" * len(hdr))
-    agg, out = {}, {}
-    for n in names:
-        ok = [r for r in runs[n] if "error" not in r]
-        if not ok:
-            print(f"{n:38s}     ERROR   {runs[n][0].get('error','')[:40]}")
-            out[n] = {"error": runs[n][0].get("error", "")[:800]}
-            continue
-        agg[n] = {k: statistics.median(r[k] for r in ok)
-                  for k in ("compile_s", "runtime_s", "lower_s")}
-    for n in names:
-        if n not in agg:
-            continue
-        r = agg[n]
-        ctrl = agg.get(f"{n}_control") or (agg.get(n[:-8]) if n.endswith("_control") else None)
-        verdict = classify(r, ctrl)
-        print(f"{n:38s} {r['compile_s']:9.2f} {r['runtime_s']:10.6f} "
-              f"{r['compile_s'] / max(1e-9, r['runtime_s']):9.0f}  {verdict}")
-        out[n] = {**r, "reproduced": verdict}
+        agg: dict = {}
+        for n in names:
+            ok = [r for r in runs[n] if "error" not in r]
+            if not ok:
+                out[f"{plat or 'default'}/{n}"] = {
+                    "platform": plat or "default",
+                    "error": runs[n][0].get("error", "")[:800]}
+                continue
+            agg[n] = {k: statistics.median(r[k] for r in ok)
+                      for k in ("compile_s", "runtime_s", "lower_s")}
+            agg[n]["platform"] = ok[0].get("platform", plat or "?")
+            agg[n]["xla_slow_warning"] = any(r.get("xla_slow_warning") for r in ok)
+
+        actual = next((v["platform"] for v in agg.values()), plat or "?")
+        print(f"\n=== PLATFORM: {actual} " + "=" * 50)
+        hdr = f"{'case':36s} {'compile':>9s} {'runtime':>10s} {'ratio':>9s}  reproduced"
+        print(hdr)
+        print("-" * len(hdr))
+        for n in names:
+            if n not in agg:
+                print(f"{n:36s}     ERROR")
+                continue
+            r = agg[n]
+            ctrl = agg.get(f"{n}_control")
+            verdict = classify(r, ctrl)
+            if r["xla_slow_warning"]:
+                verdict += "  [XLA agrees]"
+            print(f"{n:36s} {r['compile_s']:9.2f} {r['runtime_s']:10.6f} "
+                  f"{r['compile_s'] / max(1e-9, r['runtime_s']):9.0f}  {verdict}")
+            out[f"{actual}/{n}"] = {**r, "reproduced": verdict, "gpu_contended": not quiet}
+
     pathlib.Path(a.out).write_text(json.dumps(out, indent=1))
     print(f"\nwrote {a.out}")
+    if len(plats) > 1:
+        print("NOTE: a 'no' on one platform is a statement about THAT platform, not about the case.")
     return 0
 
 
