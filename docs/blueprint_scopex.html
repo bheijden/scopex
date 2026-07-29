@@ -70,12 +70,13 @@
   <h1>scopex</h1>
   <div class="wip">v0.1 · alpha</div>
   <a href="#what">§0 What this answers</a>
-  <a href="#quick">§1 The quick way</a>
-  <a href="#marked">§2 The instrumented way</a>
-  <a href="#contract">§3 The naming contract</a>
-  <a href="#traps">§4 Silent failures</a>
-  <a href="#api">§5 API</a>
-  <a href="#limits">§6 What it will not tell you</a>
+  <a href="#control">§1 Measure a control</a>
+  <a href="#quick">§2 The quick way</a>
+  <a href="#marked">§3 The instrumented way</a>
+  <a href="#contract">§4 The naming contract</a>
+  <a href="#traps">§5 Silent failures</a>
+  <a href="#api">§6 API</a>
+  <a href="#limits">§7 What it will not tell you</a>
 </nav>
 <main><div class="doc">
 
@@ -105,7 +106,59 @@ Source attribution explains time spent in tracing and in HLO passes. It says <em
 time spent in kernel autotuning — that time is spent RUNNING candidate kernels, not analysing your
 code, so the prettiest line-level report will point at code that is not the problem.</div>
 
-<h2 id="quick"><span class="num">§1</span>The quick way — any jitted function, unmodified</h2>
+<h2 id="control"><span class="num">§1</span>The differential method: measure a control</h2>
+<p>Every view in this document is a number. On its own a number means almost nothing — "this
+program has 7,000 equations" is not a diagnosis, and neither is "the backend takes 13 seconds". The
+method that makes the views diagnostic is to measure a <strong>control</strong>: a near-identical
+program that compiles fast. Everything that differs between the two arms is the pathology, and
+nothing else is.</p>
+
+<h3>Where a control comes from</h3>
+<ul>
+  <li>the commit before the regression</li>
+  <li>the same computation written differently — <code>x[i, j]</code> versus
+      <code>x_flat[i * N + j]</code>, a python loop versus <code>scan</code></li>
+  <li>one flag flipped, one <code>donate_argnums</code> removed, one dtype changed</li>
+  <li>the same program one size smaller, if the pathology is superlinear</li>
+</ul>
+<div class="box why"><span class="lab">why it is worth the second compile</span>
+A real pathology once needed a trailing <code>jnp.sum</code> to appear at all: the chain without the
+reduction compiled in 0.4&nbsp;s, with it in 80&nbsp;s. A minimal example written from the
+description alone — omitting the reduction — reproduced nothing and would have been reported as
+"cannot reproduce". The control is what tells you which half of your program matters.</div>
+
+<h3>The procedure</h3>
+<pre><code><span class="c"># 1. do the stage splits differ?</span>
+scopex.record(case, *a) ; scopex.record(control, *a)
+
+<span class="c"># 2. does the pass time ACCOUNT for the backend time?</span>
+<span class="k">sum</span>(scopex.pass_timings(src)[<span class="s">"passes"</span>].values())  <span class="c"># vs t["backend"]</span>
+
+<span class="c"># 3. dump BOTH, then find the pass at which they diverge</span>
+<span class="k">with</span> scopex.dump(passes=<span class="s">".*"</span>) <span class="k">as</span> d:
+    jax.jit(fn).lower(*a).compile()
+<span class="c"># count instructions per snapshot, plot count vs pass index, for both arms</span>
+
+<span class="c"># 4. structure at every level, and SHAPES not just counts</span>
+scopex.attribute(units, <span class="s">"kind"</span>)
+scopex.attribute(units, <span class="k">lambda</span> u: <span class="k">str</span>(u.eqn.outvars[0].aval))
+
+<span class="c"># 5. sweep the size. a signal that does not grow is not a signal.</span></code></pre>
+
+<h3>Reading a null honestly</h3>
+<p>The diff can come back empty, and that is information rather than failure. Measured on a known
+pathology (chained 2-D fancy indexing on CPU, whose pathological arm compiles <strong>37×</strong>
+slower than its control):</p>
+<pre><code>                        case   control   ratio
+jaxpr equations           80        56    1.43x
+optimized HLO instrs      73        70    1.04x
+pass_timings total     ~0.01s    ~0.01s    1.0x</code></pre>
+<p>The two programs are structurally near-identical, and XLA's own per-pass timer accounts for
+roughly <strong>1%</strong> of a compile that takes seconds. Three knobs return nothing — which
+localises the cost to somewhere the pass timer does not reach, and that is a routing result, not a
+dead end. What it is not is licence to pick the largest number you can find and call it the cause.</p>
+
+<h2 id="quick"><span class="num">§2</span>The quick way — any jitted function, unmodified</h2>
 <p>You have a jitted function that got slower, and you do not control the libraries it calls. The
 outputs below come from <code>examples/marked_framework.py</code> — a 24-dimensional fixed-point
 solve, small enough to run in a second and large enough that every view says something.</p>
@@ -179,7 +232,7 @@ the jaxpr level — which is exactly why the two levels join on <code>site</code
 <p><strong>What this route cannot give you:</strong> whose code it is. Every line above is yours or a
 library's, undifferentiated, because nothing has told scopex where the boundary is.</p>
 
-<h2 id="marked"><span class="num">§2</span>The instrumented way — a framework maintainer</h2>
+<h2 id="marked"><span class="num">§3</span>The instrumented way — a framework maintainer</h2>
 <p>You maintain <code>mylib</code>. Users subclass <code>Block</code> and implement
 <code>forward</code> and <code>residual</code>. When they report a slow compile you cannot tell
 whether it is your engine or their model.</p>
@@ -234,7 +287,7 @@ populations were 3,373 and 1,168 equations — different questions with differen
 that returned only the innermost once collapsed 4,567 equations into a reported 1,168. Every accessor here returns the full ordered sequence for that reason;
 <code>by="innermost_author"</code> is the explicit opt-in.</div>
 
-<h2 id="contract"><span class="num">§3</span>The naming contract</h2>
+<h2 id="contract"><span class="num">§4</span>The naming contract</h2>
 <pre><code>&lt;pkg&gt;:&lt;role&gt;[.&lt;detail&gt;]        role ∈ {lib, user}
 
 <span class="s">"mylib:lib.assemble"</span>              <span class="c"># engine internals</span>
@@ -269,7 +322,7 @@ an unmarked user callable ingested by a framework reports as <em>library</em>-au
 marks subclasses from more than one package root; when that fires, use <code>by="author"</code> or
 <code>by="file"</code>, which keep the roots apart.</p>
 
-<h2 id="traps"><span class="num">§4</span>Ways of asking that silently return nothing</h2>
+<h2 id="traps"><span class="num">§5</span>Ways of asking that silently return nothing</h2>
 <p>Every accessor scopex ships exists because the obvious call returns a plausible, empty answer.
 Counting occurrences of a scope that is demonstrably present:</p>
 <table>
@@ -302,7 +355,7 @@ is not evidence that no fusion happened. And more generally: <strong>the device 
 run at all</strong> — one known pathology measures 248× on CPU and completely flat on GPU. Never
 report "no effect" without naming the backend.</div>
 
-<h2 id="api"><span class="num">§5</span>API</h2>
+<h2 id="api"><span class="num">§6</span>API</h2>
 <pre><code>scopex.record(fn, *args)              <span class="c"># Timings: trace / lower / backend / wall</span>
 scopex.regime(t)                      <span class="c"># heuristic label; says so</span>
 scopex.pass_timings(src)              <span class="c"># {pass: seconds}, via subprocess</span>
@@ -332,7 +385,7 @@ payload buried inside <code>pjit</code>, <code>pjit×3</code>, <code>scan</code>
 payload to the same source line. Run <code>verify_parity</code> on your own program; disagreement is
 a scopex bug.</div>
 
-<h2 id="limits"><span class="num">§6</span>What it will not tell you</h2>
+<h2 id="limits"><span class="num">§7</span>What it will not tell you</h2>
 <p><strong>It does not rank lines by compile seconds.</strong> It attributes STRUCTURE — equations,
 instructions, fusion decisions. Time attribution below the stage split needs per-pass timing, and
 even that does not divide cleanly by source line.</p>
