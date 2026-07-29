@@ -86,8 +86,8 @@ The contract is a **naming convention, not an API** — so your framework depend
 imports `scopex`:
 
 ```
-<pkg>:<role>              e.g.  dflux:lib.solve
-<pkg>:<role>.<detail>     e.g.  dflux:user.MyColumn.residual
+<pkg>:<role>              e.g.  mylib:lib.solve
+<pkg>:<role>.<detail>     e.g.  mylib:user.MyColumn.residual
 ```
 
 `role` is `lib` or `user`. `pkg` namespaces it, so two marked frameworks in one program can't
@@ -168,13 +168,13 @@ framework marks subclasses from more than one package root. When that fires, use
 
 ### Two frameworks at once
 
-Marks nest and none is overwritten. A unit inside a dflux hook inside a flax module carries all
+Marks nest and none is overwritten. A unit inside a mylib hook inside a flax module carries all
 four:
 
 ```python
 u.marks     # (('flax','lib','apply'), ('flax','user','UserMod.__call__'),
-            #  ('dflux','lib','solve'), ('dflux','user','UserBlock.residual'))
-u.packages  # ('flax', 'dflux')
+            #  ('mylib','lib','solve'), ('mylib','user','UserBlock.residual'))
+u.packages  # ('flax', 'mylib')
 ```
 
 That is why every accessor returns the full ordered sequence. A design carrying ownership in one

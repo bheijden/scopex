@@ -15,7 +15,7 @@ THE SHAPE
     <pkg>:<role>
     <pkg>:<role>.<detail>
 
-``pkg``    the framework's distribution name, e.g. ``dflux``. Namespaces the mark so two
+``pkg``    the framework's distribution name, e.g. ``mylib``. Namespaces the mark so two
            frameworks marking in the same program cannot collide.
 ``role``   ``lib`` for the framework's own code, ``user`` for code its users wrote.
 ``detail`` free-form, dotted. Conventionally ``Class.method`` for user code and a subsystem path
@@ -23,8 +23,8 @@ THE SHAPE
 
 Examples::
 
-    dflux:lib.solve
-    dflux:user.MyColumn.residual
+    mylib:lib.solve
+    mylib:user.MyColumn.residual
     flax:user.MyModule.__call__
 
 THE ONE HARD RULE: NO ``/`` INSIDE A NAME
@@ -85,7 +85,7 @@ def validate(name: str) -> str:
 
 
 def scope(pkg: str, role: str, detail: str = "") -> str:
-    """Build a contract-shaped scope string. ``scope('dflux', USER, 'MyColumn.residual')``."""
+    """Build a contract-shaped scope string. ``scope('mylib', USER, 'MyColumn.residual')``."""
     if role not in (LIB, USER):
         raise InvalidScopeName(f"role must be {LIB!r} or {USER!r}, got {role!r}")
     for part in (pkg, role, detail):
@@ -97,14 +97,14 @@ def scope(pkg: str, role: str, detail: str = "") -> str:
 @contextlib.contextmanager
 def named_scope(pkg: str, role: str, detail: str = ""):
     """Sugar over ``jax.named_scope``. Entirely optional -- a framework that would rather not
-    import scopex writes ``jax.named_scope("dflux:user.MyColumn.residual")`` and gets the identical
+    import scopex writes ``jax.named_scope("mylib:user.MyColumn.residual")`` and gets the identical
     result. This exists so the validation runs."""
     with jax.named_scope(scope(pkg, role, detail)):
         yield
 
 
 def parse(name: str) -> tuple[str, str, str] | None:
-    """``'dflux:user.MyColumn.residual'`` -> ``('dflux', 'user', 'MyColumn.residual')``.
+    """``'mylib:user.MyColumn.residual'`` -> ``('mylib', 'user', 'MyColumn.residual')``.
 
     Returns None for anything not contract-shaped, which is most scopes in most programs -- an
     unmarked scope is not an error, it just carries no authorship."""
@@ -146,7 +146,7 @@ def mark_framework(pkg: str, methods: Iterable[str], *, warn_multi_root: bool = 
 
     ::
 
-        @scopex.mark_framework("dflux", ("residual", "cell", "operator"))
+        @scopex.mark_framework("mylib", ("residual", "cell", "operator"))
         class Block:
             ...
 

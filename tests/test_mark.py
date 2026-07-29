@@ -29,8 +29,8 @@ def test_slash_is_rejected():
 
 
 def test_round_trip():
-    assert scopex.parse(scopex.scope("dflux", scopex.USER, "Col.residual")) == \
-        ("dflux", "user", "Col.residual")
+    assert scopex.parse(scopex.scope("mylib", scopex.USER, "Col.residual")) == \
+        ("mylib", "user", "Col.residual")
     assert scopex.parse("not a mark") is None
     assert scopex.parse("pkg:notarole.x") is None
 
@@ -142,7 +142,7 @@ def test_two_frameworks_both_survive():
     class Module:
         pass
 
-    @scopex.mark_framework("dflux", ("residual",))
+    @scopex.mark_framework("mylib", ("residual",))
     class Block:
         pass
 
@@ -152,7 +152,7 @@ def test_two_frameworks_both_survive():
 
     class UserMod(Module):
         def __call__(self, x):
-            with jax.named_scope("dflux:lib.solve"):
+            with jax.named_scope("mylib:lib.solve"):
                 return UserBlock().residual(x)
 
     def prog(x):
@@ -161,7 +161,7 @@ def test_two_frameworks_both_survive():
 
     deep = [u for u in scopex.walk(jax.make_jaxpr(prog)(X)) if len(u.marks) > 1]
     assert deep, "no unit carried marks from both frameworks"
-    assert set(deep[0].packages) == {"flax", "dflux"}
+    assert set(deep[0].packages) == {"flax", "mylib"}
     assert [r for _, r, _ in deep[0].marks] == ["lib", "user", "lib", "user"]
 
 
@@ -225,7 +225,7 @@ def test_record_is_the_function_not_the_module():
     """`scopex.record` was the SUBMODULE. `from .records import ...` ran after
     `from .monitor import record`, and importing a submodule binds it on the parent package --
     so the headline API call in the README was uncallable. Same shadowing class as the
-    Op/Ins collision this project hit in dflux."""
+    kind of name collision this project has hit before in a consumer package."""
     assert callable(scopex.record), f"scopex.record is {type(scopex.record).__name__}"
 
 
