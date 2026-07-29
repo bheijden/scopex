@@ -252,3 +252,26 @@ def test_timings_shouts_when_nothing_matched():
 def test_levels_are_exported():
     for name in ("walk_hlo", "walk_stablehlo", "hlo_instructions"):
         assert hasattr(scopex, name), f"scopex.{name} is not exported"
+
+
+# ── the heavy instruments: both fail silently, so both are guarded ───────────────────────────────
+def test_dump_refuses_once_the_backend_is_up():
+    """Setting XLA_FLAGS after the backend initialises is a SILENT no-op -- measured: 30 dump files
+    when set before the first compile, 0 when set after. An empty directory reads as 'nothing to
+    see' rather than as 'you asked too late', so this must raise."""
+    jax.jit(lambda x: x + 1).lower(X).compile()          # force the backend up
+    assert scopex.backend_initialized()
+    with pytest.raises(RuntimeError, match="already initialised"):
+        with scopex.dump():
+            pass
+
+
+def test_pass_timings_parses_the_real_log_format():
+    """The parser must key on XLA's actual line (hlo_pass_pipeline.cc:176). A regex written from
+    imagination matched the glog timestamp and reported `I0729` as the costliest pass."""
+    r = scopex.pass_timings(
+        "import jax, jax.numpy as jnp\n"
+        "jax.jit(lambda x: jnp.sum(jnp.tanh(x) @ x)).lower(jnp.ones((64, 64))).compile()\n")
+    assert r["n_lines"] > 100, "vmodule produced no log -- TF_CPP_MIN_LOG_LEVEL not set?"
+    assert len(r["passes"]) > 10, f"parsed only {len(r['passes'])}: {r['stderr_tail'][:200]}"
+    assert not any(k.startswith("I0") for k in r["passes"]), "parsed a glog timestamp as a pass"

@@ -79,6 +79,15 @@ class Timings(dict):
         rows.append(f"{'unaccounted':10s} {self.unaccounted:9.3f} "
                     f"{100 * self.unaccounted / max(1e-9, w):6.1f}%")
         rows.append(f"{'WALL':10s} {w:9.3f}")
+        b = self.get("backend", 0.0)
+        if b / max(1e-9, w) > 0.5:
+            rows.append(
+                "\nbackend dominates, and it is ONE number covering HLO passes, autotuning and\n"
+                "codegen -- which want opposite responses. To split it:\n"
+                "  scopex.pass_timings(src)   per-XLA-pass seconds (runs a SUBPROCESS: vmodule is\n"
+                "                             read at `import jax` and cannot be set after)\n"
+                "  scopex.dump()              XLA's own artifacts (must precede the FIRST compile;\n"
+                "                             setting XLA_FLAGS later is a SILENT no-op)")
         if self.get("cache_events"):
             rows.append(f"cache events: {dict(self['cache_events'])}")
         return "\n".join(rows)

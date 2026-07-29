@@ -225,6 +225,52 @@ Two more, both of which have produced wrong conclusions:
 - `optimization_barrier` is **erased** before the optimized HLO exists. Counting it there always
   returns 0 and is not a survival check; count it pre-optimization.
 
+## Going deeper than the stage split
+
+`record()` gives you one `backend` number covering HLO passes, autotuning and codegen — which want
+opposite responses. Two instruments split it, and **both fail silently if enabled at the wrong
+moment**, so scopex guards both.
+
+### Per-pass timings — needs a subprocess
+
+```python
+r = scopex.pass_timings("""
+import jax, jax.numpy as jnp
+jax.jit(my_fn).lower(x).compile()
+""")
+r["passes"]     # {'simplification': 0.00117, 'layout-assignment': 0.00065, ...}  93 passes
+r["n_lines"]    # 832 -- if this is ~0, vmodule never took effect
+```
+
+A subprocess is not laziness. `TF_CPP_VMODULE` is read by the C++ logging layer when the shared
+library loads — during `import jax`. Measured: set before the import, **829 log lines**; set after,
+**0**. There is no in-process route. And `TF_CPP_VMODULE` alone does nothing regardless, because
+importing jax sets `TF_CPP_MIN_LOG_LEVEL=1`, which suppresses every VLOG — `vmodule_env()` sets both.
+
+### XLA's own dumps — in-process, but only before the first compile
+
+```python
+with scopex.dump() as d:          # RAISES if the backend is already up
+    jax.jit(my_fn).lower(x).compile()
+# d holds before/after HLO per pass, and on GPU the priority-fusion decision log
+```
+
+`XLA_FLAGS` is read when the XLA backend is first initialised. Measured: set before `import jax`,
+**30 dump files**; set after the import but before any compile, **30**; set after the first
+compile, **0 — silently**. So `dump()` raises rather than hand you an empty directory you would
+read as "nothing to see".
+
+`dump()` also warns that the priority-fusion decision log is **GPU-only** — 77 dump files on GPU
+including `priority_fusion_dump.txt`, 27 on CPU without it. Its absence is not evidence that no
+fusion happened.
+
+Equivalent env vars, if you would rather set them yourself:
+
+```bash
+XLA_FLAGS="--xla_dump_to=/tmp/d"                    # before the first compile
+TF_CPP_MIN_LOG_LEVEL=0 TF_CPP_VMODULE=hlo_pass_pipeline=1   # before `import jax`
+```
+
 ## What it will not tell you
 
 - **It does not rank lines by compile seconds.** It attributes *structure* — equations,
