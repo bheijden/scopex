@@ -17,3 +17,8 @@ out/
 *.hlo
 *.pb
 results/*.json
+
+# generated measurement artifacts (embed local paths and machine-specific timings)
+tests/degenerate/results.json
+tests/degenerate/*_cpu.json
+tests/degenerate/*.log
