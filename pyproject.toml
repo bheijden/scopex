@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "scopex"
+version = "0.1.0"
+description = "Attribute a jitted JAX program's compilation artifacts back to the code that wrote them."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Devansh" }]
+keywords = ["jax", "xla", "profiling", "compilation", "attribution"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Debuggers",
+]
+
+# jax is the ONLY hard dependency, and it is the only one that should ever be added lightly.
+# scopex reads what jax and XLA already emit; anything it cannot read from a stock jax install
+# belongs behind an extra, not here.
+dependencies = ["jax>=0.10"]
+
+[project.optional-dependencies]
+# Parsing XLA's --xla_dump_to fusion dumps into a graph. Kept separate because it shells out to a
+# compile with dump flags set, which not every user wants installed by default.
+fusion = ["numpy>=1.24"]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.urls]
+Homepage = "https://github.com/devansh/scopex"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/scopex"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# measurement artifacts -- XLA dumps are large and machine-specific
+dumps/
+*.dump/
+out/
+*.merge.log
+*.hlo
+*.pb
+results/*.json
