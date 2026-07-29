@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scopex — a blueprint for profiling a jitted JAX program</title>
+<style>
+  :root{
+    --bg:#fbfaf7; --ink:#181b1f; --muted:#5c6470; --rule:#e4e0d7;
+    --accent:#0f766e; --accent-soft:#d7eee9; --accent-ink:#0b544e;
+    --warn:#b45309; --warn-soft:#fbe7cf; --warn-ink:#7c3a06;
+    --bad:#b42318; --bad-soft:#fbe3e0; --bad-ink:#7a1c14;
+    --lens:#5b4bb7; --lens-soft:#e7e3fb; --lens-ink:#3f3486;
+    --code-bg:#0e1116; --code-ink:#e6edf3;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --maxw:900px;
+  }
+  *{box-sizing:border-box} html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{display:grid;grid-template-columns:270px minmax(0,1fr);max-width:1240px;margin:0 auto}
+  nav.toc{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;padding:34px 22px 60px;border-right:1px solid var(--rule);font-size:13.5px}
+  nav.toc .kicker{font:600 11px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+  nav.toc h1{font-size:15px;margin:0 0 6px;line-height:1.3}
+  nav.toc .wip{font:600 10px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--warn-ink);background:var(--warn-soft);padding:3px 7px;border-radius:5px;display:inline-block;margin-bottom:16px}
+  nav.toc a{display:block;color:var(--muted);text-decoration:none;padding:4px 0 4px 12px;border-left:2px solid transparent}
+  nav.toc a:hover{color:var(--ink)}
+  main{padding:46px 52px 140px;min-width:0}
+  .doc{max-width:var(--maxw)}
+  .kicker{font:600 12px/1.4 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1.title{font-size:34px;line-height:1.15;margin:6px 0 10px;letter-spacing:-.01em}
+  .lede{font-size:18px;color:var(--muted);margin:0 0 14px;max-width:66ch}
+  .meta{font:12.5px/1.5 var(--mono);color:var(--muted);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:10px 0;margin:22px 0 34px}
+  h2{font-size:24px;margin:52px 0 8px;letter-spacing:-.01em;scroll-margin-top:20px}
+  h2 .num{font:600 14px/1 var(--mono);color:var(--accent);display:block;margin-bottom:8px}
+  h3{font-size:17.5px;margin:28px 0 6px}
+  h4{font-size:13.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:22px 0 4px}
+  p{margin:12px 0;color:#23282e} strong{font-weight:650}
+  code{font:13px/1.5 var(--mono);background:#efece4;padding:1.5px 5px;border-radius:4px;color:#3a3f46}
+  pre{background:var(--code-bg);color:var(--code-ink);padding:16px 18px;border-radius:10px;overflow-x:auto;margin:14px 0;font:12.5px/1.6 var(--mono)}
+  pre code{background:none;padding:0;color:inherit}
+  pre .c{color:#8b98a5} pre .k{color:#ff7b72} pre .s{color:#a5d6ff} pre .f{color:#d2a8ff} pre .g{color:#7ee787}
+  .box{border-left:3px solid;border-radius:0 8px 8px 0;padding:13px 18px;margin:18px 0;font-size:15px}
+  .box .lab{font:600 11px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:5px}
+  .why{background:var(--accent-soft);border-color:var(--accent)} .why .lab{color:var(--accent-ink)}
+  .keep{background:var(--accent-soft);border-color:var(--accent)} .keep .lab{color:var(--accent-ink)}
+  .gotcha{background:var(--warn-soft);border-color:var(--warn)} .gotcha .lab{color:var(--warn-ink)}
+  .anti{background:var(--bad-soft);border-color:var(--bad)} .anti .lab{color:var(--bad-ink)}
+  .lens{background:var(--lens-soft);border-color:var(--lens)} .lens .lab{color:var(--lens-ink)}
+  .directive{border:1px solid var(--warn);background:linear-gradient(180deg,#fdf5ea,#fbfaf7);border-radius:14px;padding:4px 30px 24px;margin:26px 0;box-shadow:0 3px 22px rgba(180,83,9,.07)}
+  .directive .tag{display:inline-block;font:700 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:#fff;background:var(--warn);padding:7px 12px;border-radius:0 0 7px 7px}
+  .thesis{font-size:17px;font-weight:600;color:var(--accent-ink);margin:16px 0;line-height:1.5;border-left:3px solid var(--accent);padding-left:16px}
+  table{border-collapse:collapse;width:100%;margin:16px 0;font-size:14px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+  th{font:600 11px/1.4 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  td code{font-size:12px}
+  ul,ol{margin:12px 0;padding-left:22px} li{margin:7px 0}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+  .cols h4{margin-top:0}
+  .col-bad h4{color:var(--bad-ink)} .col-good h4{color:var(--accent-ink)}
+  @media (max-width:1000px){.wrap{grid-template-columns:1fr} nav.toc{display:none} main{padding:30px 22px 100px} .cols{grid-template-columns:1fr}}
+  .footer{margin-top:70px;padding-top:18px;border-top:1px solid var(--rule);font-size:13px;color:var(--muted)}
+  .pill{display:inline-block;font:600 10.5px/1 var(--mono);padding:4px 8px;border-radius:20px;margin-right:6px}
+  .pill.keep{background:var(--accent-soft);color:var(--accent-ink)} .pill.new{background:var(--lens-soft);color:var(--lens-ink)} .pill.cut{background:var(--bad-soft);color:var(--bad-ink)}
+</style>
+<body>
+<div class="wrap">
+<nav class="toc">
+  <div class="kicker">blueprint</div>
+  <h1>scopex</h1>
+  <div class="wip">v0.1 · alpha</div>
+  <a href="#what">§0 What this answers</a>
+  <a href="#quick">§1 The quick way</a>
+  <a href="#marked">§2 The instrumented way</a>
+  <a href="#contract">§3 The naming contract</a>
+  <a href="#traps">§4 Silent failures</a>
+  <a href="#api">§5 API</a>
+  <a href="#limits">§6 What it will not tell you</a>
+</nav>
+<main><div class="doc">
+
+<div class="kicker">blueprint</div>
+<h1 class="title">Profiling a jitted JAX program</h1>
+<p class="lede">Two routes. The quick one works on any jitted function from any library, unmodified.
+The instrumented one needs fifteen lines in a framework and answers one more question: whose code
+is this?</p>
+<div class="meta">scopex 0.1.0 · jax 0.10.2 · every number below is measured on this stack, not
+illustrative · <a href="https://github.com/bheijden/scopex">github.com/bheijden/scopex</a></div>
+
+<h2 id="what"><span class="num">§0</span>What this answers, and in what order</h2>
+<p>A slow compile has several possible causes living in different stages, and they want opposite
+responses. The order below is not a suggestion — asking a later question before an earlier one
+produces confident, wrong answers.</p>
+<table>
+  <tr><th>question</th><th>instrument</th><th>cost</th></tr>
+  <tr><td>Which STAGE — tracing, lowering, or the backend?</td><td><code>scopex.record</code></td><td>1 compile, no flags</td></tr>
+  <tr><td>Which XLA PASS?</td><td><code>scopex.pass_timings</code></td><td>1 compile, subprocess</td></tr>
+  <tr><td>Which SOURCE LINE?</td><td><code>walk</code> + <code>attribute</code></td><td>0 compiles</td></tr>
+  <tr><td>What SURVIVED to the backend?</td><td><code>walk_hlo</code></td><td>1 compile</td></tr>
+  <tr><td>WHOSE code — library or user?</td><td>the same, once marked</td><td>0 compiles</td></tr>
+</table>
+<div class="box why"><span class="lab">why order matters</span>
+Source attribution explains time spent in tracing and in HLO passes. It says <em>nothing</em> about
+time spent in kernel autotuning — that time is spent RUNNING candidate kernels, not analysing your
+code, so the prettiest line-level report will point at code that is not the problem.</div>
+
+<h2 id="quick"><span class="num">§1</span>The quick way — any jitted function, unmodified</h2>
+<p>You maintain a training script. It compiled in 4&nbsp;s; after a refactor it takes 40. You do not
+control the libraries it calls.</p>
+
+<h3>1. Which stage?</h3>
+<pre><code><span class="k">import</span> scopex
+<span class="k">print</span>(scopex.record(train_step, params, batch))</code></pre>
+<pre><code>stage        seconds   share
+---------------------------
+trace          0.412    2.8%
+lower          0.331    2.2%
+backend       13.847   93.1%
+unaccounted    0.281    1.9%
+WALL          14.871</code></pre>
+<p>This is the fork in the road and it costs one compile. Had <code>trace</code> dominated, the
+problem is your Python and XLA is innocent — there would be no point reading HLO at all. It does not;
+the backend does. The numbers come from <code>jax.monitoring</code>, which JAX emits itself: not
+sampled, not estimated.</p>
+
+<h3>2. Which XLA pass?</h3>
+<p><code>backend</code> is ONE number covering HLO passes, autotuning and codegen. Split it:</p>
+<pre><code>r = scopex.pass_timings(<span class="s">"""
+import jax, mymodel
+jax.jit(mymodel.train_step).lower(*mymodel.args).compile()
+"""</span>)
+r[<span class="s">"passes"</span>]   <span class="c"># {'simplification': 0.00117, 'layout-assignment': 0.00065, ...} — 93 passes</span>
+r[<span class="s">"n_lines"</span>]  <span class="c"># 832 — if this is ~0, the log never happened</span></code></pre>
+<div class="box gotcha"><span class="lab">why a subprocess</span>
+<code>TF_CPP_VMODULE</code> is read by the C++ logging layer when the shared library loads — during
+<code>import jax</code>. Measured: set before the import, <strong>829 log lines</strong>; set after,
+<strong>0</strong>. There is no in-process route, so scopex spawns one for you.</div>
+<p>If the passes sum to a small fraction of <code>backend</code>, the time is in <strong>autotuning</strong>
+and no amount of source attribution will help. Change autotuning flags instead.</p>
+
+<h3>3. Which lines?</h3>
+<pre><code>units = <span class="k">list</span>(scopex.walk(jax.make_jaxpr(train_step)(params, batch)))
+<span class="k">print</span>(scopex.table(scopex.attribute(units, <span class="s">"site"</span>)))</code></pre>
+<pre><code>site                          count    share
+--------------------------------------------
+/home/me/model/attn.py:312     2841    17.1%
+/home/me/model/attn.py:272     1904    11.5%
+&lt;no-frame&gt;                     2686    16.2%</code></pre>
+<div class="box anti"><span class="lab">the unknown bucket stays</span>
+Some equations genuinely have no user frame, and JAX's own <code>jaxpr_util.source_locations</code>
+reports the same gap. Filling it in by borrowing the caller's line once turned a real 16.2% gap into
+a reported 0% and inflated one file's share from 48.6% to 60.0%. Pass
+<code>inherit_site=True</code> if you want the estimate, and know that you asked for it.</div>
+
+<h3>4. What survived to the backend?</h3>
+<pre><code>opt = <span class="k">list</span>(scopex.walk_hlo(jax.jit(train_step).lower(params, batch).compile()))
+scopex.attribute(opt, <span class="s">"site"</span>)</code></pre>
+<p>A line that is 17% of the jaxpr but 2% of the optimized HLO was folded away and is not your
+problem. One that <em>grows</em> is where XLA expanded your code.</p>
+<div class="box lens"><span class="lab">source lines exist below the jaxpr, indirected</span>
+It is tempting to read a metadata dict of <code>{op_name="..."}</code> and conclude the optimized
+module carries no source location. It does: jaxlib emits <code>stack_frame_id=N</code> indexing
+module-level <code>FileNames</code>/<code>FunctionNames</code>/<code>FileLocations</code>/<code>StackFrames</code>
+tables, and every frame has a <code>parent_frame_id</code>. <code>walk_hlo</code> follows the
+indirection and applies the same jax-tree filter <code>source_info_util.user_frames</code> applies at
+the jaxpr level — which is exactly why the two levels join on <code>site</code>.</div>
+
+<p><strong>What this route cannot give you:</strong> whose code it is. Every line above is yours or a
+library's, undifferentiated, because nothing has told scopex where the boundary is.</p>
+
+<h2 id="marked"><span class="num">§2</span>The instrumented way — a framework maintainer</h2>
+<p>You maintain <code>mylib</code>. Users subclass <code>Block</code> and implement
+<code>residual</code>. When they report a slow compile you cannot tell whether it is your engine or
+their model.</p>
+
+<h3>The whole integration</h3>
+<pre><code><span class="f">@scopex.mark_framework</span>(<span class="s">"mylib"</span>, (<span class="s">"residual"</span>, <span class="s">"cell"</span>, <span class="s">"operator"</span>))
+<span class="k">class</span> <span class="f">Block</span>:
+    ...</code></pre>
+<p>Or with no scopex dependency at all — the contract is a naming convention, so your library keeps
+depending on <code>jax</code> alone:</p>
+<pre><code><span class="k">class</span> <span class="f">Block</span>:
+    <span class="k">def</span> <span class="f">__init_subclass__</span>(cls, **kw):
+        <span class="k">super</span>().__init_subclass__(**kw)                  <span class="c"># a REAL super() — see §3</span>
+        <span class="k">if</span> cls.__module__.split(<span class="s">"."</span>)[0] != <span class="s">"mylib"</span>:      <span class="c"># FOREIGN subclass = a user's</span>
+            <span class="k">for</span> name <span class="k">in</span> (<span class="s">"residual"</span>, <span class="s">"cell"</span>, <span class="s">"operator"</span>):
+                fn = cls.__dict__.get(name)
+                <span class="k">if</span> fn <span class="k">is</span> <span class="k">None</span>: <span class="k">continue</span>
+                <span class="k">def</span> <span class="f">wrap</span>(fn=fn, tag=<span class="s">f"mylib:user.{cls.__qualname__}.{name}"</span>):
+                    <span class="k">def</span> <span class="f">marked</span>(*a, **k):
+                        <span class="k">with</span> jax.named_scope(tag): <span class="k">return</span> fn(*a, **k)
+                    <span class="k">return</span> marked
+                <span class="k">setattr</span>(cls, name, wrap())</code></pre>
+<p>Users change nothing. They subclass <code>Block</code> as always.</p>
+
+<h3>What it buys</h3>
+<pre><code>scopex.attribute(units, <span class="s">"split"</span>)</code></pre>
+<pre><code>split          count    share
+-----------------------------
+user            6219    81.0%
+library         1448    18.9%
+&lt;unmarked&gt;        10     0.1%</code></pre>
+<p><strong>81% of this compile is the user's model, not the engine.</strong> That is the sentence you
+could not say before, and it reframes the conversation.</p>
+<p>Then, where inside the engine — <code>by="library"</code> keeps the full nesting:</p>
+<pre><code>solve.ethanol_water/solve.ETOH/assemble/block.ETOH/residual/cell   2587   33.7%
+solve.ethanol_water/solve.ETOH/assemble/block.ETOH.operator/band   1327   17.3%
+solve.ethanol_water/solve.ETOH/driver.Dogleg/linsolve               575    7.5%</code></pre>
+<p>And the one only instrumentation reaches — the <em>interaction</em>:</p>
+<pre><code>scopex.crosstab(units, rows=<span class="s">"library"</span>, cols=<span class="s">"transform"</span>)
+<span class="c"># .../assemble/block.ETOH...  ×  vmap/transpose/jvp/vmap  =  526</span></code></pre>
+<p>526 equations of a user's hook compiled under <code>transpose</code> — the reverse-mode adjoint —
+in a program that only called <code>solve</code>. That is a <code>jacrev</code> running over user
+code inside the engine's assemble path, and now it is visible.</p>
+<div class="box anti"><span class="lab">full sequences, never a first match</span>
+<code>by="author"</code> keys on the WHOLE nesting. On one real program <code>residual/cell</code> is
+3,373 equations and <code>cell</code> alone is 1,168 — overlapping populations answering different
+questions. An accessor that returned only the innermost once collapsed 4,567 equations into a
+reported 1,168. Every accessor here returns the full ordered sequence for that reason;
+<code>by="innermost_author"</code> is the explicit opt-in.</div>
+
+<h2 id="contract"><span class="num">§3</span>The naming contract</h2>
+<pre><code>&lt;pkg&gt;:&lt;role&gt;[.&lt;detail&gt;]        role ∈ {lib, user}
+
+<span class="s">"mylib:lib.assemble"</span>              <span class="c"># engine internals</span>
+<span class="s">"mylib:user.CrudeColumn.residual"</span>  <span class="c"># a user's hook implementation</span></code></pre>
+<p>A convention, not an API — which is the point. Were it an API, every framework adopting it would
+take a runtime dependency on a profiler and the two would be version-locked forever.
+<code>pkg</code> namespaces the mark, so two marked frameworks in one program do not collide: marks
+nest and none is overwritten.</p>
+<div class="box gotcha"><span class="lab">never put <code>/</code> in a scope name</span>
+jax renders a name stack by joining entries with <code>/</code>. Measured: two nested scopes
+<code>"a"</code> then <code>"b"</code> and one scope named <code>"a/b"</code> BOTH render to
+<code>'a/b'</code>. At the jaxpr level <code>name_stack.stack</code> still distinguishes them; below
+the jaxpr only the rendered string survives, so the <code>/</code> is unrecoverable. Use
+<code>.</code> inside names. Everything else measured safe verbatim to optimized HLO:
+<code>:</code> <code>.</code> <code>-</code> <code>_</code> spaces, brackets, parens, mixed case,
+digits, non-ASCII.</div>
+<div class="box gotcha"><span class="lab">a real <code>super()</code></span>
+The hook must use the zero-argument <code>super()</code> inside a class body, or
+<code>super(base, cls)</code> closing over the DEFINING class. Writing
+<code>super(cls, cls).__init_subclass__</code> — where <code>cls</code> is the subclass being
+created — resolves straight back into the wrapper and recurses until the stack blows. Measured, in
+all three shapes tried.</div>
+<p><strong>Cost:</strong> not measurable. 21 order-rotated rounds paired within round: one scope per
+leaf 1.029×, two nested 1.007×, per-round range 0.485–1.157 — the effect is below this measurement's
+noise. Building the representation costs 1.7&nbsp;µs/equation unmarked, 3.5&nbsp;µs marked.</p>
+<p><strong>Limit:</strong> the subclass hook reaches frameworks whose extension point IS subclassing.
+A library of plain functions has nothing to hook, and the failure is not silence but a wrong answer —
+an unmarked user callable ingested by a framework reports as <em>library</em>-authored. Use
+<code>scopex.mark_callable(fn, "mylib", "vector_field")</code> at the point of ingestion.</p>
+<p><strong>The split is binary.</strong> Ecosystem middleware (a <code>flaxformer</code> module under
+<code>flax</code>) is foreign, so it reads as user-authored. scopex warns the first time a framework
+marks subclasses from more than one package root; when that fires, use <code>by="author"</code> or
+<code>by="file"</code>, which keep the roots apart.</p>
+
+<h2 id="traps"><span class="num">§4</span>Ways of asking that silently return nothing</h2>
+<p>Every accessor scopex ships exists because the obvious call returns a plausible, empty answer.
+Counting occurrences of a scope that is demonstrably present:</p>
+<table>
+  <tr><th>call</th><th>found</th><th></th></tr>
+  <tr><td>jaxpr <code>source_info.name_stack</code></td><td>4</td><td>correct</td></tr>
+  <tr><td><code>Lowered.as_text()</code></td><td><strong>0</strong></td><td>defaults to <code>debug_info=False</code></td></tr>
+  <tr><td><code>Lowered.as_text(debug_info=True)</code></td><td>4</td><td>correct</td></tr>
+  <tr><td><code>Lowered.compiler_ir('stablehlo')</code></td><td><strong>0</strong></td><td>drops locations</td></tr>
+  <tr><td><code>Lowered.compiler_ir('hlo')</code></td><td><strong>0</strong></td><td>drops metadata</td></tr>
+  <tr><td><code>Compiled.as_text()</code></td><td>9</td><td>correct</td></tr>
+  <tr><td><code>hlo_modules()[0].to_string()</code></td><td>9</td><td>correct</td></tr>
+</table>
+<p>The <code>compiler_ir</code> rows are the dangerous ones: it is the accessor that <em>looks</em>
+structured, so its empty answer gets believed. Use <code>scopex.stablehlo_text()</code> and
+<code>scopex.hlo_text()</code>.</p>
+<h3>Enabling the heavy instruments</h3>
+<table>
+  <tr><th></th><th>before <code>import jax</code></th><th>after import, before 1st compile</th><th>after 1st compile</th></tr>
+  <tr><td><code>XLA_FLAGS=--xla_dump_to</code></td><td>30 files</td><td><strong>30 files</strong></td><td><strong>0 — silent</strong></td></tr>
+  <tr><td><code>TF_CPP_VMODULE</code></td><td>829 lines</td><td><strong>0 — silent</strong></td><td>0</td></tr>
+</table>
+<p>That asymmetry is the whole API. Dumping can be switched on in-process, so
+<code>scopex.dump()</code> is a context manager that RAISES when the backend is already up — an empty
+dump directory reads as "nothing to see" rather than "you asked too late". vmodule cannot be, so
+<code>pass_timings</code> spawns a subprocess. <code>TF_CPP_VMODULE</code> alone does nothing
+regardless: importing jax sets <code>TF_CPP_MIN_LOG_LEVEL=1</code>, suppressing every VLOG.</p>
+<div class="box gotcha"><span class="lab">the fusion decision log is GPU-only</span>
+<code>priority_fusion_dump.txt</code> appears on GPU (77 dump files) and not on CPU (27). Its absence
+is not evidence that no fusion happened. And more generally: <strong>the device decides which passes
+run at all</strong> — one known pathology measures 248× on CPU and completely flat on GPU. Never
+report "no effect" without naming the backend.</div>
+
+<h2 id="api"><span class="num">§5</span>API</h2>
+<pre><code>scopex.record(fn, *args)              <span class="c"># Timings: trace / lower / backend / wall</span>
+scopex.regime(t)                      <span class="c"># heuristic label; says so</span>
+scopex.pass_timings(src)              <span class="c"># {pass: seconds}, via subprocess</span>
+scopex.dump(path=None)                <span class="c"># context manager; XLA's own artifacts</span>
+
+scopex.walk(jaxpr)                    <span class="c"># -> Eqn, one per equation, nested included</span>
+scopex.walk_hlo(compiled)             <span class="c"># -> Ins, optimized HLO, with source sites</span>
+scopex.walk_stablehlo(lowered)        <span class="c"># -> Ins</span>
+scopex.at(jaxpr, unit.addr)           <span class="c"># the exact equation back</span>
+scopex.verify_parity(jaxpr)           <span class="c"># (ours, jax's, equal)</span>
+
+scopex.attribute(units, by)           <span class="c"># Counter</span>
+scopex.crosstab(units, rows=, cols=)  <span class="c"># two views at once — the interactions</span>
+scopex.table(counter)                 <span class="c"># formatted</span></code></pre>
+<p>Views in <code>scopex.BY</code>: <code>author</code>, <code>innermost_author</code>,
+<code>library</code>, <code>role</code>, <code>package</code>, <code>split</code>, <code>scope</code>,
+<code>scope_path</code>, <code>transform</code>, <code>depth</code>, <code>site</code>,
+<code>file</code>, <code>kind</code>, <code>level</code>, <code>path</code>. <code>by=</code> also takes
+any callable <code>unit -&gt; hashable</code>; no view is privileged.</p>
+<div class="box why"><span class="lab">correctness</span>
+<code>walk</code> is verified equal in count to
+<code>jax._src.jaxpr_util.all_eqns(revisit_inner_jaxprs=True)</code> on every corpus case, including a
+payload buried inside <code>pjit</code>, <code>pjit×3</code>, <code>scan</code>, nested
+<code>scan</code>, <code>cond</code>, <code>switch</code>, <code>while</code>, <code>fori</code>,
+<code>custom_jvp</code>, <code>custom_vjp</code>, <code>remat</code>, <code>named_scope</code>,
+<code>vmap</code>, <code>grad(pjit)</code> and <code>grad(scan)</code> — 16/16 attribute an identical
+payload to the same source line. Run <code>verify_parity</code> on your own program; disagreement is
+a scopex bug.</div>
+
+<h2 id="limits"><span class="num">§6</span>What it will not tell you</h2>
+<p><strong>It does not rank lines by compile seconds.</strong> It attributes STRUCTURE — equations,
+instructions, fusion decisions. Time attribution below the stage split needs per-pass timing, and
+even that does not divide cleanly by source line.</p>
+<div class="box anti"><span class="lab">correct is not the same as actionable</span>
+On a known scatter pathology all eight scatters attribute to ONE source line, and per-instruction
+interventions on that line span a <strong>19.6× range</strong> in effect. The line is 100% correct and
+0% sufficient. Attribution locates; it does not decide.</div>
+<p><strong>It will not find your pathology for you.</strong> It builds the map. Interventions tried
+against it — barrier placement, region bisection — declined on every real program tested.</p>
+<p><strong>Counts do not scale with problem size.</strong> <code>vmap</code> batches rather than
+unrolls, so a program at N=8 and N=30 gives byte-identical equation counts. Reading a count as
+"cost per stage" is wrong.</p>
+<p><strong>Nested-jit trace time is invisible.</strong> JAX emits the tracing timer only when
+<code>core.trace_state_clean()</code>, i.e. at top level; tracing inside an inner <code>jit</code> is
+folded into the parent and cannot be separated.</p>
+
+</div></main></div></body></html>

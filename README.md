@@ -10,6 +10,9 @@ to one record per unit of your program.
 
 It has one dependency, `jax`. It asks **nothing** of the libraries whose programs you profile.
 
+**[Blueprint](docs/blueprint_scopex.html)** — the same material as a single
+page: the two routes, the naming contract, the silent failures, and what this will not tell you.
+
 ## Install
 
 ```bash
