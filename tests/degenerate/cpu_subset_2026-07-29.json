@@ -1,0 +1,1108 @@
+{
+ "cpu/stackcond_n30000": {
+  "platform": "cpu",
+  "error": "E0729 14:47:59.857392   56619 slow_operation_alarm.cc:73] \n********************************\n[Compiling module jit__slow for CPU] Very slow compile? If you want to file a bug, run with envvar XLA_FLAGS=--xla_dump_to=/tmp/foo and attach the results.\n********************************\n"
+ },
+ "cpu/pallas_body_d64": {
+  "platform": "cpu",
+  "error": "ion.\n\n--------------------\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"<string>\", line 12, in <module>\n  File \"/home/bas/jax-warp/.venv/lib/python3.12/site-packages/jax/_src/pallas/pallas_call.py\", line 974, in _pallas_call_lowering\n    return mlir.lower_per_platform(\n           ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/bas/jax-warp/.venv/lib/python3.12/site-packages/jax/_src/pallas/pallas_call.py\", line 888, in cpu_lowering\n    raise ValueError(\"Only interpret mode is supported on CPU backend.\")\nValueError: Only interpret mode is supported on CPU backend.\n--------------------\nFor simplicity, JAX has removed its internal frames from the traceback of the following exception. Set JAX_TRACEBACK_FILTERING=off to include these.\n"
+ },
+ "cpu/gather2d_8": {
+  "compile_s": 15.061868415999925,
+  "runtime_s": 0.006036368666627823,
+  "lower_s": 0.38977982400001565,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (101x control)",
+  "gpu_contended": false
+ },
+ "cpu/gather2d_8_control": {
+  "compile_s": 0.14951016500026526,
+  "runtime_s": 0.009077211666711568,
+  "lower_s": 0.5290647950000675,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/gatherchain2d_9": {
+  "compile_s": 53.50548189199981,
+  "runtime_s": 0.016209530000044953,
+  "lower_s": 0.3650774200000342,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (363x control)",
+  "gpu_contended": false
+ },
+ "cpu/gatherchain2d_9_control": {
+  "compile_s": 0.1473464820001027,
+  "runtime_s": 0.022559384666692495,
+  "lower_s": 0.4488101810002263,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/convscan_nchw_d128": {
+  "compile_s": 3.8195796959998916,
+  "runtime_s": 0.6975519906667008,
+  "lower_s": 0.48947695900005783,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (11x control)",
+  "gpu_contended": false
+ },
+ "cpu/convscan_nchw_d128_control": {
+  "compile_s": 0.34544361899997966,
+  "runtime_s": 0.09814232433336656,
+  "lower_s": 0.4550613070000509,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/convrank_k256": {
+  "compile_s": 5.265788247000273,
+  "runtime_s": 0.351719343333419,
+  "lower_s": 0.4943153419999362,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (11x control)",
+  "gpu_contended": false
+ },
+ "cpu/convrank_k256_control": {
+  "compile_s": 0.472204500999851,
+  "runtime_s": 0.04573883866669348,
+  "lower_s": 0.49039175899997645,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/dotdims_mid_k32": {
+  "compile_s": 0.728420444999756,
+  "runtime_s": 0.022801983000135806,
+  "lower_s": 0.3598669250000057,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/dotdims_mid_k32_control": {
+  "compile_s": 0.3205483770002502,
+  "runtime_s": 0.008322379333397597,
+  "lower_s": 0.4114325860000463,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/spmd_reshard_d128": {
+  "compile_s": 6.548487041000044,
+  "runtime_s": 0.2579444573332997,
+  "lower_s": 0.5485342780002611,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (14x control)",
+  "gpu_contended": false
+ },
+ "cpu/spmd_reshard_d128_control": {
+  "compile_s": 0.4558939210000972,
+  "runtime_s": 0.03699640733339038,
+  "lower_s": 0.42905994299962913,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/spmd_uneven_d32": {
+  "compile_s": 4.660827751999932,
+  "runtime_s": 0.030705352333370683,
+  "lower_s": 0.35929671900021276,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (3.8x control)",
+  "gpu_contended": false
+ },
+ "cpu/spmd_uneven_d32_control": {
+  "compile_s": 1.2143318549997275,
+  "runtime_s": 0.013981763666682431,
+  "lower_s": 0.3485221780001666,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/spmd_halo_conv_d32": {
+  "compile_s": 0.5266599609999503,
+  "runtime_s": 0.10378723299997243,
+  "lower_s": 0.36904729400021097,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/spmd_halo_conv_d32_control": {
+  "compile_s": 0.20854656400024396,
+  "runtime_s": 0.05031855066666443,
+  "lower_s": 0.3242794499997217,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/scan_unroll_32": {
+  "compile_s": 3.966939248000017,
+  "runtime_s": 0.5083901426666367,
+  "lower_s": 0.38761350899994795,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (17x control)",
+  "gpu_contended": false
+ },
+ "cpu/scan_unroll_32_control": {
+  "compile_s": 0.2357432260000678,
+  "runtime_s": 0.30782720733319974,
+  "lower_s": 0.3322678370000176,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/sorted_scatter_w1091": {
+  "compile_s": 0.10265291400037313,
+  "runtime_s": 0.010115741333417342,
+  "lower_s": 0.3197661269996388,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/sorted_scatter_w1091_control": {
+  "compile_s": 0.08760818700011441,
+  "runtime_s": 0.010077492333342283,
+  "lower_s": 0.32604107799988924,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/ffi_cb_chain_2048": {
+  "compile_s": 12.712539224000011,
+  "runtime_s": 0.30113804533342164,
+  "lower_s": 1.839136685000085,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (7.0x control)",
+  "gpu_contended": false
+ },
+ "cpu/ffi_cb_chain_2048_control": {
+  "compile_s": 1.82532348299992,
+  "runtime_s": 0.001170052333388109,
+  "lower_s": 0.9902174139997442,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/lap_div_96": {
+  "compile_s": 0.6372077249998256,
+  "runtime_s": 0.001164154999969469,
+  "lower_s": 0.8533583180001187,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/lap_div_96_control": {
+  "compile_s": 0.6838819999998123,
+  "runtime_s": 0.002094889333269142,
+  "lower_s": 0.6370795940001699,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/linalg_expm_d32": {
+  "compile_s": 4.002455024000028,
+  "runtime_s": 0.2844073409999813,
+  "lower_s": 0.8649421939999229,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (20x control)",
+  "gpu_contended": false
+ },
+ "cpu/linalg_expm_d32_control": {
+  "compile_s": 0.19915958899991892,
+  "runtime_s": 0.0013659763332422397,
+  "lower_s": 0.3634267610000279,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/poolgrad_max2d_d128": {
+  "compile_s": 3.48496686999988,
+  "runtime_s": 0.6648617426667442,
+  "lower_s": 0.5427396330001102,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (12x control)",
+  "gpu_contended": false
+ },
+ "cpu/poolgrad_max2d_d128_control": {
+  "compile_s": 0.3013581370000793,
+  "runtime_s": 0.07092547000002014,
+  "lower_s": 0.5552619509999204,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/rngdist_gamma_k16": {
+  "compile_s": 7.504958444999829,
+  "runtime_s": 0.7086915953333724,
+  "lower_s": 0.689517650000198,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (5.3x control)",
+  "gpu_contended": false
+ },
+ "cpu/rngdist_gamma_k16_control": {
+  "compile_s": 1.4045875169999817,
+  "runtime_s": 0.018224537666659064,
+  "lower_s": 0.4748108190001403,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/cumad_lse_n262144": {
+  "compile_s": 4.063785661000111,
+  "runtime_s": 0.14611243566666113,
+  "lower_s": 1.0840377899999112,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (8.9x control)",
+  "gpu_contended": false
+ },
+ "cpu/cumad_lse_n262144_control": {
+  "compile_s": 0.4557452169997305,
+  "runtime_s": 0.013846046999939668,
+  "lower_s": 0.31781199800025206,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/fftlen_distinct_k128": {
+  "compile_s": 3.3128856200000882,
+  "runtime_s": 0.029838052333313197,
+  "lower_s": 1.9367617749999226,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (2.5x control)",
+  "gpu_contended": false
+ },
+ "cpu/fftlen_distinct_k128_control": {
+  "compile_s": 1.302030749000096,
+  "runtime_s": 0.006250221666656823,
+  "lower_s": 0.6122418599998127,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/f8chain_e4m3fn_d48": {
+  "compile_s": 3.6415509080002266,
+  "runtime_s": 0.006678508333304005,
+  "lower_s": 0.3657273339999847,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (3.6x control)",
+  "gpu_contended": false
+ },
+ "cpu/f8chain_e4m3fn_d48_control": {
+  "compile_s": 1.0150106179999057,
+  "runtime_s": 0.003136767666698385,
+  "lower_s": 0.3271667690000868,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/i4chain_d64": {
+  "compile_s": 0.4226298130001851,
+  "runtime_s": 0.0017698983333502838,
+  "lower_s": 0.3959271799999442,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/i4chain_d64_control": {
+  "compile_s": 0.4019173370002136,
+  "runtime_s": 0.001626245666708807,
+  "lower_s": 0.4018963769999573,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/assocscan_complex_50k": {
+  "compile_s": 3.844800733000284,
+  "runtime_s": 0.11893526566670214,
+  "lower_s": 1.2647264559996074,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (1.3x control)",
+  "gpu_contended": false
+ },
+ "cpu/assocscan_complex_50k_control": {
+  "compile_s": 2.9192709270000705,
+  "runtime_s": 0.060269400000076224,
+  "lower_s": 0.9642123200001151,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/assocscan64_complex_32k": {
+  "compile_s": 7.204621646000305,
+  "runtime_s": 0.1690864973332585,
+  "lower_s": 1.1347910459999184,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (1.3x control)",
+  "gpu_contended": false
+ },
+ "cpu/assocscan64_complex_32k_control": {
+  "compile_s": 5.638845146000222,
+  "runtime_s": 0.06747354733321724,
+  "lower_s": 1.4554656079999404,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (compile/runtime low, no control)",
+  "gpu_contended": false
+ },
+ "cpu/constfold_ones_352": {
+  "compile_s": 1.207549287999882,
+  "runtime_s": 0.16516567500002566,
+  "lower_s": 0.38666892600031133,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/constfold_ones_352_control": {
+  "compile_s": 0.13731503100007103,
+  "runtime_s": 0.740687657999994,
+  "lower_s": 0.4226246859998355,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/dusfold_sum_300": {
+  "compile_s": 1.9667372509998131,
+  "runtime_s": 8.684500001739555e-05,
+  "lower_s": 0.4219782190002661,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/dusfold_sum_300_control": {
+  "compile_s": 0.05015380800023195,
+  "runtime_s": 7.615866661581094e-05,
+  "lower_s": 0.5290886329999012,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/seqmask_cumsum_b64_m20000": {
+  "compile_s": 0.32013794400018014,
+  "runtime_s": 0.00828076833340674,
+  "lower_s": 0.44244158699984837,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/seqmask_cumsum_b64_m20000_control": {
+  "compile_s": 0.35657903399987845,
+  "runtime_s": 0.027594387000135612,
+  "lower_s": 0.5308708679999654,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/adconst_idx_2p22": {
+  "compile_s": 45.211680631000036,
+  "runtime_s": 0.02121293566657793,
+  "lower_s": 0.661968884000089,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (16x control)",
+  "gpu_contended": false
+ },
+ "cpu/adconst_idx_2p22_control": {
+  "compile_s": 2.8006735789999766,
+  "runtime_s": 0.2368593473333931,
+  "lower_s": 0.49786167399997794,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/fftcap_1000000": {
+  "compile_s": 0.18024595299993962,
+  "runtime_s": 0.09202177700005147,
+  "lower_s": 0.3928303140000935,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/fftcap_1000000_control": {
+  "compile_s": 0.10803313499991418,
+  "runtime_s": 0.13198422333334747,
+  "lower_s": 0.3914413110001078,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/fanout_spread_p512": {
+  "compile_s": 6.884381375999965,
+  "runtime_s": 0.002997646000039822,
+  "lower_s": 0.888524863999919,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (4.0x control)",
+  "gpu_contended": false
+ },
+ "cpu/fanout_spread_p512_control": {
+  "compile_s": 1.7182742360000702,
+  "runtime_s": 0.0019341379999483859,
+  "lower_s": 0.6820939220001492,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/widthdepth_w256": {
+  "compile_s": 7.896240468000087,
+  "runtime_s": 0.000327830000060203,
+  "lower_s": 2.6906002810001155,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (0.9x control)",
+  "gpu_contended": false
+ },
+ "cpu/widthdepth_w256_control": {
+  "compile_s": 8.80611791399997,
+  "runtime_s": 0.0001689069999883941,
+  "lower_s": 2.4329994999998235,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (no control)",
+  "gpu_contended": false
+ },
+ "cpu/shapediv_bitrev_n256": {
+  "compile_s": 4.371305023000332,
+  "runtime_s": 0.0037040219999653345,
+  "lower_s": 1.1311148259997026,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (1.9x control)",
+  "gpu_contended": false
+ },
+ "cpu/shapediv_bitrev_n256_control": {
+  "compile_s": 2.3610842829998546,
+  "runtime_s": 0.003565665999910076,
+  "lower_s": 0.5342395520001446,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/peaklive_fanout_n256": {
+  "compile_s": 3.177488793000066,
+  "runtime_s": 2.2696337793333137,
+  "lower_s": 0.4171082180000667,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (3.9x control)",
+  "gpu_contended": false
+ },
+ "cpu/peaklive_fanout_n256_control": {
+  "compile_s": 0.8236221560000558,
+  "runtime_s": 0.08482759399991362,
+  "lower_s": 0.34527688199978,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/litmem_dense_32": {
+  "compile_s": 1.2803704899997683,
+  "runtime_s": 0.05209068266670632,
+  "lower_s": 0.37041901700013113,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/litmem_dense_32_control": {
+  "compile_s": 0.035299313999985316,
+  "runtime_s": 0.06734101133330721,
+  "lower_s": 0.3276643000003787,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/switch_ident_512": {
+  "compile_s": 19.383220513000197,
+  "runtime_s": 0.0024933826666710956,
+  "lower_s": 0.6551194459998442,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (194x control)",
+  "gpu_contended": false
+ },
+ "cpu/switch_ident_512_control": {
+  "compile_s": 0.10007809199987605,
+  "runtime_s": 0.00010574366676034212,
+  "lower_s": 0.3918494270001247,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/fusion_chain_n2000": {
+  "compile_s": 2.921210909000365,
+  "runtime_s": 0.0001731433332376279,
+  "lower_s": 1.015393586999835,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/fusion_chain_n2000_control": {
+  "compile_s": 3.1933536269998513,
+  "runtime_s": 8.210499997100366e-05,
+  "lower_s": 1.0274478930000441,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (no control)",
+  "gpu_contended": false
+ },
+ "cpu/topkflat_n2p20_k8": {
+  "compile_s": 0.11106681699993715,
+  "runtime_s": 0.8647427516666539,
+  "lower_s": 0.3274744269997427,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/topkflat_n2p20_k8_control": {
+  "compile_s": 0.09708647400020709,
+  "runtime_s": 1.0782718926666348,
+  "lower_s": 0.38854844899969976,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/topk_pow20_k128": {
+  "compile_s": 0.0494146890000593,
+  "runtime_s": 0.015607667333218464,
+  "lower_s": 0.33792597299998306,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/topk_pow20_k128_control": {
+  "compile_s": 0.04214135799975338,
+  "runtime_s": 0.01487535299990365,
+  "lower_s": 0.40353810400029033,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/argsort_f32_1e6": {
+  "compile_s": 0.16120285799979683,
+  "runtime_s": 1.3405945853332923,
+  "lower_s": 0.3316326650001429,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/argsort_f32_1e6_control": {
+  "compile_s": 0.16071284300005573,
+  "runtime_s": 1.1158741006667394,
+  "lower_s": 0.33699331399975563,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/stackcond_n30000_control": {
+  "compile_s": 0.15413463599998067,
+  "runtime_s": 0.0007270023334058351,
+  "lower_s": 0.2814739090003968,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/treereduce_chain_n10000": {
+  "compile_s": 95.93521960699945,
+  "runtime_s": 0.08425401566667763,
+  "lower_s": 1.7672160420002,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (0.8x control)",
+  "gpu_contended": false
+ },
+ "cpu/treereduce_chain_n10000_control": {
+  "compile_s": 113.42566615800024,
+  "runtime_s": 0.09876125366675599,
+  "lower_s": 2.6089443999999276,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (no control)",
+  "gpu_contended": false
+ },
+ "cpu/seqgrad_N1000": {
+  "compile_s": 71.0303586529999,
+  "runtime_s": 0.13722420666666343,
+  "lower_s": 8.95216980100031,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (6.2x control)",
+  "gpu_contended": false
+ },
+ "cpu/seqgrad_N1000_control": {
+  "compile_s": 11.453984828000102,
+  "runtime_s": 0.00045803833351480233,
+  "lower_s": 3.391599739999947,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (no control)",
+  "gpu_contended": false
+ },
+ "cpu/bwl_grad_512": {
+  "compile_s": 4.429629668999951,
+  "runtime_s": 0.17591859566649268,
+  "lower_s": 2.7682758179998928,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (5.9x control)",
+  "gpu_contended": false
+ },
+ "cpu/bwl_grad_512_control": {
+  "compile_s": 0.755247959999906,
+  "runtime_s": 0.0005229703331982213,
+  "lower_s": 0.5015386499999295,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/condrec_grad_128": {
+  "compile_s": 1.793225442000221,
+  "runtime_s": 0.0005052693331890623,
+  "lower_s": 15.19161445499958,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/condrec_grad_128_control": {
+  "compile_s": 0.7713836479997553,
+  "runtime_s": 0.0006270143333798236,
+  "lower_s": 1.574863837000521,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/ndtri_scan_jacrev_d16": {
+  "compile_s": 107.81346862300052,
+  "runtime_s": 0.01826914066653747,
+  "lower_s": 9.756342065999888,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (16x control)",
+  "gpu_contended": false
+ },
+ "cpu/ndtri_scan_jacrev_d16_control": {
+  "compile_s": 6.630733218000387,
+  "runtime_s": 0.0013006283334107138,
+  "lower_s": 5.064323589999731,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (no control)",
+  "gpu_contended": false
+ },
+ "cpu/cho_grad_b1024": {
+  "compile_s": 0.8670129049996831,
+  "runtime_s": 14.508749580000162,
+  "lower_s": 1.3829713940003785,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/cho_grad_b1024_control": {
+  "compile_s": 0.5016015649998735,
+  "runtime_s": 3.4088804916667264,
+  "lower_s": 0.9784295570007089,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/conv_persample_300": {
+  "compile_s": 0.47442794799917465,
+  "runtime_s": 0.01827767733326861,
+  "lower_s": 0.6313621270001022,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/conv_persample_300_control": {
+  "compile_s": 0.41876850700009527,
+  "runtime_s": 0.005653299333062023,
+  "lower_s": 0.5691130969998994,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/dynwhile_fixpoint_k128": {
+  "compile_s": 2.838892290000331,
+  "runtime_s": 0.0011152433332123717,
+  "lower_s": 13.042079386000296,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/dynwhile_fixpoint_k128_control": {
+  "compile_s": 2.7471713819995784,
+  "runtime_s": 0.0011684626667071523,
+  "lower_s": 1.2658727389998603,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/arity_tree_100": {
+  "compile_s": 10.621882055999777,
+  "runtime_s": 0.005479524999827845,
+  "lower_s": 7.913298009000755,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (35x control)",
+  "gpu_contended": false
+ },
+ "cpu/arity_tree_100_control": {
+  "compile_s": 0.3003291109998827,
+  "runtime_s": 0.0003572623333335893,
+  "lower_s": 0.6548357370002122,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/pytree_keyed_16000": {
+  "compile_s": 5.258875817000444,
+  "runtime_s": 0.03346031666660565,
+  "lower_s": 9.128936264999538,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (1.0x control)",
+  "gpu_contended": false
+ },
+ "cpu/pytree_keyed_16000_control": {
+  "compile_s": 5.256058026000574,
+  "runtime_s": 0.007707706666527277,
+  "lower_s": 6.675040678999721,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (compile/runtime low, no control)",
+  "gpu_contended": false
+ },
+ "cpu/retrace_static_320": {
+  "compile_s": 5.575957005999953,
+  "runtime_s": 0.0015740449998702388,
+  "lower_s": 9.84669216400016,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (1.8x control)",
+  "gpu_contended": false
+ },
+ "cpu/retrace_static_320_control": {
+  "compile_s": 3.094953968999107,
+  "runtime_s": 0.0016956316667346982,
+  "lower_s": 0.8526654080005756,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (no control)",
+  "gpu_contended": false
+ },
+ "cpu/meta_distinct_1200": {
+  "compile_s": 4.843515500000649,
+  "runtime_s": 0.00028720633326884126,
+  "lower_s": 5.457710654000039,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (1.0x control)",
+  "gpu_contended": false
+ },
+ "cpu/meta_distinct_1200_control": {
+  "compile_s": 4.637154961000306,
+  "runtime_s": 0.0003249026667617727,
+  "lower_s": 0.9999477149995073,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (no control)",
+  "gpu_contended": false
+ },
+ "cpu/manymod_100": {
+  "compile_s": 0.12376177900023322,
+  "runtime_s": 0.00012985000012122327,
+  "lower_s": 37.701812588000394,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/manymod_100_control": {
+  "compile_s": 0.1226305569998658,
+  "runtime_s": 0.0002506379999734539,
+  "lower_s": 1.3893037859998003,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/exportpoly_monomials_128": {
+  "compile_s": 0.12774760299998889,
+  "runtime_s": 0.00010274266666480496,
+  "lower_s": 9.26001147900024,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/exportpoly_monomials_128_control": {
+  "compile_s": 0.13018113900034223,
+  "runtime_s": 0.00011463999999250518,
+  "lower_s": 0.7372561940001106,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/exportpoly_chain_k9": {
+  "compile_s": 0.1301606359993457,
+  "runtime_s": 0.00013828466671839124,
+  "lower_s": 3.1633724930006792,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/exportpoly_chain_k9_control": {
+  "compile_s": 0.13473948899991228,
+  "runtime_s": 0.00021710733320408812,
+  "lower_s": 0.7786867799995889,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/einsum_optimal_n11": {
+  "compile_s": 0.3581701269995392,
+  "runtime_s": 0.00033167999996900715,
+  "lower_s": 56.4301672470001,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/einsum_optimal_n11_control": {
+  "compile_s": 0.3548992330006513,
+  "runtime_s": 0.00038147599995378795,
+  "lower_s": 0.6029007019997152,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/jitfib_t22": {
+  "compile_s": 10.211745190999864,
+  "runtime_s": 0.00011897666657508428,
+  "lower_s": 0.6248197210006765,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "YES (119x control)",
+  "gpu_contended": false
+ },
+ "cpu/jitfib_t22_control": {
+  "compile_s": 0.08606439200048044,
+  "runtime_s": 0.00010223766669999652,
+  "lower_s": 0.6785998369996378,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/unrolled_sample_7": {
+  "compile_s": 1.3461954029999106,
+  "runtime_s": 0.0003585493332138867,
+  "lower_s": 0.7097489999996469,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/unrolled_sample_7_control": {
+  "compile_s": 0.640763443000651,
+  "runtime_s": 0.00017345533342449926,
+  "lower_s": 0.7640086199999132,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/xtile_issue": {
+  "compile_s": 0.9090637199997218,
+  "runtime_s": 0.0011928653332991719,
+  "lower_s": 0.5714746390003711,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/xtile_issue_control": {
+  "compile_s": 0.06919262100018386,
+  "runtime_s": 0.0006310446666854356,
+  "lower_s": 0.5416821660001006,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/pallas_interp_d256": {
+  "compile_s": 1.9796388269996896,
+  "runtime_s": 0.4390119816665295,
+  "lower_s": 2.326979430999927,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/pallas_interp_d256_control": {
+  "compile_s": 3.3769717710001714,
+  "runtime_s": 0.07193407233353355,
+  "lower_s": 1.0686137029997553,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (compile/runtime low, no control)",
+  "gpu_contended": false
+ },
+ "cpu/pallas_kernels_interp_64": {
+  "compile_s": 2.740868412999589,
+  "runtime_s": 0.7970116113331945,
+  "lower_s": 2.88014938500055,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/pallas_kernels_interp_64_control": {
+  "compile_s": 1.1444028369996886,
+  "runtime_s": 1.1802529753331328,
+  "lower_s": 2.8755122850006956,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/pallas_body_d64_control": {
+  "compile_s": 0.716252354000062,
+  "runtime_s": 0.016057084333321352,
+  "lower_s": 0.4804494159998285,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/remat_small_flag": {
+  "compile_s": 0.4394583440007409,
+  "runtime_s": 0.15282968533332073,
+  "lower_s": 0.6558015799992063,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/remat_small_flag_control": {
+  "compile_s": 0.34112653600004705,
+  "runtime_s": 0.1649282543330628,
+  "lower_s": 0.6413998160005576,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/convT_dilate16": {
+  "compile_s": 0.37704601599944,
+  "runtime_s": 0.19283885433317968,
+  "lower_s": 0.5843823660006819,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/convT_dilate16_control": {
+  "compile_s": 0.29833957200025907,
+  "runtime_s": 0.8367911489998127,
+  "lower_s": 0.5599167860000307,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/gemm_shapes_k32": {
+  "compile_s": 0.1837056759995903,
+  "runtime_s": 0.2774141650000577,
+  "lower_s": 0.5448398770004133,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ },
+ "cpu/gemm_shapes_k32_control": {
+  "compile_s": 0.26196661199992377,
+  "runtime_s": 0.2838618003333977,
+  "lower_s": 0.4547325070006991,
+  "platform": "cpu",
+  "xla_slow_warning": false,
+  "reproduced": "no (below floor)",
+  "gpu_contended": false
+ }
+}

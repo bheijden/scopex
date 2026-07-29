@@ -197,9 +197,26 @@ def dump(path: str | None = None, *, passes: str | None = None, fusion: bool = T
 # A first attempt matched "<word> ... <number> s" and dutifully reported the glog timestamp prefix
 # `I0729` as the most expensive pass in the program. This format is NOT a stable interface --
 # `n_lines` and `stderr_tail` exist so a parse failure is visible instead of returning {}.
+# The line XLA prints (hlo_pass_pipeline.cc:176):
+#     HLO pass: async-collective-replacer time: 24 us (24 us) (cumulative: 24 us, ...)
+#     HLO pass: autotuner time: 1.19 min (71651421 us) (cumulative: 1.2 min, ...)
+#
+# XLA SWITCHES UNITS ON MAGNITUDE, and that made the first version of this parser dangerous rather
+# than merely incomplete. `_UNIT` knew only us/ms/s, so a pass reported in `min` was silently
+# dropped -- and the pass reported in `min` is BY CONSTRUCTION the slowest one. Measured on a GPU
+# conv autotuning case: exactly 1 of 640 pass lines used `min`, it was the autotuner at 98.8% of a
+# 72.5 s compile, and dropping it left `pass_timings` returning a plausible dict topped by
+# `remat-pipeline: 0.1196`. The tool did not fail to answer; it reported the OPPOSITE of the truth
+# with no warning. A parser whose blind spot is correlated with the thing being measured is worse
+# than no parser.
+#
+# So: prefer the PARENTHESISED microseconds, which XLA always emits in `us` regardless of the
+# headline unit, and fall back to value+unit only when it is absent.
 _PASS_LINE = re.compile(
-    r"HLO pass:\s+(?P<name>\S+)\s+time:\s+(?P<val>[\d.]+)\s*(?P<unit>us|ms|s)\b")
-_UNIT = {"us": 1e-6, "ms": 1e-3, "s": 1.0}
+    r"HLO pass:\s+(?P<name>\S+)\s+time:\s+(?P<val>[\d.]+)\s*(?P<unit>[a-z]+)"
+    r"(?:\s*\((?P<us>\d+)\s*us\))?")
+_UNIT = {"ns": 1e-9, "us": 1e-6, "ms": 1e-3, "s": 1.0, "sec": 1.0,
+         "min": 60.0, "m": 60.0, "h": 3600.0}
 
 
 def pass_timings(module_src: str, *, python: str | None = None, timeout: int = 1800,
@@ -225,9 +242,24 @@ def pass_timings(module_src: str, *, python: str | None = None, timeout: int = 1
                        capture_output=True, text=True, timeout=timeout, env=env)
     log = p.stderr + p.stdout
     out: dict[str, float] = {}
+    unknown: set = set()
     for m in _PASS_LINE.finditer(log):
-        out[m.group("name")] = out.get(m.group("name"), 0.0) + \
-            float(m.group("val")) * _UNIT[m.group("unit")]
+        if m.group("us") is not None:                  # authoritative, always microseconds
+            secs = int(m.group("us")) * 1e-6
+        else:
+            u = m.group("unit")
+            if u not in _UNIT:                          # never silently drop -- see above
+                unknown.add(u)
+                continue
+            secs = float(m.group("val")) * _UNIT[u]
+        out[m.group("name")] = out.get(m.group("name"), 0.0) + secs
+    if unknown:
+        warnings.warn(
+            f"pass_timings saw time units it cannot convert: {sorted(unknown)}. Those passes were "
+            f"EXCLUDED, and XLA reports large times in large units, so the excluded ones are "
+            f"probably the expensive ones. Add them to scopex.flags._UNIT.",
+            RuntimeWarning, stacklevel=2)
     return {"passes": dict(sorted(out.items(), key=lambda kv: -kv[1])),
             "n_lines": len(log.splitlines()),
+            "unknown_units": sorted(unknown),
             "stderr_tail": p.stderr[-1500:] if not out else ""}

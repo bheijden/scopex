@@ -105,99 +105,48 @@ def walk_hlo(compiled, *, level: str = "hlo_opt") -> Iterator[Ins]:
         yield _to_ins(rec, level, tab)
 
 
-def walk_stablehlo(lowered) -> Iterator[Ins]:
-    """Every StableHLO operation carrying a location.
+def _loc_aliases(text: str) -> dict[str, str]:
+    """``{"#loc17": "jit(f)/mylib:lib.solve/tanh"}`` from a module's alias definitions.
 
-    NOTE the accessor: ``Lowered.as_text()`` defaults to ``debug_info=False`` and prints no
-    locations at all, and ``compiler_ir('stablehlo')`` drops them too. Both were measured returning
-    zero occurrences of a scope that is demonstrably present.
+    MLIR does not put the name on the operation. It emits ``loc(#loc17)`` on the op and defines
+    ``#loc17 = loc("jit(f)/.../tanh"(#loc12))`` separately, often chaining through a callsite. The
+    first quoted string in the definition is the name stack; anything else is the file/line of an
+    inner frame.
     """
-    from .flags import stablehlo_text
-    txt = stablehlo_text(lowered)
-    # StableHLO carries provenance as `loc("name"(...))` suffixes rather than HLO metadata.
-    pat = re.compile(r'^\s*(?:%\S+\s*=\s*)?"?(?P<op>[\w.]+)"?.*?loc\("(?P<loc>[^"]*)"')
-    for line in txt.splitlines():
-        m = pat.match(line)
-        if not m:
-            continue
-        yield Ins("stablehlo", m.group("op").split(".")[-1], m.group("loc"),
-                  site="<no-source-metadata>")
-
-
-# ── SOURCE LOCATION AT THE HLO LEVEL ────────────────────────────────────────────────────────────
-_MD_STR = re.compile(r'(\w+)="((?:[^"\\]|\\.)*)"')
-_MD_INT = re.compile(r'(\w+)=(-?\d+)(?![\w."])')
-
-
-def metadata(line):
-    i = line.find("metadata={")
-    if i < 0:
-        return {}
-    d, j = 0, i + len("metadata=")
-    for k in range(j, len(line)):
-        if line[k] == "{":
-            d += 1
-        elif line[k] == "}":
-            d -= 1
-            if d == 0:
-                body = line[j + 1:k]
-                break
-    else:
-        body = line[j + 1:]
-    out = dict(_MD_STR.findall(body))
-    for a, b in _MD_INT.findall(body):
-        out.setdefault(a, int(b))
+    out: dict[str, str] = {}
+    for m in re.finditer(r'^(#loc\w*)\s*=\s*loc\((.*)\)\s*$', text, re.M):
+        alias, body = m.group(1), m.group(2)
+        q = re.search(r'"((?:[^"\\]|\\.)*)"', body)
+        if q and not body.startswith("callsite"):
+            out[alias] = q.group(1)
     return out
 
 
-def frame_tables(text):
-    """The module-level FileNames / FunctionNames / FileLocations / StackFrames tables.
+def walk_stablehlo(lowered) -> Iterator[Ins]:
+    """Every StableHLO operation, with the name stack its location points at.
 
-    jaxlib 0.10.2 HLO metadata has NO inline `source_file=`/`source_line=` unless you compile with
-    `--xla_hlo_print_inline_stack_frames=true`; by default it carries `stack_frame_id=N` indexing
-    these tables, and every frame has a `parent_frame_id`, i.e. the FULL python stack is there."""
-    files, funcs, locs, frames, sect = {}, {}, {}, {}, None
-    for ln in text.splitlines():
-        t = ln.strip()
-        if t in ("FileNames", "FunctionNames", "FileLocations", "StackFrames"):
-            sect = t; continue
-        if not t or sect is None:
+    TWO REASONS THIS IS NOT A ONE-LINE REGEX, both measured on jax 0.10.2:
+
+    1. The accessor. ``Lowered.as_text()`` defaults to ``debug_info=False`` and prints no locations
+       at all; ``compiler_ir('stablehlo')`` drops them too. Both return zero occurrences of a scope
+       that is demonstrably present. :func:`scopex.stablehlo_text` passes ``debug_info=True``.
+    2. The indirection. Operations carry ``loc(#loc17)``, NOT ``loc("name")``. An earlier version of
+       this function matched only the inline form and therefore yielded **1 unit on 16 of 21 real
+       programs**, including modules of 3,214 and 21,000 operations -- the level looked empty rather
+       than broken, which is the worst way for an instrument to fail.
+    """
+    from .flags import stablehlo_text
+    text = stablehlo_text(lowered)
+    alias = _loc_aliases(text)
+    op = re.compile(
+        r'^\s*(?:%[\w#]+(?:\s*,\s*%[\w#]+)*\s*=\s*)?'          # optional result list
+        r'(?P<op>[a-z_][\w.]*\.[\w.]+|return|func\.func)'         # dialect.op
+        r'.*?\bloc\((?P<loc>#\w+|"(?:[^"\\]|\\.)*")\)')        # its location
+    for line in text.splitlines():
+        m = op.match(line)
+        if not m:
             continue
-        if sect in ("FileNames", "FunctionNames"):
-            m = re.match(r'^(\d+)\s+"(.*)"$', t)
-            if m:
-                (files if sect == "FileNames" else funcs)[int(m.group(1))] = m.group(2)
-            else:
-                sect = None
-        else:
-            m = re.match(r"^(\d+)\s+\{(.*)\}$", t)
-            if m:
-                d = {k: int(v) for k, v in re.findall(r"(\w+)=(-?\d+)", m.group(2))}
-                (locs if sect == "FileLocations" else frames)[int(m.group(1))] = d
-            else:
-                sect = None
-    return files, funcs, locs, frames
-
-
-_JAXTREE = ("/site-packages/jax/", "/jax/_src/")
-
-
-def hlo_sites(fid, tab, maxdepth=64):
-    """stack_frame_id -> ('file:line', function). Innermost frame outside the jax tree -- the same
-    filter `source_info_util.user_frames` applies at the jaxpr level, so the two levels join."""
-    files, funcs, locs, frames = tab
-    seen = set()
-    while fid and fid in frames and fid not in seen and len(seen) < maxdepth:
-        seen.add(fid)
-        fr = frames[fid]
-        lo = locs.get(fr.get("file_location_id", 0), {})
-        f = files.get(lo.get("file_name_id", 0), "")
-        if f and not any(s in f for s in _JAXTREE):
-            return (f"{f.rsplit('/', 1)[-1]}:{lo.get('line', -1)}",
-                    funcs.get(lo.get("function_name_id", 0), "?"))
-        nxt = fr.get("parent_frame_id", 0)
-        if nxt == fid:
-            break
-        fid = nxt
-    return "?", "?"
-
+        raw = m.group("loc")
+        name = alias.get(raw, "") if raw.startswith("#") else raw.strip('"')
+        yield Ins("stablehlo", m.group("op").split(".")[-1], name,
+                  site="<see-jaxpr-level>")

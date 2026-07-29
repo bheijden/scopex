@@ -50,7 +50,7 @@ MIN_RATIO = 1000.0
 MIN_VS_CONTROL = 10.0
 
 _CHILD = r'''
-import json, os, sys, time
+import json, os, resource, sys, time
 os.environ.setdefault("JAX_ENABLE_X64", "1")
 import jax
 jax.config.update("jax_enable_x64", True)
@@ -70,12 +70,26 @@ try:
     n_instr = len(comp.runtime_executable().hlo_modules()[0].to_string().splitlines())
 except Exception:
     n_instr = -1
+# COMPILE-TIME MEMORY, not just seconds. Several pathologies spend their cost in host RSS or in
+# device temporaries rather than in wall clock -- constant folding materialising a literal, an
+# interval-packing search, a rematerialization threshold. Without these the harness scores every
+# such case "no (below floor)" and its real artifact has to live in prose.
+peak_rss_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
+try:
+    ma = comp.memory_analysis()
+    mem = {"temp_bytes": getattr(ma, "temp_size_in_bytes", None),
+           "output_bytes": getattr(ma, "output_size_in_bytes", None),
+           "arg_bytes": getattr(ma, "argument_size_in_bytes", None),
+           "alias_bytes": getattr(ma, "alias_size_in_bytes", None)}
+except Exception:
+    mem = {}
 print("__RESULT__" + json.dumps({
     "name": name, "note": note,
     "platform": jax.devices()[0].platform,
     "device": str(jax.devices()[0]),
     "lower_s": t1 - t0, "compile_s": t2 - t1, "first_run_s": t3 - t2,
-    "runtime_s": (t4 - t3) / 3, "hlo_lines": n_instr}))
+    "runtime_s": (t4 - t3) / 3, "hlo_lines": n_instr,
+    "peak_rss_mb": peak_rss_mb, "memory": mem}))
 '''
 
 
@@ -84,8 +98,19 @@ def _run_one(path: pathlib.Path, name: str, timeout: int = 900, platform: str = 
     env.pop("JAX_COMPILATION_CACHE_DIR", None)
     if platform:
         env["JAX_PLATFORMS"] = platform
-    p = subprocess.run([sys.executable, "-c", _CHILD, str(path), name],
-                       capture_output=True, text=True, timeout=timeout, env=env)
+    # A timeout is DATA, not a crash. `subprocess.run` raises `TimeoutExpired`, and letting that
+    # propagate aborts the whole sweep and discards every row already measured -- which is exactly
+    # what happened on `stackcond_n30000`, a case whose compile legitimately runs past 300 s. One
+    # unbounded case must not cost the other hundred their results.
+    try:
+        p = subprocess.run([sys.executable, "-c", _CHILD, str(path), name],
+                           capture_output=True, text=True, timeout=timeout, env=env)
+    except subprocess.TimeoutExpired as e:
+        out = (e.stdout or b"").decode(errors="replace") if isinstance(e.stdout, bytes) else (e.stdout or "")
+        err = (e.stderr or b"").decode(errors="replace") if isinstance(e.stderr, bytes) else (e.stderr or "")
+        return {"name": name, "timeout_s": timeout,
+                "error": f"TIMEOUT after {timeout} s (still compiling)\n" + (err or out)[-600:],
+                "requested_platform": platform or "<default>"}
     for line in p.stdout.splitlines():
         if line.startswith("__RESULT__"):
             r = json.loads(line[len("__RESULT__"):])
@@ -163,6 +188,10 @@ def classify(r: dict, control: dict | None) -> str:
     scored jax#32704 at ncycles=6 as "no" while it was compiling 9.7x slower than its own control,
     purely because a 200k-element gather takes 55 ms to run.
     """
+    if "timeout_s" in r:
+        # Distinguished from ERROR on purpose: a case that never finishes is the strongest possible
+        # reproduction, not a broken file. `size_cliff_bisection_unroll` exists for this outcome.
+        return f"TIMEOUT (>{r['timeout_s']}s, still compiling)"
     if "error" in r:
         return "ERROR"
     if r["compile_s"] < MIN_COMPILE_S:
@@ -211,7 +240,8 @@ def main() -> int:
                 r = _run_one(f, key, a.timeout, plat)
                 r["wall_s"] = time.perf_counter() - t0
                 runs[n].append(r)
-                tag = "ERR" if "error" in r else f"{r['compile_s']:8.2f}s compile"
+                tag = ("TIMEOUT" if "timeout_s" in r else
+                       "ERR" if "error" in r else f"{r['compile_s']:8.2f}s compile")
                 warn = "  [XLA: very slow compile]" if r.get("xla_slow_warning") else ""
                 print(f"  {r.get('platform', plat or '?'):5s} round {rd + 1}  "
                       f"{n:36s} {tag}{warn}")
@@ -220,12 +250,19 @@ def main() -> int:
         for n in names:
             ok = [r for r in runs[n] if "error" not in r]
             if not ok:
-                out[f"{plat or 'default'}/{n}"] = {
-                    "platform": plat or "default",
-                    "error": runs[n][0].get("error", "")[:800]}
+                first = runs[n][0]
+                row = {"platform": plat or "default", "error": first.get("error", "")[:800]}
+                # A timeout is a verdict, not a missing measurement: carry it into the table.
+                if "timeout_s" in first:
+                    row["timeout_s"] = first["timeout_s"]
+                    row["reproduced"] = classify(first, None)
+                out[f"{plat or 'default'}/{n}"] = row
                 continue
             agg[n] = {k: statistics.median(r[k] for r in ok)
                       for k in ("compile_s", "runtime_s", "lower_s")}
+            agg[n]["peak_rss_mb"] = statistics.median(
+                r.get("peak_rss_mb", 0.0) for r in ok)
+            agg[n]["memory"] = ok[0].get("memory", {})
             agg[n]["platform"] = ok[0].get("platform", plat or "?")
             agg[n]["xla_slow_warning"] = any(r.get("xla_slow_warning") for r in ok)
 
@@ -236,7 +273,8 @@ def main() -> int:
         print("-" * len(hdr))
         for n in names:
             if n not in agg:
-                print(f"{n:36s}     ERROR")
+                row = out.get(f"{plat or 'default'}/{n}", {})
+                print(f"{n:36s}     " + (row.get("reproduced") or "ERROR"))
                 continue
             r = agg[n]
             ctrl = agg.get(f"{n}_control")

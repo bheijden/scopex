@@ -275,3 +275,47 @@ def test_pass_timings_parses_the_real_log_format():
     assert r["n_lines"] > 100, "vmodule produced no log -- TF_CPP_MIN_LOG_LEVEL not set?"
     assert len(r["passes"]) > 10, f"parsed only {len(r['passes'])}: {r['stderr_tail'][:200]}"
     assert not any(k.startswith("I0") for k in r["passes"]), "parsed a glog timestamp as a pass"
+
+
+def test_walk_stablehlo_resolves_indirect_locations():
+    """jax 0.10.2 emits `loc(#loc17)` on operations and defines the name separately. A regex that
+    only matched the inline `loc("name")` form yielded 1 unit on 16 of 21 real programs -- the level
+    looked EMPTY rather than broken, which is the worst way for an instrument to fail."""
+    def f(x):
+        with jax.named_scope("mylib:lib.solve"):
+            return jnp.sum(jnp.tanh(x) * jnp.sin(x))
+
+    low = jax.jit(f).lower(X)
+    units = list(scopex.walk_stablehlo(low))
+    assert len(units) > 3, f"only {len(units)} units -- indirect locations not resolved"
+    assert any(u.marks for u in units), "no unit carried a readable mark"
+    assert any("tanh" in u.path for u in units)
+
+
+def test_pass_timings_does_not_drop_the_slowest_pass():
+    """XLA switches time units on magnitude, so a parser that knows only us/ms/s drops exactly the
+    pass it most needs to report. Measured: 1 of 640 lines used `min`, it was the autotuner at 98.8%
+    of a 72.5 s compile, and dropping it left pass_timings topped by `remat-pipeline: 0.1196` -- the
+    OPPOSITE of the truth, with no warning."""
+    from scopex.flags import _PASS_LINE, _UNIT
+
+    def secs(line):
+        m = _PASS_LINE.search(line)
+        assert m, f"did not match: {line}"
+        return (int(m.group("us")) * 1e-6 if m.group("us")
+                else float(m.group("val")) * _UNIT[m.group("unit")])
+
+    assert secs("HLO pass: a time: 24 us (24 us) (cumulative: 24 us)") == pytest.approx(2.4e-5)
+    # the real line from the conv-autotuning case
+    assert secs("HLO pass: autotuner time: 1.19 min (71651421 us) (cumulative: 1.2 min)") \
+        == pytest.approx(71.65, rel=1e-3)
+    assert {"min", "h", "ns"} <= set(_UNIT), "large/small units missing -> slow passes get dropped"
+
+
+def test_pass_timings_reports_unknown_units():
+    """If a unit is still unrecognised, that must be loud, not a silently smaller total."""
+    r = scopex.pass_timings(
+        "import jax, jax.numpy as jnp\n"
+        "jax.jit(lambda x: jnp.sum(jnp.tanh(x))).lower(jnp.ones((8, 8))).compile()\n")
+    assert "unknown_units" in r
+    assert r["unknown_units"] == [], f"unconverted units seen: {r['unknown_units']}"
