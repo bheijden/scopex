@@ -79,6 +79,7 @@
   <a href="#recipes">§7 Recipes</a>
   <a href="#dump">§8 Reading a dump</a>
   <a href="#limits">§9 What it will not tell you</a>
+  <a href="DEFICITS.md" style="opacity:.75">→ DEFICITS.md</a>
 </nav>
 <main><div class="doc">
 
@@ -88,7 +89,8 @@
 The instrumented one needs fifteen lines in a framework and answers one more question: whose code
 is this?</p>
 <div class="meta">scopex 0.1.0 · jax 0.10.2 · every number below is measured and reproducible:
-<code>python examples/marked_framework.py</code> ·
+<code>python examples/marked_framework.py</code> · per-instrument limits:
+<a href="DEFICITS.md">DEFICITS.md</a> ·
 <a href="https://github.com/bheijden/scopex">github.com/bheijden/scopex</a></div>
 
 <h2 id="what"><span class="num">§0</span>What this answers, and in what order</h2>
@@ -194,14 +196,37 @@ import jax, sys; sys.path.insert(0, "examples")
 from marked_framework import program, X0
 jax.jit(program).lower(X0).compile()
 """</span>)
+r[<span class="s">"coverage"</span>] <span class="c"># READ THIS FIRST. fidelity 1.0012 · coverage 2.24% · verdict ELSEWHERE</span>
 r[<span class="s">"passes"</span>]   <span class="c"># {'simplification': 0.00117, 'layout-assignment': 0.00065, ...} — 93 passes</span>
-r[<span class="s">"n_lines"</span>]  <span class="c"># 832 — if this is ~0, the log never happened</span></code></pre>
+r[<span class="s">"n_lines"</span>]  <span class="c"># 832 — if this is ~0, the log never happened</span>
+r[<span class="s">"raw"</span>]      <span class="c"># the log itself: .grep(" min "), .verify() — show your working</span></code></pre>
+<div class="box why"><span class="lab">read <code>coverage</code> before <code>passes</code></span>
+It carries <strong>two ratios that are never merged</strong>. <code>fidelity</code> is scopex's
+pass-second sum against <em>XLA's own</em> <code>(cumulative:, max:, #called:)</code> printed on every
+pass line — a <strong>self-check</strong> whose correct value is ~1.000 on every program, backend and
+machine, measured <code>[0.9978, 1.0015]</code> across twenty arms. <code>coverage</code> is the leaf
+pass seconds over <code>jax.monitoring</code>'s backend seconds <em>from the same child process</em> —
+a <strong>measurement</strong> with no correct value, measured 0.01%–99.75% across the corpus. A low
+<code>coverage</code> is a result about your compile; only <code>fidelity</code>,
+<code>lines_lost</code> and <code>biggest_pass_lost</code> ever mean the instrument failed.
+<strong>Branch on <code>coverage.checked</code></strong>: if a future XLA stops printing its own
+totals, the guard goes silent rather than loud and <code>broken</code> stays False.</div>
 <div class="box gotcha"><span class="lab">why a subprocess</span>
 <code>TF_CPP_VMODULE</code> is read by the C++ logging layer when the shared library loads — during
 <code>import jax</code>. Measured: set before the import, <strong>829 log lines</strong>; set after,
 <strong>0</strong>. There is no in-process route, so scopex spawns one for you.</div>
-<p>If the passes sum to a small fraction of <code>backend</code>, the time is in <strong>autotuning</strong>
-and no amount of source attribution will help. Change autotuning flags instead.</p>
+<p>If the passes sum to a small fraction of <code>backend</code>, the time is <strong>below the HLO
+pass pipeline</strong> — the emitter, LLVM, linking — and no amount of source attribution at the pass
+level will help. Go to <code>pass_timeline</code> (§8).</p>
+<div class="box gotcha"><span class="lab">on GPU, high coverage does not mean "an HLO pass was slow"</span>
+XLA registers the <strong>autotuner as a pass</strong>, so kernel-running time lands inside a pass
+timer. <code>convT64_dilate16</code> and <code>gemm_shapes_k16</code> are indistinguishable here — both
+~98% <code>autotuner</code>, both PASS-BOUND, both fidelity ~1.0 — and their causes are opposite: on
+the first, <strong>49.7%</strong> of the pass is cuDNN kernels executing on real 134 MB buffers; on the
+second, <strong>0.11%</strong> is kernel time and the seconds are spent <em>compiling</em> 456 Triton
+candidates. <strong>450× apart, identical in everything <code>pass_timings</code> reports.</strong>
+<code>from scopex.autotune import autotune_cost</code> splits them; the ablation
+<code>--xla_gpu_autotune_level=0</code> confirms it (52.22 s → 0.309 s, 169×).</div>
 
 <h3>3. Which lines?</h3>
 <pre><code>units = <span class="k">list</span>(scopex.walk(jax.make_jaxpr(program)(x0)))
@@ -383,8 +408,14 @@ report "no effect" without naming the backend.</div>
 scopex.regime(t)                      <span class="c"># heuristic label; says so</span>
 scopex.trace_profile(fn, *args)       <span class="c"># inside the TRACE stage: frames + your file:line</span>
 scopex.backend_split(fn, *args)       <span class="c"># inside the BACKEND stage: passes/emitter/llvm/codegen</span>
-scopex.pass_timings(src)              <span class="c"># {pass: seconds}, via subprocess</span>
+scopex.pass_timings(src)              <span class="c"># {pass: seconds} + coverage + raw, via subprocess</span>
 scopex.dump(path=None)                <span class="c"># context manager; XLA's own artifacts</span>
+
+<span class="c"># the checks — read one of these before believing the view above it</span>
+scopex.Coverage                       <span class="c"># .fidelity ~1.0 or the parse is broken; .checked; .coverage</span>
+scopex.pass_conservation(dump_dir)    <span class="c"># does pass_growth's curve conserve? evidence, not a bool</span>
+scopex.timeline_agreement(src)        <span class="c"># both clocks, ONE compile -> a validated pass_timeline</span>
+scopex.Raw / scopex.raw_step(step)    <span class="c"># the bytes a number came from, hashed as parsed</span>
 
 scopex.jaxpr_sharing(jaxpr)           <span class="c"># duplicate subexpressions: VALUE and SHAPE</span>
 scopex.walk(jaxpr)                    <span class="c"># -> Eqn, one per equation, nested included</span>
@@ -516,7 +547,20 @@ measures</em>: writing snapshots costs wall time that lands in the pass-pipeline
 case, +36% on a 729-file one), so shares from a dumped compile are internally consistent but their
 absolute seconds must not be compared against an undumped <code>record()</code>.</div>
 
-<h3>The timestamps are an instrument</h3>
+<h3>The timestamps are an instrument — and it is now a checked one</h3>
+<div class="box why"><span class="lab">why you can believe the tail</span>
+Every glog line carries a <strong><code>CLOCK_REALTIME</code> microsecond timestamp</strong>, and
+<code>st_mtime</code> is on the same clock. XLA writes each snapshot <em>inside</em> the pass's scoped
+timer, so <code>mtime(after_P)</code> must fall between that pass's START and END log lines — a
+falsifiable test of the <strong>alignment itself</strong>, not of a number derived from it. Measured:
+<strong>683/683 snapshots inside their own pass timer, 100.0%</strong>, across 12 compiles and 5
+programs including a 4.7×-overloaded machine. <code>scopex.timeline_agreement(src)</code> runs
+<strong>one</strong> subprocess with both clocks on and returns the checked timeline; plain
+<code>scopex.pass_timeline(d)</code> with no log returns the same intervals with
+<code>.verdict</code> reading <strong>UNVALIDATED</strong>, which is what it always was and now says
+so. The tail carries an <strong>error bound</strong> (worst observed mtime-vs-µs offset, 0.11–0.18 ms)
+and an SNR, not an adjective — and its emitter/LLVM/codegen split is <em>suppressed</em> when 223
+kernel modules compile concurrently, because those boundaries then order nothing.</div>
 <p>XLA writes each snapshot <em>as its pass completes</em>, so consecutive mtimes bound the pass
 between them — and the interval between the last HLO snapshot and the first <code>.ll</code> is
 everything XLA's pass timer cannot see. On <code>jax#32704</code> (chained 2-D fancy indexing, CPU)

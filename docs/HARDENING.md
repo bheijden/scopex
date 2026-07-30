@@ -12,6 +12,11 @@ tool, never by reading it. So the rule here is not "avoid regexes"; it is:
 > Every remaining pattern is paired with a *witness* — an independent, deliberately cruder count of
 > what the input visibly contains. Fewer results than the witness is a `ParseError`, not a result.
 
+This document is about the **parsers**. Its companion, [`DEFICITS.md`](DEFICITS.md), is about the
+**numbers they produce**: one section per instrument saying what validates it, where that validation
+stops working, what the instrument cannot see, and what it costs in compiles. Read this one before
+editing a pattern; read that one before trusting a result.
+
 ---
 
 ## 0. The three that shipped broken
@@ -151,13 +156,82 @@ sample** frozen as a module constant.
 
 | | |
 |---|---|
-| **parsers** | `pass_timing_lines`, `pass_pipeline_headers` |
-| **produced by** | `hlo_pass_pipeline.cc:176` (timings) and `:303` (pipeline headers) |
+| **parsers** | `pass_timing_lines`, `pass_pipeline_headers`, `pass_log_totals`, `pass_leaf_split` |
+| **produced by** | `hlo_pass_pipeline.cc:176` (timings, and the `(cumulative:/max:/#called:)` group), `:181` (pass announcements) and `:303` (pipeline headers) |
 | **why not native** | VLOG output has **no object model at all**, and no in-process route: `TF_CPP_VMODULE` is read by the C++ logging layer when the shared library loads, i.e. during `import jax`. Setting it afterwards produces exactly zero lines. Hence the subprocess in `pass_timings`. |
-| **if the format changes** | an **unknown unit now raises** rather than warn-and-drop. That is bug 3's fix and it is deliberately loud: the slowest pass is the one most likely to use an unexpected unit. |
-| **conformance** | `pass_timing_lines` (≥4, including the `min` line bug 3 dropped **and** the space-containing pass name from bug 4), `pass_pipeline_headers` (≥2) |
-| **semantic checks** | the `min` line must be present, correctly **scaled**, and must still rank first; a pass whose name contains spaces must survive; headers must retain module attribution. |
-| **still open, and documented as such** | XLA registers some **pipelines as passes**, so `HLO pass: simplification` is printed alongside the `constant_folding` that ran inside it and `sum(passes.values())` double-counts (measured coverage 186%). Only the **ranking** is safe; the total is an upper bound. `pass_pipeline_headers` at least lets you filter by module: measured 0.0082 s over all modules vs 0.0047 s for the program alone — 43% of the "total" was JAX warm-up modules. |
+| **if the format changes** | an **unknown unit now raises** rather than warn-and-drop, in *both* the timing field and the totals group. That is bug 3's fix and it is deliberately loud: the slowest pass is the one most likely to use an unexpected unit. |
+| **conformance** | `pass_timing_lines` (≥4, including the `min` line bug 3 dropped **and** the space-containing pass name from bug 4), `pass_pipeline_headers` (≥2), `pass_log_totals` (≥3), `pass_leaf_split` (≥8) |
+| **semantic checks** | the `min` line must be present, correctly **scaled**, and must still rank first; a pass whose name contains spaces must survive; headers must retain module attribution; XLA's own `#called`/`cumulative:`/`max:` must equal scopex's count/sum/maximum over the same verbatim log; `max: 1.19 min` must read as 71.4 s; the leaf/aggregate split must survive an **interleaved two-thread** log. |
+| **closed since** | the double-count. See §3.4a. |
+
+#### 3.4a XLA's own arithmetic, and the double-count
+
+Every `:176` line carries a group this package ignored for its whole life:
+
+```
+HLO pass: dce time: 4 us (4 us) (cumulative: 3.49 ms, max: 236 us, #called: 383)
+                                 ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^^^^
+```
+
+Measured on a trivial CPU compile: `#called` runs 1..384 with no gaps across three modules,
+`cumulative` ends at 3.5 ms against a parsed sum of 3.496 ms, `max` ends at 236 us against a parsed
+maximum of 236 us. These are **XLA's own running count, total and maximum over exactly the lines
+`pass_timing_lines` parses** — an independent answer to the same question, and `pass_log_totals`
+reads them. `Coverage.fidelity` is the ratio. Across **twenty** arms — five orders of magnitude of coverage, two platforms, compiles from 0.1 s to 76 s, and a re-run in which the backend denominator itself moved 0.78–1.08x — it spans `[0.9978, 1.0015]`.
+
+The count check is the only guard in this package that is entirely **unit-free**. The historical bug
+was a three-entry unit table, and a guard built on the same table shares its blind spot; `639 != 640`
+does not. Reconstructed on `switch_ident_1024` (`tests/test_coverage_guard.py`), the broken parser
+loses 1 line of 299, `fidelity` reads **0.0111**, `max:` says one pass took 72.6 s while the largest
+parsed is 0.253 s, and coverage collapses 96.4% → 1.07% — while the ranking it returns still looks
+entirely healthy, topped by a real pass at 0.2587 s.
+
+**The double-count is closed.** A nested pipeline announces itself at `:181`, opens at `:303`, and
+prints an aggregate `time:` line that is the sum of its children, so summing every line
+double-counts — measured 186% of the backend on `adconst_idx_2p22` and `dusfold_sum_200`.
+`pass_leaf_split` separates them **by order, never by name**: on GPU the order is inverted for the
+autotuner (pipeline opens *first*, then a real leaf pass of the same name), and a name rule deletes
+98.8% of a conv compile. `sum(leaves) + sum(aggregates) == sum(every line)` is asserted on every
+`pass_timings` call, which is what makes the split checkable rather than merely plausible.
+
+**The self-check can go silent, and that is now branchable.** All three of `fidelity`,
+`lines_lost` and `biggest_pass_lost` depend on XLA continuing to print that group. If a future XLA
+stops, `xla_pass_count` is `None`, all three return `None`, and **`Coverage.broken` returns False** —
+an unverified ranking that looks exactly like a verified one. `Coverage.checked` is False precisely
+then. Branch on it; the verdict string says "parse UNCHECKED" but prose cannot be branched on.
+
+**One live defect in that guard, found while pinning it and fixed.** `broken` computed its fidelity
+threshold as `max(FIDELITY_FLOOR, 1.0 - (tolerance or 0)*2)`. With `tolerance` absent that is
+`max(0.90, 1.0)` = **1.0**, so any fidelity below exactly 1.0 read as PARSE BROKEN — and measured
+fidelity is never exactly 1.0. Every healthy compile would have cried wolf on a `Coverage` built
+without that key. **A check that fires on healthy data gets ignored, and takes the real firing with
+it**; that is the same failure class as one that stays silent. The slack is now
+`max(1 - FIDELITY_FLOOR, tolerance*2)` and **symmetric**, because totalling *more* seconds than XLA's
+own running total over the same lines is equally a defect and was not being looked at.
+
+**And the order is only an order within one thread.** That identity is how the next defect was
+found: it refused to close on the `convT64_dilate16` fixture, leaving 19 pipelines open. XLA's GPU
+autotuner compiles candidates in parallel and glog interleaves **21 threads** into one stderr, so a
+stack machine reading top to bottom matches an announcement from one thread against a timing from
+another. The walk buckets by glog thread id first. XLA's `#called`/`cumulative` counters are
+unaffected — they stayed globally monotone across all 21 threads, which is exactly why the
+cross-check could catch this and is not itself suspect.
+
+### 3.4b Dump-file mtimes against the same log — `pass_timeline`
+
+| | |
+|---|---|
+| **parsers** | `glog_prefix`, `glog_lines` (both new; `timeline.py` previously duplicated the `:176`/`:181` patterns and now owns none) |
+| **produced by** | glog's line prefix — `I0729 21:33:04.123456  12345 hlo_pass_pipeline.cc:176]` — carrying a **`CLOCK_REALTIME` microsecond timestamp, a thread id, and the source line** |
+| **why it matters** | `st_mtime` is on the *same clock*. XLA writes each per-pass snapshot **inside** the pass's scoped timer (`hlo_pass_pipeline.cc:138-225`), so `mtime(after_P)` must fall between that pass's `:181` START line and its `:176` END line. That is a falsifiable per-snapshot test of the **alignment itself**, not of a number derived from it. |
+| **evidence** | **683/683 matched snapshots inside their own pass timer, 100.0%**, across 12 CPU compiles and 5 programs — including a 4.7x-overloaded machine, where the containment held while the boundary offset p50 degraded 4x and `span_ratio` widened from 1.22±0.004 to 1.36–1.83. The agreement statistic is itself a contention detector. |
+| **and on GPU** | one compile on an idle RTX 4090 Laptop: **317/317 matched, 100.0000% inside, 0 violations, 21 glog threads, 0 unmatched pipeline closes**, boundary offset p50 **0.0041 ms** / max 0.0138 ms, correlation 0.98, and the emitter/LLVM/codegen split **correctly suppressed** (10 interleaved kernel modules). This is the log shape the per-thread stacks were written for and it was previously untested. One program, not a sweep. |
+| **what that GPU run exposed** | the main module's leaf-pass sum was **0.0134 s against 4.4572 s for the whole log** — on GPU, ~99.7% of logged pass seconds belong to autotuner *candidate sub-modules*. The same phenomenon puts `Coverage` over 1.0. |
+| **second, independent check** | the module's leaf/aggregate split (recovered from start/end **depth**) is compared against `_parse.pass_leaf_split` (recovered from **textual** header matching). They disagreed by 2–3% on all 10 runs and caught a real bug: `after layout assignment` was classified a leaf because it ran zero passes, so "had no children" was the wrong criterion — "is itself a pipeline" is right. Exact agreement to 5 decimals after the fix. |
+| **the trap** | keying on **text** rather than on the **source line number**. `:176` and `:181` differ only by a colon. |
+| **the other trap** | `_TID` matches `^\w\d{4} [\d:.]+\s+(\d+) `. If glog's prefix changes, every line buckets into one thread and the per-thread stacks regress. On a multi-threaded log `unmatched_pipelines` goes non-zero; **on a single-threaded log the regression is invisible** and only the hand-written interleaved conformance sample would notice. |
+| **undocumented XLA fact, found in source and confirmed** | the dump guard is `pass_changed \|\| dump_regex != ".*"`. So `.+` dumps **every** matched pass while `.*` dumps only **changed** ones: 26 → 160 snapshots on one control. It reads backwards. |
+| **second artifact class** | `NNNN.<pass>.<step>.txt` from `DumpHloModuleDuringPassIfEnabled` has **no `before_` component** and its second field is a *pass*, not a pipeline. `copy-insertion` writes 3 per CPU compile. Treating them as pass boundaries invents three passes that never ran; folding them into the tail's error bound wrongly reported TOO SMALL TO TRUST on a tail resolvable to 1%. |
 
 ### 3.5 Dump filename grammars
 
@@ -197,7 +271,7 @@ sample** frozen as a module constant.
 ## 4. The two self-checks, and the split between them
 
 ```python
-scopex.conformance()   # 21 parsers vs frozen samples. NO jax, no compile. Belongs in CI.
+scopex.conformance()   # 28 parsers vs frozen samples. NO jax, no compile. Belongs in CI.
 scopex.selftest()      # a real marked compile, dumped. Run after any jax upgrade.
 ```
 
@@ -227,8 +301,15 @@ Two constraints on `selftest`, both load-bearing:
   no user frame at all, and the cross-level site join — the one check that catches a frame table
   resolving to the **wrong** line rather than to none — would compare two empty sets and pass.
 
-Current output on this environment: `conformance` ok, 21 parsers; `selftest` ok, `site_join 1.0`,
-19 HLO units / 19 instructions, 11 StableHLO units, 6 frame tables, `parent_offset 1`.
+Current output on this environment: `conformance` ok, **28 parsers**; `selftest` ok, `site_join 1.0`,
+11 StableHLO units, 22 pass steps, 22 timeline entries, `parent_offset 1`. Suite: **268 passed, 1
+skipped**.
+
+A third check now guards the *shape of the package* rather than the parsers:
+`tests/test_ship_calls.py` pins the export list literally (50 names), pins that every unpromoted
+instrument stays importable from its own module and out of the top level, pins that
+`scopex.pass_timeline` **is** `scopex.timeline.pass_timeline` so the unvalidated implementation
+cannot come back beside it, and pins that a SHIP-MARKED instrument is branchable in the data.
 
 ---
 
@@ -236,9 +317,28 @@ Current output on this environment: `conformance` ok, 21 parsers; `selftest` ok,
 
 Honesty section. None of these is guarded into correctness; they are guarded into **noticing**.
 
-* **`pass_timings` double-counts pipelines with their member passes.** Coverage is an upper bound and
-  can exceed 1.0 (measured 186%). Only the ranking is safe. This is a real remaining defect, not a
-  parser bug — the log genuinely prints both.
+* ~~**`pass_timings` double-counts pipelines with their member passes.**~~ **CLOSED** — see §3.4a.
+  `pass_leaf_split` separates the aggregate from its members by order-within-thread, `Coverage`
+  divides by the leaf sum, and the two halves are asserted to re-sum to XLA's own `cumulative:` on
+  every call. The naive figure is still reported as `Coverage.naive_coverage`, because it is what
+  every hand-rolled version of this computation produces and a reader with one needs to see why it
+  disagrees. Remaining honest limits: `coverage` **has now been observed above 1.0** —
+  `gemm_shapes_k16` read 1.0111 with fidelity 0.9996 and `split_ok` True, because the GPU autotuner
+  compiles 89 candidate sub-modules concurrently across 21 glog threads and concurrent seconds sum
+  past wall clock (`Coverage.over_unity` reports it; the real fix is a thread-aware denominator, not
+  a tolerance). And a `module=` filter narrows the numerator but **not** the denominator — `jax.monitoring` attaches no module name to
+  `backend_compile_duration`, so the backend seconds are always the whole child process.
+* ~~**Nothing cross-checks `pass_timeline`.**~~ **CLOSED** — see §3.4b. Snapshot mtimes are tested
+  for containment inside the pass timer the VLOG reports for that same pass, 683/683. The tail
+  carries an error bound taken from the worst observed offset rather than an adjective, and a
+  `.verdict` that reads UNVALIDATED when no log was supplied. Remaining limits: **CPU only, one
+  machine, one jaxlib** — untested on GPU, where the autotuner's 21-thread logs are the real test of
+  the per-thread stacks, and untested on any filesystem with coarse mtime granularity, where the tie
+  counter is the intended alarm and has never fired.
+* **`record` is still the unvalidated clock.** `jax.monitoring`'s stage numbers have only wall clock
+  as a second opinion. Two of the three clocks are now checked; this is the third. The pass log was
+  the easy one — XLA happened to print its own arithmetic next to the numbers scopex was
+  re-deriving.
 * **`custom_call_target` is not on `HloInstruction`**, so the target string still comes from printed
   form. It now runs only on a string already known to be a custom call, instead of matching the
   literal `custom_call_target=` inside a `backend_config` JSON blob or an embedded pre-fusion module.

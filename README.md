@@ -63,6 +63,12 @@ which its knob stops working. Blueprint §7 routes them.
 compiler text scopex reads, what prints it, what happens when that changes, and how the two
 self-checks (`scopex.conformance()`, `scopex.selftest()`) cover it.
 
+**[docs/DEFICITS.md](docs/DEFICITS.md)** is for anyone deciding whether to trust a number scopex just
+produced: one section per instrument saying what validates it, **where that validation stops
+working**, what the instrument structurally cannot see, and what it costs in extra compiles. It also
+carries the ship call for each — including the one thing that was measured, found 49–62% correct
+exactly where it would be used, and deliberately **not** built.
+
 **[docs/INVESTIGATIONS.md](docs/INVESTIGATIONS.md)** is the case record — 15 investigations, what each
 instrument did and did not show, and the routes that were tried and rejected with the evidence.
 

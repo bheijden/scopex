@@ -1,0 +1,713 @@
+{
+"after layout assignment": [
+"cpu"
+],
+"algorithm-checker": [
+"gpu"
+],
+"algsimp": [
+"cpu",
+"gpu"
+],
+"all-gather-bcast-reorder": [
+"gpu"
+],
+"all-gather-dynamic-slice-simplifier": [
+"gpu"
+],
+"all-gather-major-dimension-rewriter": [
+"gpu"
+],
+"all-gather-optimizer": [
+"gpu"
+],
+"all-gather-pad-ds-simplifier": [
+"gpu"
+],
+"all-gather-remove-degenerate-dims": [
+"gpu"
+],
+"all-gather-to-collective-permute-simplifier": [
+"gpu"
+],
+"all-reduce-contiguous": [
+"gpu"
+],
+"all-reduce-folder": [
+"gpu"
+],
+"all-reduce-promotion": [
+"cpu",
+"gpu"
+],
+"all-reduce-reassociate": [
+"gpu"
+],
+"all-reduce-simplifier": [
+"gpu"
+],
+"all-reduce-splitter": [
+"gpu"
+],
+"all_to_all_decomposer": [
+"cpu"
+],
+"apply-xla-transforms": [
+"cpu",
+"gpu"
+],
+"associative-scan-rewriter": [
+"cpu",
+"gpu"
+],
+"async-collective-annotator": [
+"gpu"
+],
+"async-collective-creator": [
+"gpu"
+],
+"async-collective-replacer": [
+"cpu"
+],
+"async-stream-attribute-wrapper": [
+"gpu"
+],
+"async-to-sync-converter": [
+"gpu"
+],
+"autotuner": [
+"gpu"
+],
+"batch-dot-simplification": [
+"cpu"
+],
+"batched_gather_scatter_normalizer": [
+"cpu",
+"gpu"
+],
+"batchnorm_expander": [
+"cpu",
+"gpu"
+],
+"bitcast_dtypes_expander": [
+"cpu",
+"gpu"
+],
+"block-scaling-rewriter": [
+"gpu"
+],
+"broadcast_canonicalizer": [
+"cpu",
+"gpu"
+],
+"call-inliner": [
+"cpu",
+"gpu"
+],
+"change-op-data-type": [
+"cpu"
+],
+"cholesky_expander": [
+"cpu",
+"gpu"
+],
+"collective-backend-assigner": [
+"gpu"
+],
+"collective-kernel-strategy-annotator": [
+"gpu"
+],
+"collective-permute-combiner": [
+"gpu"
+],
+"collective-pipeliner-forward": [
+"gpu"
+],
+"collective-pipelining-analyzer": [
+"gpu"
+],
+"collective-quantizer": [
+"gpu"
+],
+"collectives-schedule-linearizer": [
+"gpu"
+],
+"comparison-expander": [
+"cpu",
+"gpu"
+],
+"composite-rewriter": [
+"gpu"
+],
+"computation-deduplicator": [
+"gpu"
+],
+"conditional-canonicalizer": [
+"cpu",
+"gpu"
+],
+"conditional-to-select": [
+"cpu"
+],
+"constant_folding": [
+"cpu",
+"gpu"
+],
+"control-dep-rewriter": [
+"cpu"
+],
+"conv-padding-legalization": [
+"gpu"
+],
+"conv-rewriter": [
+"gpu"
+],
+"convert-memory-placement-to-internal-annotations": [
+"gpu"
+],
+"convert-mover": [
+"gpu"
+],
+"convert_triton_gemm_config": [
+"gpu"
+],
+"convolution-canonicalization": [
+"cpu"
+],
+"convolution-group-converter": [
+"cpu"
+],
+"convolution-pred-expander": [
+"gpu"
+],
+"convolution_4d_expander": [
+"gpu"
+],
+"copy-insertion": [
+"cpu",
+"gpu"
+],
+"copy_fusion": [
+"gpu"
+],
+"cpu-all-reduce-combiner": [
+"cpu"
+],
+"cpu-parallel-task-assigner": [
+"cpu"
+],
+"cse": [
+"cpu",
+"gpu"
+],
+"cse_barrier_expander": [
+"cpu",
+"gpu"
+],
+"cublas-gemm-broadcast-folding-rewriter": [
+"gpu"
+],
+"cublas-gemm-rewriter": [
+"gpu"
+],
+"cublas-pad-for-gemms": [
+"gpu"
+],
+"cudnn-custom-call-converter": [
+"gpu"
+],
+"cudnn-fused-convolution-rewriter": [
+"gpu"
+],
+"cudnn_pad_for_convolutions": [
+"gpu"
+],
+"cudnn_simplify_padding": [
+"gpu"
+],
+"dce": [
+"cpu",
+"gpu"
+],
+"dot-algorithm-rewriter": [
+"gpu"
+],
+"dot-library-rewriter": [
+"cpu"
+],
+"dot-merger": [
+"gpu"
+],
+"dot-strength-reduction": [
+"gpu"
+],
+"dot_decomposer": [
+"cpu",
+"gpu"
+],
+"dot_dimension_merger": [
+"gpu"
+],
+"dot_dimension_sorter": [
+"gpu"
+],
+"dot_normalizer": [
+"gpu"
+],
+"dus-accumulator-zero-init-elimination": [
+"gpu"
+],
+"dynamic-dimension-simplifier": [
+"cpu",
+"gpu"
+],
+"dynamic-index-splitter": [
+"cpu",
+"gpu"
+],
+"dynamic-slice-annotator": [
+"gpu"
+],
+"dynamic_padder": [
+"cpu",
+"gpu"
+],
+"eigh_expander": [
+"cpu",
+"gpu"
+],
+"estimate-cub-scan-scratch-size": [
+"gpu"
+],
+"estimate-cub-sort-scratch-size": [
+"gpu"
+],
+"explicit-collectives-group-async-wrapper": [
+"gpu"
+],
+"explicit-stream-annotation-async-wrapper": [
+"gpu"
+],
+"flatten-call-graph": [
+"cpu",
+"gpu"
+],
+"float-normalization-bf16": [
+"cpu",
+"gpu"
+],
+"float-normalization-f4e2m1fn": [
+"cpu",
+"gpu"
+],
+"float-normalization-f8e3m4": [
+"cpu",
+"gpu"
+],
+"float-normalization-f8e4m3": [
+"cpu",
+"gpu"
+],
+"float-normalization-f8e4m3b11fnuz": [
+"cpu",
+"gpu"
+],
+"float-normalization-f8e4m3fn": [
+"cpu",
+"gpu"
+],
+"float-normalization-f8e4m3fnuz": [
+"cpu",
+"gpu"
+],
+"float-normalization-f8e5m2": [
+"cpu",
+"gpu"
+],
+"float-normalization-f8e5m2fnuz": [
+"cpu",
+"gpu"
+],
+"float-normalization-f8e8m0fnu": [
+"cpu",
+"gpu"
+],
+"float-normalization-s4": [
+"cpu",
+"gpu"
+],
+"float-normalization-u4": [
+"cpu",
+"gpu"
+],
+"float_normalization": [
+"gpu"
+],
+"fusion": [
+"cpu"
+],
+"fusion-block-level-rewriter": [
+"gpu"
+],
+"fusion-dispatch-pipeline": [
+"gpu"
+],
+"fusion-dynamic-memcpy-rewriter": [
+"gpu"
+],
+"fusion-wrapper": [
+"cpu",
+"gpu"
+],
+"gather_expander": [
+"cpu",
+"gpu"
+],
+"gather_simplifier": [
+"cpu",
+"gpu"
+],
+"gemm-fusion-swap-operands": [
+"gpu"
+],
+"gemv-rewriter": [
+"cpu",
+"gpu"
+],
+"gpu-all-gather-combiner": [
+"gpu"
+],
+"gpu-all-reduce-combiner": [
+"gpu"
+],
+"gpu-convert-async-collectives-to-sync": [
+"gpu"
+],
+"gpu-reduce-scatter-combiner": [
+"gpu"
+],
+"gpu_scatter_expander": [
+"gpu"
+],
+"hlo-verifier": [
+"gpu"
+],
+"hlo_host_device_type_call_wrapper": [
+"gpu"
+],
+"hoist-fused-bitcasts": [
+"gpu"
+],
+"host-memory-transfer-asyncifier": [
+"gpu"
+],
+"host-offload-legalize": [
+"gpu"
+],
+"host-offloader": [
+"gpu"
+],
+"host-offloading-prepare-convert-to-custom-call": [
+"gpu"
+],
+"host_compute_asyncifier": [
+"gpu"
+],
+"layout-assignment": [
+"cpu",
+"gpu"
+],
+"layout_normalization": [
+"gpu"
+],
+"literal-canonicalizer": [
+"cpu"
+],
+"logistic-expander": [
+"cpu",
+"gpu"
+],
+"loop-schedule-linearizer": [
+"gpu"
+],
+"map-inline": [
+"cpu"
+],
+"move_copy_to_users": [
+"gpu"
+],
+"multi_output_fusion": [
+"gpu"
+],
+"operand_converter": [
+"gpu"
+],
+"operand_upcaster": [
+"cpu",
+"gpu"
+],
+"optimize_input_output_buffer_alias": [
+"cpu",
+"gpu"
+],
+"permutation_sort_simplifier": [
+"gpu"
+],
+"post_scatter_expansion_simplification": [
+"cpu"
+],
+"priority-fusion": [
+"gpu"
+],
+"propagate-call-metadata": [
+"cpu",
+"gpu"
+],
+"qr_expander": [
+"cpu",
+"gpu"
+],
+"ragged-all-to-all-canonicalizer": [
+"gpu"
+],
+"ragged_dot_rewriter": [
+"gpu"
+],
+"reduce-decomposer": [
+"cpu",
+"gpu"
+],
+"reduce-scatter-creator": [
+"gpu"
+],
+"reduce-scatter-reassociate": [
+"gpu"
+],
+"reduce-window-resizer": [
+"cpu",
+"gpu"
+],
+"reduce-window-rewriter": [
+"cpu",
+"gpu"
+],
+"reduction-degenerate-dim-remover": [
+"gpu"
+],
+"reduction-dimension-grouper": [
+"gpu"
+],
+"reduction-layout-normalizer": [
+"gpu"
+],
+"reduction-splitter": [
+"gpu"
+],
+"remat-pipeline": [
+"gpu"
+],
+"rematerialization": [
+"gpu"
+],
+"remove-no-op-reduce-precision-algebraic-simplifier": [
+"gpu"
+],
+"rename-instructions": [
+"gpu"
+],
+"rename_fusions": [
+"gpu"
+],
+"reshape-decomposer": [
+"cpu",
+"gpu"
+],
+"reshape-mover": [
+"cpu",
+"gpu"
+],
+"reshape_mover_after_conv_canonicalization": [
+"gpu"
+],
+"result_caster": [
+"cpu",
+"gpu"
+],
+"rng-bit-generator-expander": [
+"cpu",
+"gpu"
+],
+"rng-expander": [
+"cpu",
+"gpu"
+],
+"sanitize-constant-names": [
+"gpu"
+],
+"scaled-dot-rewriter": [
+"gpu"
+],
+"scan-rewriter": [
+"gpu"
+],
+"scan_expander": [
+"cpu",
+"gpu"
+],
+"scatter-slice-simplifier": [
+"gpu"
+],
+"scatter_expander": [
+"cpu",
+"gpu"
+],
+"scatter_simplifier": [
+"cpu",
+"gpu"
+],
+"select_and_scatter_expander": [
+"cpu",
+"gpu"
+],
+"shape-canonicalizer": [
+"cpu"
+],
+"sharding-remover": [
+"cpu",
+"gpu"
+],
+"shardy-xla": [
+"cpu",
+"gpu"
+],
+"simplification": [
+"cpu",
+"gpu"
+],
+"simplification after layout assignment": [
+"cpu"
+],
+"simplification-2": [
+"gpu"
+],
+"simplify-conditional": [
+"cpu",
+"gpu"
+],
+"simplify-fp-conversions": [
+"gpu"
+],
+"simplify-sorts": [
+"cpu",
+"gpu"
+],
+"simplify-while-loops": [
+"cpu",
+"gpu"
+],
+"simplify_after_conv_canonicalization": [
+"gpu"
+],
+"slice-sinker": [
+"gpu"
+],
+"small-while-loop-hoisting": [
+"cpu"
+],
+"sort-iota-fusion": [
+"gpu"
+],
+"sort-rewriter": [
+"gpu"
+],
+"splitk-rewriter": [
+"gpu"
+],
+"spmd-partitioning": [
+"cpu"
+],
+"stable-sort-expander": [
+"gpu"
+],
+"stochastic_convert_decomposer": [
+"cpu",
+"gpu"
+],
+"stream-attribute-annotator": [
+"gpu"
+],
+"strip-memory-placement-annotations": [
+"cpu"
+],
+"sub-byte-collective-normalization": [
+"gpu"
+],
+"sub-byte-size-setter": [
+"cpu",
+"gpu"
+],
+"topk-decomposer": [
+"cpu",
+"gpu"
+],
+"topk-rewriter": [
+"cpu",
+"gpu"
+],
+"topk-specializer": [
+"gpu"
+],
+"topk-splitter": [
+"gpu"
+],
+"transpose-folding": [
+"cpu",
+"gpu"
+],
+"tree-reduction-rewriter": [
+"gpu"
+],
+"tree_reduction_rewriter": [
+"cpu"
+],
+"triangular-solve-rewriter": [
+"gpu"
+],
+"triangular_solve_expander": [
+"cpu"
+],
+"triton-gemm-rewriter": [
+"gpu"
+],
+"triton-softmax-rewriter": [
+"gpu"
+],
+"tuple-simplifier": [
+"cpu",
+"gpu"
+],
+"variadic-op-splitter": [
+"gpu"
+],
+"while-loop-all-reduce-code-motion": [
+"gpu"
+],
+"while-loop-constant-sinking": [
+"cpu",
+"gpu"
+],
+"while-loop-invariant-code-motion": [
+"cpu"
+],
+"while-loop-trip-count-annotator": [
+"cpu",
+"gpu"
+],
+"windowed-einsum-handler": [
+"gpu"
+],
+"zero_sized_hlo_elimination": [
+"cpu",
+"gpu"
+]
+}

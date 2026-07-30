@@ -62,8 +62,30 @@ class Timings(dict):
     def unaccounted(self) -> float:
         """Wall time minus the three stages. Large values mean the time is somewhere JAX does not
         instrument -- dispatch, host transfer, your own code, or (see
-        :meth:`trace_looks_blind`) tracing that JAX declined to time."""
+        :meth:`trace_looks_blind`) tracing that JAX declined to time.
+
+        THIS IS NOT THE SAME NUMBER AS ``scopex.pass_timings``' COVERAGE, and treating them as one
+        is a mistake worth naming here because it is easy and it is expensive. They have different
+        parents and different normal values:
+
+            unaccounted   = wall - (trace + lower + backend)   -- OUTSIDE the compiler entirely.
+                            Typically a few percent. A large value is unusual and worth chasing.
+            1 - coverage  = the part of ``backend`` that is not in HLO passes -- INSIDE the backend
+                            compiler, in the emitter, LLVM, linking or autotuning. Typically most
+                            of it. Measured on a trivial CPU compile (jax 0.10.2, tanh*sin over a
+                            256x256 array): backend 0.102 s, HLO passes 0.0038 s, so 96% of the
+                            backend was outside the passes with nothing whatsoever wrong.
+
+        So a small ``unaccounted`` and a tiny ``coverage`` are the NORMAL reading, together. Neither
+        one is evidence of a broken instrument; ``Coverage.fidelity`` is the number that is.
+        """
         return self.get("wall", 0.0) - self.total
+
+    @property
+    def backend_share(self) -> float:
+        """``backend`` as a fraction of wall. The number that decides whether to go to
+        :func:`scopex.pass_timings` at all."""
+        return self.get("backend", 0.0) / max(1e-9, self.get("wall", 0.0))
 
     @property
     def trace_looks_blind(self) -> bool:
@@ -104,7 +126,8 @@ class Timings(dict):
             v = self.get(k, 0.0)
             rows.append(f"{k:10s} {v:9.3f} {100 * v / max(1e-9, w):6.1f}%")
         rows.append(f"{'unaccounted':10s} {self.unaccounted:9.3f} "
-                    f"{100 * self.unaccounted / max(1e-9, w):6.1f}%")
+                    f"{100 * self.unaccounted / max(1e-9, w):6.1f}%   "
+                    f"= wall - the three stages, i.e. OUTSIDE the compiler")
         rows.append(f"{'WALL':10s} {w:9.3f}")
         if self.trace_looks_blind:
             rows.append(
@@ -113,13 +136,26 @@ class Timings(dict):
                 "core.trace_state_clean(), so a TOP-LEVEL vmap/grad over a jitted callee makes\n"
                 "the metric silently zero while tracing happens (measured: 2.651 s of 2.711 s).\n"
                 "  scopex.trace_profile(fn, *args)   hooks CPython frames, so it sees it anyway")
+        if self.unaccounted > 0.25 * w and w > 0.05 and not self.trace_looks_blind:
+            rows.append(
+                f"\n{100 * self.unaccounted / w:.0f}% of the wall is outside all three stages."
+                " That is NOT the usual\n"
+                "reading, and it is NOT the same thing as low pass coverage -- coverage lives\n"
+                "INSIDE `backend` and is normally small. Look for work in your own code between\n"
+                "the lower and the compile, host transfers, or a device that was busy.")
         b = self.get("backend", 0.0)
         if b / max(1e-9, w) > 0.5:
             rows.append(
                 "\nbackend dominates, and it is ONE number covering HLO passes, autotuning and\n"
                 "codegen -- which want opposite responses. To split it:\n"
                 "  scopex.pass_timings(src)   per-XLA-pass seconds (runs a SUBPROCESS: vmodule is\n"
-                "                             read at `import jax` and cannot be set after)\n"
+                "                             read at `import jax` and cannot be set after).\n"
+                f"     -> read its `coverage` FIRST. It says what fraction of the {b:.3f} s above\n"
+                "        the HLO passes actually explain, and on a healthy compile that fraction\n"
+                "        is often SMALL: 2.3% on a trivial CPU program, 0.01% on a CPU compile\n"
+                "        whose cost is in the loop-fusion emitter. That is a RESULT about your\n"
+                "        compile, not a broken instrument -- `coverage.fidelity` is the number\n"
+                "        that reports a broken instrument, and it reads ~1.000 either way.\n"
                 "  scopex.dump()              XLA's own artifacts (must precede the 1st compile;\n"
                 "                             setting XLA_FLAGS later is a SILENT no-op)")
         if self.get("cache_events"):

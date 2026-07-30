@@ -58,11 +58,12 @@ THE TWO GUARDS, both earned:
    raises), and this recipe still reports ``big_unit_lines`` so a re-regression is visible in the
    data rather than in a changelog.
 
-2. COVERAGE. ``sum(passes)`` divided by the wall compile is the one number that would have screamed.
-   On ``convT`` it is 0.006. Coverage is not in ``scopex.pass_timings``' return, so this
-   recipe makes
-   the child print its own wall time -- ``pass_timings`` merges child stdout into the log it parses,
-   so the line rides along and costs no second compile.
+2. COVERAGE. ``sum(passes)`` divided by the compile is the one number that would have screamed.
+   On ``convT`` it is 0.006. It IS in ``scopex.pass_timings``' return now, as ``result["coverage"]``,
+   measured against ``jax.monitoring``'s backend seconds from the same child rather than against a
+   wall clock -- and alongside a second ratio, ``fidelity``, that compares scopex's arithmetic to
+   XLA's own and is ~1.000 on every healthy parse regardless of where the time went. This recipe
+   still prints the child's wall time, which is a third opinion and free.
 
 AND A THIRD THING THE ONE-CALL FORM CANNOT DO: XLA logs a PIPELINE and the passes inside it with the
 same ``HLO pass: NAME time:`` line, so a naive total double-counts. Measured on a two-line CPU
@@ -160,8 +161,11 @@ def _profile(src: str, *, module: str | None = None, timeout: int = 3600) -> dic
     (:func:`scopex.vmodule_env`) and reads the log with the same parsers ``pass_timings`` uses --
     ``scopex._parse.pass_timing_lines`` and ``scopex._parse.pass_pipeline_headers``.
 
-    THIS IS THE API GAP, stated once: ``pass_timings`` should return
-    ``{"passes":..., "pipelines":..., "wall_compile_s":..., "coverage":...}``.
+    THE API GAP THIS PARAGRAPH USED TO DESCRIBE IS CLOSED. ``scopex.pass_timings`` now returns a
+    ``coverage`` field -- a :class:`scopex.Coverage` carrying the leaf/pipeline split, the backend
+    seconds from the SAME child process, and XLA's own ``#called``/``cumulative:``/``max:`` as a
+    cross-check on the parse. Prefer it. This recipe is kept because it also keeps the LOG, which is
+    what you want when you are asking a question the fields do not answer.
     """
     env = dict(os.environ)
     env.update(scopex.vmodule_env("hlo_pass_pipeline=1"))

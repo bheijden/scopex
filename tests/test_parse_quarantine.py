@@ -33,9 +33,11 @@ def test_conformance_passes_on_its_own_samples():
 def test_every_parser_is_exercised_by_conformance():
     """Every public parser in _parse must appear in PARSERS, or it is unguarded by construction."""
     covered = {p.name.split("[")[0] for p in _parse.PARSERS}
+    # Record types and helpers, not parsers. `PassSplit` is what `pass_leaf_split` RETURNS -- the
+    # parser itself is in PARSERS, and a NamedTuple is callable only because it is a class.
     infra = {"ParseError", "expect", "conformance", "Parser", "PassTime", "Frame", "hlo_site",
              "hlo_shape_and_opcode", "stablehlo_loc_aliases", "pass_pipeline_headers",
-             "MlirPassDump"}
+             "MlirPassDump", "PassSplit"}
     public = {n for n in _parse.__all__
               if callable(getattr(_parse, n)) and n not in infra}
     assert public <= covered, f"parsers with no conformance entry: {sorted(public - covered)}"
@@ -234,6 +236,11 @@ _ALLOWED = {
                              "divergence from XLA's printed spelling is warned about",
     ("fusion.py", "_TOKEN"): "a complete proto3-text-format tokenizer over a SELF-DESCRIBING "
                              "format -- an unknown field arrives as an unknown key, not as silence",
+    ("raw.py", "pat"): "compiles the CALLER's pattern -- Raw.grep and Raw.verify search the "
+                       "artifact for whatever the user asks for. scopex authors none of these, "
+                       "so there is no scopex parser here to quarantine",
+    ("raw.py", "n_wit"): "counts the caller-supplied witness in the caller-supplied text; same "
+                         "reason as ('raw.py', 'pat')",
 }
 
 
@@ -246,7 +253,9 @@ def test_no_other_module_parses_compiler_output_with_a_regex():
             continue
         for i, line in enumerate(f.read_text().splitlines(), 1):
             if re.search(r"\bre\.(compile|search|match|finditer|findall|sub|split)\b", line):
-                name = (re.findall(r"^(\w+)\s*=", line) or ["?"])[0]
+                # `^` and not `^\s*` once meant an INDENTED assignment could not be named,
+                # so a local could only be exempted by widening the rule to the whole file.
+                name = (re.findall(r"^\s*(\w+)\s*=", line) or ["?"])[0]
                 if (f.name, name) in _ALLOWED:
                     continue
                 if f.name == "fusion.py" and "re.match" in line:

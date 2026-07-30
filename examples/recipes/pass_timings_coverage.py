@@ -8,6 +8,25 @@ The instrument is `scopex.pass_timings`. The number this recipe insists on is CO
 answer or a distraction, and on this corpus it runs from ~1.0 (the pass IS the compile) down to
 0.0002 (the pass timer is looking in the wrong place entirely). Read it before the top entry.
 
+THIS RECIPE'S CENTRAL NUMBER IS NOW IN THE PACKAGE, AND BETTER MEASURED THAN HERE. `pass_timings`
+returns `result["coverage"]`, a `scopex.Coverage`. Three things it fixes about the version below,
+all of them visible in this file's own MEASURED blocks:
+
+  * ONE COMPILE, NOT TWO. `top_share` here divides a number from `pass_timings`' subprocess by a
+    number from `record`'s, so it straddles 1 on a drifting machine -- measured 0.88, 0.95, 1.04,
+    1.11, 1.52 for a quantity that cannot exceed 1 by that mechanism. `Coverage` takes both from
+    the same child, via a `jax.monitoring` listener armed by an import hook.
+  * THE DOUBLE-COUNT IS REMOVED. `sum_share` below reaches 2.23 and 3.07 because XLA prints a
+    nested pipeline's aggregate alongside its members. `Coverage.coverage` divides by the LEAF sum
+    (`dusfold_sum_200`: 186% naive -> 92.8%); the naive figure is kept as `naive_coverage`.
+  * A SEPARATE NUMBER SAYS "THE PARSE IS BROKEN". `Coverage.fidelity` compares scopex's sum to
+    XLA's own `cumulative:` and is ~1.000 on every healthy compile from 0.01% to 99.7% coverage.
+    Low coverage and a broken parse are different failures and this recipe could not tell them
+    apart. See `scopex/coverage.py` and `tests/test_coverage_guard.py`.
+
+What is kept here and is NOT in the package: the CASE/CONTROL pairing, which is what turns "this
+pass is 41% of the compile" into "this pass is 6,745x the control's".
+
 FOUND ON -- three arms, and the third is why coverage is in the return value:
 
   switch_ident_512 (jax#4453), GPU (RTX 4090 Laptop sm_8.9), jax 0.10.2, x64, contended device

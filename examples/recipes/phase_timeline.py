@@ -9,9 +9,32 @@ it to disk -- the MTIMES of its own dump files.
 
     scopex.dump(d, passes='.*')     XLA writes each snapshot AS ITS PASS COMPLETES
     scopex.pass_timeline(d)         consecutive mtimes -> per-pass seconds, PLUS the tail after the
-                                    last HLO snapshot: <llvm ir emission>, <llvm optimisation>,
-                                    <object codegen>. That tail is where this family lives and no
-                                    other scopex instrument reaches it.
+                                    last HLO snapshot -- emitter + LLVM + codegen. That tail is
+                                    where this family lives and no other scopex instrument reaches
+                                    it.
+
+    scopex.timeline_agreement(src)  THE SAME THING, CHECKED, in one subprocess. Prefer it.
+
+READ `.verdict` BEFORE ANY SECONDS HERE. As of the hardening round `pass_timeline` returns a
+`PassTimeline`, which is still a list of `(label, seconds)` -- so everything below still works --
+but it now carries the evidence that the mtime clock was or was not checked against XLA's own
+microsecond timestamps:
+
+    tl.verdict      USABLE / UNVALIDATED / ALIGNMENT FAILED / TOO SMALL TO TRUST
+    tl.tail         total_s, error_bound_s, snr, split_defined
+    tl.agreement    frac_inside_pass_timer (683/683 = 100.0% on the validation set), corr, ...
+
+WITHOUT A LOG IT SAYS UNVALIDATED, and that is the honest reading of what this recipe's own numbers
+were before: `dump()` gives no VLOG, so `scopex.pass_timeline(d)` alone has nothing to check the
+mtimes against. The tail below is a difference of two file timestamps 30 seconds apart against a
+per-boundary error of 0.18 ms, so it survives easily -- but that is an argument, and
+`timeline_agreement` is a measurement.
+
+THE THREE-WAY SPLIT IS NOW CONDITIONAL. `<llvm ir emission>` / `<llvm optimisation>` /
+`<object codegen>` appear in `tl.tail` only when there is exactly ONE kernel module and its phases
+do not interleave. With 223 kernel modules compiling concurrently the boundaries order nothing, so
+the instrument reports the tail TOTAL and suppresses the split rather than inventing one. The
+top-level entry is always `<below HLO: emitter + LLVM + codegen>`.
 
 FOUND ON: gatherchain2d (jax#32704), CPU (JAX_PLATFORMS=cpu, jax 0.10.2, x64). GPU IS FLAT -- the
 same code, same shapes, ncycles 4..9, does not grow at all on CUDA, so a "does not reproduce"
@@ -143,6 +166,13 @@ def where_did_the_backend_seconds_go(case_src, control_src=None, *, module=None,
             "phases": [(n, round(s, 4)) for n, s in
                        sorted(tl, key=lambda kv: -kv[1])[:top]],
             "tail_phases": {n: round(s, 4) for n, s in tl if n.startswith("<")},
+            # The instrument's own account of whether its clock was checked. `dump()` writes no
+            # VLOG, so this reads UNVALIDATED here by construction -- reported rather than hidden,
+            # because the alternative is a tail that looks exactly like a validated one.
+            "timeline_verdict": tl.verdict,
+            "tail_error_bound_s": tl.tail.get("error_bound_s"),
+            "tail_snr": tl.tail.get("snr"),
+            "tail_split_defined": tl.tail.get("split_defined"),
             "n_snapshots": len(steps),
             "instrs_first_last": (steps[0].instrs, steps[-1].instrs) if steps else (0, 0),
             "codegen": {k: v for k, v in scopex.codegen_size(d).items() if k != "files"},
@@ -223,6 +253,7 @@ if __name__ == "__main__":
               f"   {d['n_snapshots']} snaps   dump {d['dump_mb']} MB")
         print(f"          top phases {d['phases'][:4]}")
         print(f"          tail       {d['tail_phases']}")
+        print(f"          clock      {d['timeline_verdict'][:100]}")
         print(f"          codegen    {d['codegen']}")
     print(f"\n  WORST PHASE  {r['worst_phase']}")
     print(f"  size null    {r['size_is_a_null']}")

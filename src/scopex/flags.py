@@ -54,6 +54,7 @@ IR. When an accessor here looks empty, print the object another way before belie
 from __future__ import annotations
 
 import contextlib
+import json
 import os
 import shutil
 import subprocess
@@ -62,9 +63,10 @@ import tempfile
 import warnings
 
 from . import _parse
+from .coverage import Coverage
 
 __all__ = ["stablehlo_text", "hlo_text", "check_env", "dump_flags", "vmodule_env",
-           "backend_initialized", "dump", "pass_timings", "TRAPS"]
+           "backend_initialized", "dump", "pass_timings", "Coverage", "TRAPS"]
 
 # The pass-log pattern and its unit table now live in scopex._parse, next to a verbatim capture of
 # the lines XLA printed -- including the `min` line that broke them. Kept reachable under their old
@@ -139,15 +141,59 @@ def dump_flags(path: str, *, fusion: bool = True, passes: str | None = None,
 
     NOT included: ``--xla_dump_fusion_visualization``. Measured 2.08x compile time, 14.3 MB, and no
     timestamps -- the structured fusion dump supersedes it.
+
+    ``--xla_dump_hlo_pass_re`` IS EMITTED AT MOST ONCE, AS AN ALTERNATION, AND SOMETIMES NOT AT
+    ALL. Both of those are bug fixes for a silent empty dump, measured on jax 0.10.2, CPU::
+
+        --xla_dump_to=D                                            33 files
+        --xla_dump_to=D --xla_dump_hlo_pass_re=priority-fusion       0 files   <- the old default
+        --xla_dump_to=D --xla_dump_hlo_pass_re=.*                   92 files
+        --xla_dump_to=D --xla_dump_hlo_pass_re=priority-fusion \\
+                        --xla_dump_hlo_pass_re=.*                    0 files   <- fusion + passes
+
+    Two separate traps, and the first one fired on ``scopex.dump()`` WITH NO ARGUMENTS. A regex
+    that matches no pass on this backend does not merely skip the per-pass snapshots: it
+    suppresses the whole dump, including ``before_optimizations`` and the buffer assignment, which
+    have nothing to do with passes. ``priority-fusion`` is a GPU pass, so on CPU the default
+    produced an empty directory -- and every reader downstream (``pass_growth``, ``codegen_size``,
+    ``modules_in``) then reports nothing, which reads as "this compile did nothing" rather than as
+    "the flag was wrong". Giving the flag twice is the same failure by a different route.
+
+    So: the two requests are joined into one alternation, and ``fusion=True`` contributes nothing
+    on a backend that has no ``priority-fusion`` pass, where it could only ever subtract.
     """
     parts = [f"--xla_dump_to={path}"]
-    if fusion:
-        parts.append("--xla_dump_hlo_pass_re=priority-fusion")
+    res = []
+    if fusion and _has_priority_fusion():
+        res.append("priority-fusion")
     if passes:
-        parts.append(f"--xla_dump_hlo_pass_re={passes}")
+        res.append(passes)
+    if res:
+        parts.append("--xla_dump_hlo_pass_re=" + ("|".join(f"({r})" for r in res)
+                                                  if len(res) > 1 else res[0]))
     if emitter:
         parts.append(f"--xla_dump_emitter_re={_parse.EMITTER_DUMP_KIND}")
     return {"XLA_FLAGS": " ".join(parts)}
+
+
+def _has_priority_fusion() -> bool:
+    """Is ``priority-fusion`` a pass on the backend we are about to compile for?
+
+    It is a GPU pass. Asked before any backend exists (the normal case, since dumping must be
+    switched on first), this has to answer without initialising one -- so it reads the platform
+    jax has been TOLD to use rather than the platform it has built, and errs toward True, because
+    a spurious extra alternation branch costs nothing and a missing one costs the fusion log.
+    """
+    plat = os.environ.get("JAX_PLATFORMS", "").split(",")[0].strip().lower()
+    if plat in ("cpu", "tpu"):
+        return False
+    if backend_initialized():
+        try:
+            import jax
+            return jax.devices()[0].platform == "gpu"
+        except Exception:                                                    # pragma: no cover
+            return True
+    return True
 
 
 def check_env(*, warn: bool = True) -> list[str]:
@@ -226,13 +272,33 @@ def dump(path: str | None = None, *, passes: str | None = None, fusion: bool = T
         )
     if fusion:
         try:
-            import jax
-            if jax.devices()[0].platform != "gpu":
+            # NOT `jax.devices()`. THIS IS THE BUG THIS BLOCK USED TO BE.
+            #
+            # `jax.devices()` CONSTRUCTS THE BACKEND. This function's first statement raises if the
+            # backend is already up, because XLA reads its dump flags exactly once, when the
+            # backend is built -- and three lines later the warning check was building one, before
+            # XLA_FLAGS had been set. So `scopex.dump()` WITH DEFAULT ARGUMENTS returned an empty
+            # directory, on every platform, and every reader downstream (`pass_growth`,
+            # `codegen_size`, `modules_in`) reported nothing from it. Measured on jax 0.10.2:
+            #
+            #     dump(fusion=True)                 CPU  0 files      GPU  0 files
+            #     dump(fusion=True, passes=".*")    CPU  0 files      GPU  0 files
+            #     dump(fusion=False, passes=".*")   CPU 92 files
+            #     dump(fusion=False)                CPU 33 files
+            #
+            # An empty dump is the single failure mode this module exists to prevent, it was the
+            # DEFAULT, and it was caused by the check that warns about a lesser version of itself.
+            # The platform is therefore read from the environment, which costs nothing and builds
+            # nothing.
+            plat = os.environ.get("JAX_PLATFORMS", "").split(",")[0].strip().lower()
+            if plat and plat != "cuda" and plat != "gpu":
                 warnings.warn(
                     "fusion=True requests the priority-fusion decision log, which is a GPU pass. "
-                    f"On {jax.devices()[0].platform} it is simply absent -- measured 77 dump files "
-                    "on GPU incl. priority_fusion_dump.txt, 27 on CPU without it. Not an error, "
-                    "but do not read its absence as 'no fusion happened'.",
+                    f"On {plat} it is simply absent -- measured 77 dump files on GPU incl. "
+                    "priority_fusion_dump.txt. Not an error, and scopex now leaves "
+                    "--xla_dump_hlo_pass_re off entirely rather than passing a regex that matches "
+                    "no pass (which suppresses the WHOLE dump), but do not read its absence as "
+                    "'no fusion happened'.",
                     RuntimeWarning, stacklevel=3)
         except Exception:                                                    # pragma: no cover
             pass
@@ -271,8 +337,94 @@ def dump(path: str | None = None, *, passes: str | None = None, fusion: bool = T
 # `I0729` as the most expensive pass in the program.
 
 
+# ══════════════════════════════════════════════════════════════════════════════════════════════
+# THE DENOMINATOR, FROM THE SAME COMPILE
+#
+# `pass_timings` sums seconds. The only thing that makes that sum readable is the compile it is a
+# fraction OF, and the only source for that is `jax.monitoring`, which lives inside the child
+# process -- the one that has vmodule set. Taking the denominator from a SECOND compile in the
+# parent (which is what examples/recipes/pass_timings_coverage.py had to do) makes the ratio a
+# comparison of two different runs on a machine that drifts: measured 0.88, 1.04, 1.11, 0.95 and
+# 1.52 for quantities that cannot exceed 1 by that mechanism. One compile, both numbers.
+#
+# THE CHILD MUST NOT IMPORT JAX BEFORE THE USER'S SOURCE DOES. A preamble that says `import jax` to
+# get at `jax.monitoring` would freeze `JAX_PLATFORMS`, `JAX_ENABLE_X64` and every other env var
+# jax reads into its config AT IMPORT -- so any `module_src` that sets one before importing jax
+# (the documented way to do it) would silently stop working, and the failure would look like a
+# platform mismatch rather than like scopex. So the listener is registered by a hook on
+# `builtins.__import__` that fires the moment `jax` finishes initialising, whenever that is, and
+# never earlier. If it never fires the child reports `registered: false` and coverage comes back
+# None with a reason attached -- not a zero, and not a guess.
+_SENTINEL = "__SCOPEX_COVERAGE__"
+
+_CHILD = r'''
+import atexit as _a, builtins as _b, json as _j, sys as _s, time as _t
+_KEYS = {}
+for _stem, _lab in %(stages)r.items():
+    _KEYS["/jax/core/compile/" + _stem] = _lab
+    _KEYS["/jax/core/compile/" + _stem + "_secs"] = _lab
+_ACC = {"trace": 0.0, "lower": 0.0, "backend": 0.0}
+_N = {"trace": 0, "lower": 0, "backend": 0}
+_SEEN = set()
+_ST = {"registered": False, "t0": _t.perf_counter(), "err": ""}
+_REAL = _b.__import__
+
+def _cb(_name, _value, **_kw):
+    _SEEN.add(_name)
+    _lab = _KEYS.get(_name)
+    if _lab is not None:
+        _ACC[_lab] += float(_value)
+        _N[_lab] += 1
+
+def _arm():
+    if _ST["registered"]:
+        return
+    _jx = _s.modules.get("jax")
+    if _jx is None or getattr(getattr(_jx, "__spec__", None), "_initializing", False):
+        return
+    _mon = getattr(_jx, "monitoring", None)
+    if _mon is None:
+        return
+    try:
+        _mon.register_event_duration_secs_listener(_cb)
+    except Exception as _e:
+        _ST["err"] = repr(_e)
+        return
+    _ST["registered"] = True
+    _b.__import__ = _REAL
+
+def _hook(_name, *_a, **_kw):
+    _m = _REAL(_name, *_a, **_kw)
+    _arm()
+    return _m
+
+_b.__import__ = _hook
+
+def _emit():
+    _s.stderr.write("\n" + %(sentinel)r + _j.dumps({
+        "trace": _ACC["trace"], "lower": _ACC["lower"], "backend": _ACC["backend"],
+        "n": _N, "wall": _t.perf_counter() - _ST["t0"],
+        "registered": _ST["registered"], "err": _ST["err"], "seen": sorted(_SEEN)}) + "\n")
+    _s.stderr.flush()
+
+_a.register(_emit)
+with open(%(srcpath)r) as _f:
+    _code = _f.read()
+_s.argv = ["-c"]
+exec(compile(_code, %(srcpath)r, "exec"),
+     {"__name__": "__main__", "__file__": %(srcpath)r, "__builtins__": _b, "__doc__": None})
+'''
+
+
+def _child_source(src_path: str) -> str:
+    # One table for the metric names, imported late so this module stays jax-free at import.
+    from .monitor import _STAGES
+    return _CHILD % {"stages": dict(_STAGES), "sentinel": _SENTINEL, "srcpath": src_path}
+
+
 def pass_timings(module_src: str, *, python: str | None = None, timeout: int = 1800,
-                 vmodule: str = "hlo_pass_pipeline=1", module: str | None = None) -> dict:
+                 vmodule: str = "hlo_pass_pipeline=1", module: str | None = None,
+                 coverage: bool = True, log_dir: str | None = None) -> dict:
     """Per-XLA-pass timings, by running ``module_src`` in a FRESH SUBPROCESS with vmodule set.
 
     A subprocess is not laziness. ``TF_CPP_VMODULE`` is read by the C++ logging layer when the
@@ -283,20 +435,51 @@ def pass_timings(module_src: str, *, python: str | None = None, timeout: int = 1
     ``TF_CPP_MIN_LOG_LEVEL=0`` and ``TF_CPP_VMODULE``. Both are required: importing jax sets
     MIN_LOG_LEVEL=1, which suppresses every VLOG, so VMODULE alone is a silent no-op.
 
-    Returns ``{"passes": {name: seconds}, "n_lines": int, "modules": [...], "stderr_tail": str}``.
+    Returns ``{"passes": {name: seconds}, "coverage": Coverage, "n_lines": int, "modules": [...],
+    "stderr_tail": str}``.
+
+    READ ``coverage`` BEFORE ``passes``. It is a :class:`scopex.Coverage`, it prints, and it carries
+    the two ratios that decide whether the ranking above it means anything -- ``fidelity`` (scopex's
+    arithmetic against XLA's own, which must be ~1.0) and ``coverage`` (the passes as a fraction of
+    ``jax.monitoring``'s backend seconds for the SAME compile, which can be anything). A pass
+    ranking read without them is exactly the artifact this instrument shipped for the arm where it
+    reported the opposite of the truth. ``coverage=False`` restores the older, unchecked behaviour
+    for callers that must run ``module_src`` verbatim under ``python -c``.
 
     ``modules`` IS PART OF THE ANSWER, not decoration. One compile logs several modules -- JAX's own
     warm-up ``jit_convert_element_type`` and friends run through the same pipelines as the program
     you asked about -- and ``passes`` sums over all of them, so a total is not "your program" unless
-    that list has one entry. Measured on a two-line CPU program: 832 log lines, 807 pass lines, 3
+    that list has one entry. Measured on a two-line CPU program: 832 log lines, 384 pass lines, 3
     modules. Pass ``module="jit_your_fn"`` to keep only the pipelines XLA ran for that module.
+
+    A ``module=`` FILTER DOES NOT NARROW THE DENOMINATOR. ``jax.monitoring`` reports one
+    ``backend_compile_duration`` per compile with no module name attached, so the backend seconds
+    are the child's TOTAL. With a filter set, ``coverage.coverage`` is still computed on the
+    unfiltered sum -- so it keeps meaning "how much of this process's backend time was HLO passes"
+    -- and the filtered figure is reported separately as ``returned_seconds``.
     """
     env = dict(os.environ)
     env.update(vmodule_env(vmodule))
     env.pop("JAX_COMPILATION_CACHE_DIR", None)
-    p = subprocess.run([python or sys.executable, "-c", module_src],
-                       capture_output=True, text=True, timeout=timeout, env=env)
+    tmp = None
+    try:
+        if coverage:
+            fd, tmp = tempfile.mkstemp(prefix="scopex-src-", suffix=".py")
+            with os.fdopen(fd, "w") as f:
+                f.write(module_src)
+            argv = [python or sys.executable, "-c", _child_source(tmp)]
+        else:
+            argv = [python or sys.executable, "-c", module_src]
+        p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, env=env)
+    finally:
+        if tmp:
+            os.unlink(tmp)
+
     log = p.stderr + p.stdout
+    child, why = _read_sentinel(log, p)
+    # The sentinel is scopex's own line and must not be counted as, or parsed as, compiler output.
+    log = "\n".join(ln for ln in log.splitlines() if not ln.startswith(_SENTINEL))
+
     if module:
         # Keep only the stretches of log between a header naming this module and the next header.
         keep, on = [], False
@@ -309,12 +492,92 @@ def pass_timings(module_src: str, *, python: str | None = None, timeout: int = 1
         log_used = "\n".join(keep)
     else:
         log_used = log
+
+    every = _parse.pass_timing_lines(log)        # all modules -- the cross-check's numerator
     out: dict[str, float] = {}
-    for t in _parse.pass_timing_lines(log_used):
+    for t in _parse.pass_timing_lines(log_used) if module else every:
         out[t.name] = out.get(t.name, 0.0) + t.seconds
+
+    # Leaves vs pipeline aggregates. The naive sum double-counts by up to 1.87x (measured), so the
+    # fraction-of-the-compile number uses the leaves -- and the split is only trustworthy because
+    # the two halves must add back up to XLA's own cumulative, which is asserted below.
+    split = _parse.pass_leaf_split(log)
+    leaf_s = sum(t.seconds for t in split.leaves)
+    agg_s = sum(t.seconds for t in split.aggregates)
+
+    tot = _parse.pass_log_totals(log)
+    cov = Coverage(
+        parsed_passes=len(every),
+        parsed_seconds=sum(t.seconds for t in every),
+        parsed_max_s=max((t.seconds for t in every), default=0.0),
+        leaf_seconds=leaf_s,
+        aggregate_seconds=agg_s,
+        n_leaves=len(split.leaves),
+        n_aggregates=len(split.aggregates),
+        unmatched_pipelines=split.unmatched_closes,
+        log_threads=split.threads,
+        xla_pass_count=tot["n_called"],
+        xla_cumulative_s=tot["cumulative_s"],
+        xla_max_pass_s=tot["max_pass_s"],
+        tolerance=tot["tolerance"],
+        counter_monotone=tot["monotone"],
+        backend_s=None if child is None else child["backend"],
+        trace_s=None if child is None else child["trace"],
+        lower_s=None if child is None else child["lower"],
+        child_wall_s=None if child is None else child["wall"],
+        n_backend_compiles=0 if child is None else child["n"]["backend"],
+        metrics_seen=[] if child is None else child["seen"],
+        why_no_backend=why,
+        returned_seconds=sum(out.values()),
+        module_filter=module,
+    )
+    # THE LOG ITSELF, not a 1500-character tail of it. Every number above is derived from this text
+    # and nothing else, so a reader who doubts the ranking should be able to grep rather than
+    # rerun a compile -- see scopex/raw.py for why this is a path and not the string.
+    from .raw import raw_of
+    d = log_dir or tempfile.mkdtemp(prefix="scopex-vlog-")
+    os.makedirs(d, exist_ok=True)
+    log_path = os.path.join(d, "hlo_pass_pipeline.vlog")
+    with open(log_path, "w") as f:
+        f.write(log)
+    raw = raw_of(log_path, "vlog", produced_by="xla/hlo/pass/hlo_pass_pipeline.cc:176 (VLOG(1))",
+                 witness=r"HLO pass:\s", parsed_count=len(every), text=log)
+
     return {"passes": dict(sorted(out.items(), key=lambda kv: -kv[1])),
+            "coverage": cov,
+            "raw": raw,
             "n_lines": len(log.splitlines()),
             "modules": sorted({m for m, _ in _parse.pass_pipeline_headers(log)}),
             "module_filter": module,      # None => `passes` sums over every module in `modules`
             "unknown_units": [],          # unconvertible units now raise; kept for shape stability
             "stderr_tail": p.stderr[-1500:] if not out else ""}
+
+
+def _read_sentinel(log: str, p) -> tuple[dict | None, str]:
+    """The child's jax.monitoring numbers, or ``None`` and the reason there are none.
+
+    A reason and not a zero. Every way this can fail -- the child died, it never imported jax, jax
+    renamed the metrics -- produces a DIFFERENT sentence, because the responses differ and because
+    a coverage of 0.0 that means "we could not measure" is the same shape of lie as a pass ranking
+    that means "we could not parse".
+    """
+    hits = [ln for ln in log.splitlines() if ln.startswith(_SENTINEL)]
+    if not hits:
+        if p.returncode != 0:
+            return None, (f"the child exited {p.returncode} before scopex could read its metrics "
+                          f"(stderr tail: {p.stderr[-300:].strip()!r})")
+        return None, ("the child printed no scopex sentinel -- it may have called os._exit(), been "
+                      "killed, or replaced sys.stderr")
+    try:
+        d = json.loads(hits[-1][len(_SENTINEL):])
+    except Exception as e:                                                   # pragma: no cover
+        return None, f"the child's sentinel line did not parse: {e!r}"
+    if not d.get("registered"):
+        died = (f", and it exited {p.returncode}: {p.stderr[-300:].strip()!r}"
+                if p.returncode != 0 else "")
+        return None, ("the child never finished importing jax, so no jax.monitoring listener was "
+                      "ever armed" + (f" ({d['err']})" if d.get("err") else "") + died)
+    if d["backend"] <= 0.0:
+        return None, (f"jax.monitoring emitted no backend_compile_duration -- either nothing was "
+                      f"compiled, or the metric names moved. The child saw: {d['seen']}")
+    return d, ""
