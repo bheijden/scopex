@@ -103,11 +103,11 @@ produces confident, wrong answers.</p>
 <table>
   <tr><th>question</th><th>instrument</th><th>cost</th></tr>
   <tr><td>Which STAGE — tracing, lowering, or the backend?</td><td><code>scopex.record</code></td><td>1 compile, no flags</td></tr>
-  <tr><td>Trace-bound: WHICH PYTHON FRAME, and which line of mine?</td><td><code>scopex.trace_profile</code></td><td>1 trace, no compile</td></tr>
-  <tr><td>Backend-bound: which PHASE — passes, emitter, LLVM, codegen?</td><td><code>scopex.backend_split</code></td><td>1 compile, dumped</td></tr>
+  <tr><td>Trace-bound: WHICH PYTHON FRAME, and which line of mine?</td><td><code>scopex.tracing</code></td><td>1 trace, no compile</td></tr>
+  <tr><td>Backend-bound: which PHASE — passes, emitter, LLVM, codegen?</td><td><code>scopex.phases</code></td><td>1 compile, dumped</td></tr>
   <tr><td>Which XLA PASS?</td><td><code>scopex.pass_timings</code></td><td>1 compile, subprocess</td></tr>
   <tr><td>Which SOURCE LINE?</td><td><code>walk</code> + <code>attribute</code></td><td>0 compiles</td></tr>
-  <tr><td>Is it N COPIES of one computation?</td><td><code>scopex.jaxpr_sharing</code></td><td>0 compiles</td></tr>
+  <tr><td>Is it N COPIES of one computation?</td><td><code>scopex.sharing</code></td><td>0 compiles</td></tr>
   <tr><td>What SURVIVED to the backend?</td><td><code>walk_hlo</code></td><td>1 compile</td></tr>
   <tr><td>WHOSE code — library or user?</td><td>the same, once marked</td><td>0 compiles</td></tr>
 </table>
@@ -409,8 +409,8 @@ report "no effect" without naming the backend.</div>
 <h2 id="api"><span class="num">§6</span>API</h2>
 <pre><code>scopex.record(fn, *args)              <span class="c"># Timings: trace / lower / backend / wall</span>
 scopex.regime(t)                      <span class="c"># heuristic label; says so</span>
-scopex.trace_profile(fn, *args)       <span class="c"># inside the TRACE stage: frames + your file:line</span>
-scopex.backend_split(fn, *args)       <span class="c"># inside the BACKEND stage: passes/emitter/llvm/codegen</span>
+from scopex.tracing import trace_profile       <span class="c"># inside the TRACE stage: frames + your file:line</span>
+from scopex.phases  import backend_split       <span class="c"># inside the BACKEND stage: passes/emitter/llvm/codegen</span>
 scopex.pass_timings(src)              <span class="c"># {pass: seconds} + coverage + raw, via subprocess</span>
 scopex.dump(path=None)                <span class="c"># context manager; XLA's own artifacts</span>
 
@@ -420,7 +420,7 @@ scopex.pass_conservation(dump_dir)    <span class="c"># does pass_growth's curve
 scopex.timeline_agreement(src)        <span class="c"># both clocks, ONE compile -> a validated pass_timeline</span>
 scopex.Raw / scopex.raw_step(step)    <span class="c"># the bytes a number came from, hashed as parsed</span>
 
-scopex.jaxpr_sharing(jaxpr)           <span class="c"># duplicate subexpressions: VALUE and SHAPE</span>
+from scopex.sharing import jaxpr_sharing           <span class="c"># duplicate subexpressions: VALUE and SHAPE</span>
 scopex.walk(jaxpr)                    <span class="c"># -> Eqn, one per equation, nested included</span>
 scopex.walk_hlo(compiled)             <span class="c"># -> Ins, optimized HLO, with source sites</span>
 scopex.walk_stablehlo(lowered)        <span class="c"># -> Ins</span>
@@ -430,6 +430,8 @@ scopex.verify_parity(jaxpr)           <span class="c"># (ours, jax's, equal)</sp
 scopex.attribute(units, by)           <span class="c"># Counter</span>
 scopex.crosstab(units, rows=, cols=)  <span class="c"># two views at once — the interactions</span>
 scopex.table(counter)                 <span class="c"># formatted</span></code></pre>
+<div class="box why"><span class="lab">why some of these are <code>scopex.<em>module</em>.name</code></span>
+The package exports 50 names. Everything else is reachable but not top-level, because it was asked for by one or two of the thirty investigations rather than used constantly — <code>backend_split</code>, <code>trace_profile</code>, <code>jaxpr_sharing</code>, <code>emitter_growth</code>, <code>fusion_steps</code>. Each is a worked recipe in <code>examples/recipes/</code>, which shows the whole procedure instead of hiding it behind a name. Promote one when three unrelated recipes reach for it.</div>
 <p>Views in <code>scopex.BY</code>: <code>author</code>, <code>innermost_author</code>,
 <code>library</code>, <code>role</code>, <code>package</code>, <code>split</code>, <code>scope</code>,
 <code>scope_path</code>, <code>transform</code>, <code>depth</code>, <code>site</code>,
@@ -493,7 +495,7 @@ profiler, and it ends the einsum investigation in one call: <strong>100% of 3,15
 in <code>opt_einsum</code></strong>, hot leaf <code>paths.py:256 _optimal_iterate</code> at 54.4% —
 against a stage split reading trace 31.468 s vs 0.005 s and <em>all five</em> scopex attribution
 views identical between the arms. That capability is now also a first-class API,
-<code>scopex.trace_profile</code>, which charges 94% of the same case to the same third-party frame
+<code>scopex.tracing</code>, which charges 94% of the same case to the same third-party frame
 and additionally names the user <code>file:line</code> responsible.</div>
 
 <div class="box anti"><span class="lab">read the caveat, not just the number</span>
@@ -520,9 +522,9 @@ scopex.pass_growth(d, module=…)       <span class="c"># [PassStep]: instrs/com
 scopex.pass_timeline(d)               <span class="c"># [(label, seconds)] incl. the phases after HLO</span>
 scopex.diverge(d_case, d_control)     <span class="c"># lockstep walk of two curves</span>
 scopex.codegen_size(d)                <span class="c"># .ll line counts, object bytes</span>
-scopex.emitter_growth(d)              <span class="c"># the backend emitter's own MLIR pipeline</span>
-scopex.fusion_steps(d)                <span class="c"># GPU priority-fusion decisions, as the proto it is</span>
-scopex.hlo_at(d, index)               <span class="c"># the module as it stood at snapshot N</span></code></pre>
+emitters.emitter_growth(d)              <span class="c"># the backend emitter's own MLIR pipeline</span>
+fusion.fusion_steps(d)                <span class="c"># GPU priority-fusion decisions, as the proto it is</span>
+artifacts.hlo_at(d, index)               <span class="c"># the module as it stood at snapshot N</span></code></pre>
 
 <h3>What is in the directory</h3>
 <table>
@@ -540,7 +542,7 @@ XLA reads <code>XLA_FLAGS</code> when its backend is <strong>first initialised</
 after any compile — or after anything that commits an array to a device, including
 <code>jnp.ones(1)</code> at module scope — is a <strong>silent no-op</strong>, and you get an empty
 directory and conclude there was nothing to see. <code>scopex.dump</code> and
-<code>scopex.backend_split</code> both <em>raise</em> rather than allow it. Two arms means two
+<code>scopex.phases</code> both <em>raise</em> rather than allow it. Two arms means two
 processes.</div>
 
 <div class="box gotcha"><span class="lab">what a dump costs, and it is unwarned</span>
@@ -570,7 +572,8 @@ everything XLA's pass timer cannot see. On <code>jax#32704</code> (chained 2-D f
 that is the entire finding: the HLO pass pipeline accounts for <strong>0.1%</strong> of the compile
 and <code>&lt;llvm ir emission&gt;</code> for <strong>99.5%</strong>, while every count-based view is a
 null — jaxpr equations identical, optimized instructions 1.04×, emitted IR +16 lines.</p>
-<pre><code>scopex.backend_split(fn, x)  <span class="c"># hlo_passes 0.15% · emitter 99.12% · llvm_opt 0.29% · codegen 0.18%</span>
+<pre><code><span class="k">from</span> scopex.phases <span class="k">import</span> backend_split
+backend_split(fn, x)         <span class="c"># hlo_passes 0.15% · emitter 99.12% · llvm_opt 0.29% · codegen 0.18%</span>
                              <span class="c"># sound=True · coverage 0.997 · 1 kernel module</span></code></pre>
 <div class="box why"><span class="lab">why <code>sound</code> and <code>coverage</code> come first</span>
 XLA:CPU compiles kernel modules <strong>concurrently</strong>, so global phase boundaries only
@@ -605,7 +608,7 @@ unrolls, so a program at N=8 and N=30 gives byte-identical equation counts. Read
 <p><strong>Nested-jit trace time is invisible <em>to the stage split</em>.</strong> JAX emits the
 tracing timer only when <code>core.trace_state_clean()</code>
 (<code>jax/_src/pjit.py:528</code>), so tracing inside an inner <code>jit</code> is folded into the
-parent and cannot be separated by <code>record</code>. <code>scopex.trace_profile</code> hooks CPython
+parent and cannot be separated by <code>record</code>. <code>scopex.tracing</code> hooks CPython
 frames rather than pjit and does separate it — on a nested-jit fib it charges 44.2% to the user's own
 <code>fib</code>, across 22 nested <code>_trace_for_jit</code> calls.</p>
 <div class="box anti"><span class="lab">the same guard, failing silently — worth knowing</span>

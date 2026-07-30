@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>scopex — documentation</title>
+<title>scopex — where did the compile time go?</title>
 <style>
   :root{
     --bg:#fbfaf7; --ink:#181b1f; --muted:#5c6470; --rule:#e4e0d7;
@@ -64,71 +64,115 @@
   .pill.keep{background:var(--accent-soft);color:var(--accent-ink)} .pill.new{background:var(--lens-soft);color:var(--lens-ink)} .pill.cut{background:var(--bad-soft);color:var(--bad-ink)}
 </style>
 <style>
-  main{padding:56px 52px 140px;max-width:900px;margin:0 auto}
-  .card{display:block;border:1px solid var(--rule);border-radius:12px;padding:18px 22px;margin:14px 0;
-         text-decoration:none;color:inherit;transition:box-shadow .15s,border-color .15s}
-  .card:hover{border-color:var(--accent);box-shadow:0 3px 18px rgba(15,118,110,.08)}
-  .card h3{margin:0 0 4px;font-size:17px;color:var(--accent-ink)}
-  .card .aud{font:600 11px/1.4 var(--mono);letter-spacing:.08em;text-transform:uppercase;
-              color:var(--muted);margin-bottom:6px}
-  .card p{margin:0;font-size:14.5px;color:#3a4048}
-  .primary{border-width:2px;border-color:var(--accent);background:var(--accent-soft)}
+  main{padding:64px 52px 120px;max-width:880px;margin:0 auto}
+  /* THE RAIL. The page's one structural idea: a compile is an ordered pipeline, the answer is in
+     exactly one segment, and asking a later question first gives a confident wrong answer. */
+  .rail{margin:30px 0 8px;border-top:1px solid var(--rule)}
+  .stage{display:grid;grid-template-columns:88px 1fr 62px;gap:16px;align-items:center;
+         padding:13px 0;border-bottom:1px solid var(--rule)}
+  .stage b{font:600 13px/1.3 var(--mono);letter-spacing:.04em;color:var(--ink)}
+  .bar{height:9px;background:var(--rule);border-radius:5px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--accent);border-radius:5px}
+  .pct{font:600 12.5px/1 var(--mono);color:var(--muted);text-align:right}
+  .stage.lead b{color:var(--accent-ink)} .stage.lead .bar i{background:var(--accent-ink)}
+  .sub{display:grid;grid-template-columns:88px 1fr;gap:16px;padding:8px 0;
+       border-bottom:1px dashed var(--rule);font-size:14px}
+  .sub .who{font:12px/1.5 var(--mono);color:var(--muted);text-align:right;padding-right:4px}
+  .sub code{font-size:12px}
+  .railnote{font:12px/1.6 var(--mono);color:var(--muted);margin:10px 0 0}
+  .docs{margin:34px 0 0;border-top:1px solid var(--rule)}
+  .doc{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:baseline;
+       padding:15px 0;border-bottom:1px solid var(--rule);text-decoration:none;color:inherit}
+  .doc:hover .q{color:var(--accent-ink)}
+  .doc .q{font-size:16.5px;font-weight:600;margin:0 0 3px}
+  .doc .d{font-size:14px;color:var(--muted);margin:0;max-width:56ch}
+  .doc .to{font:600 11px/1 var(--mono);letter-spacing:.1em;text-transform:uppercase;
+           color:var(--accent);white-space:nowrap}
+  @media (max-width:700px){main{padding:34px 22px 90px}
+    .stage,.sub,.doc{grid-template-columns:1fr;gap:6px} .pct,.sub .who{text-align:left}}
 </style>
 <body>
 <main>
-<div class="kicker">scopex</div>
-<h1 class="title">Documentation</h1>
-<p class="lede">Attribute a jitted JAX program's compilation artifacts back to the code that wrote
-them. Start with the blueprint; everything else is an appendix it links from the section that needs
-it.</p>
-<div class="meta">scopex 0.1.0 · jax 0.10.2 · every number measured, and reproducible with
+
+<div class="kicker">scopex · documentation</div>
+<h1 class="title">Where did the compile time go?</h1>
+<p class="lede">A <code>jax.jit</code> that takes 40 seconds spends them in one part of a pipeline.
+Find the part first — every question below it gives a confident wrong answer when asked out of
+order.</p>
+<div class="meta">scopex 0.1.0 · jax 0.10.2 · every number here is measured, and reproducible with
 <code>python examples/marked_framework.py</code> ·
 <a href="https://github.com/bheijden/scopex">github.com/bheijden/scopex</a></div>
 
-<a class="card primary" href="blueprint_scopex.html">
-  <div class="aud">you are profiling a jitted JAX program</div>
-  <h3>The blueprint &rarr;</h3>
-  <p>The documentation. The differential method, the two routes (with and without instrumenting a
-  framework), the naming contract, the ways of asking that silently return nothing, the API, the
-  recipe routing table, reading a dump, and the limits.</p></a>
+<div class="rail">
+  <div class="stage"><b>trace</b><div class="bar"><i style="width:12.1%"></i></div><div class="pct">12.1%</div></div>
+  <div class="sub"><div class="who">slow?</div><div>Your Python built the jaxpr slowly. XLA is innocent —
+    do not read HLO. <code>scopex.tracing.trace_profile</code></div></div>
 
-<a class="card" href="DEFICITS.html">
-  <div class="aud">you are deciding whether to trust a number scopex just produced</div>
-  <h3>Deficits</h3>
-  <p>Per instrument: what validates it, where that validation fails, what it cannot see, and what it
-  costs in extra compiles. A wrong method is worse than a missing one, so each one's blind spots are
-  written down rather than discovered.</p></a>
+  <div class="stage"><b>lower</b><div class="bar"><i style="width:43.2%"></i></div><div class="pct">43.2%</div></div>
+  <div class="sub"><div class="who">slow?</div><div>jaxpr&nbsp;&rarr;&nbsp;StableHLO. Usually arity or
+    duplicate subexpressions. <code>scopex.walk</code>, <code>scopex.sharing.jaxpr_sharing</code></div></div>
 
-<a class="card" href="HARDENING.html">
-  <div class="aud">you are changing a parser, or you just upgraded jax</div>
-  <h3>Hardening</h3>
-  <p>Every place scopex reads text a compiler printed, what produces that text, what happens when the
-  producer changes it, and how <code>selftest()</code> and <code>conformance()</code> cover each one.
-  Seven parsers have shipped broken here; this is how the eighth gets caught.</p></a>
+  <div class="stage lead"><b>backend</b><div class="bar"><i style="width:44.2%"></i></div><div class="pct">44.2%</div></div>
+  <div class="sub"><div class="who">then</div><div><strong>One number covering four phases that want
+    opposite responses.</strong> Split it before acting:</div></div>
+  <div class="sub"><div class="who">hlo passes</div><div><code>scopex.pass_timings</code> — and read
+    <code>.coverage</code> <em>first</em>: it says whether the passes explain this compile at all</div></div>
+  <div class="sub"><div class="who">emitter</div><div><code>scopex.pass_timeline</code> — the phases XLA does
+    not time, reached through dump timestamps</div></div>
+  <div class="sub"><div class="who">llvm · codegen</div><div><code>scopex.phases.backend_split</code>,
+    <code>scopex.codegen_size</code></div></div>
+</div>
+<p class="railnote">stage shares measured on examples/marked_framework.py · one compile, no flags:
+<code>scopex.record(fn, *args)</code></p>
 
-<a class="card" href="INVESTIGATIONS.html">
-  <div class="aud">you want the evidence behind a claim, or a worked example to copy</div>
-  <h3>Investigations</h3>
-  <p>Twenty-eight pathological compiles worked end to end: what each instrument did and did not show,
-  where the trail left scopex for XLA source, and the routes tried and rejected. The blueprint's
-  claims cite this.</p></a>
+<div class="box anti" style="margin-top:30px"><span class="lab">before you trust any of it</span>
+Seven parsers in this package have shipped broken, each returning a plausible <em>empty or wrong</em>
+answer rather than an error — including one that named the wrong pass on four cases. Run
+<code>scopex.selftest()</code> and <code>scopex.conformance()</code> in a fresh process after any jax
+upgrade. They fail loudly.</div>
 
-<a class="card" href="../tests/degenerate/SUITE.html">
-  <div class="aud">you are adding a corpus case, or running the suite</div>
-  <h3>The degenerate-compile suite</h3>
-  <p>62 case files, 800 entries, each a pathology with a fast control and a declared platform. The
-  thing scopex is hammered against.</p></a>
+<div class="docs">
+  <a class="doc" href="blueprint_scopex.html">
+    <div><p class="q">How do I use this?</p>
+    <p class="d">The documentation. The differential method, profiling any program versus
+    instrumenting your own framework, the naming contract, the accessors that silently return
+    nothing, the API, and a runnable recipe per question.</p></div>
+    <div class="to">blueprint &rarr;</div></a>
 
-<h2>Runnable, not prose</h2>
+  <a class="doc" href="DEFICITS.html">
+    <div><p class="q">Can I trust this number?</p>
+    <p class="d">Per instrument: what validates it, where that validation fails, what it cannot see,
+    what it costs. A wrong method is worse than a missing one, so the blind spots are written down
+    rather than discovered.</p></div>
+    <div class="to">deficits &rarr;</div></a>
+
+  <a class="doc" href="INVESTIGATIONS.html">
+    <div><p class="q">Did this ever work on a real problem?</p>
+    <p class="d">Twenty-eight pathological compiles worked end to end — what each instrument did and
+    did not show, where the trail left scopex for XLA source, and the routes tried and rejected.
+    Every claim elsewhere cites this.</p></div>
+    <div class="to">investigations &rarr;</div></a>
+
+  <a class="doc" href="HARDENING.html">
+    <div><p class="q">I am changing a parser, or I just upgraded jax.</p>
+    <p class="d">Every place scopex reads text a compiler printed, what produces that text, what
+    happens when the producer changes it, and how the two self-checks cover each one.</p></div>
+    <div class="to">hardening &rarr;</div></a>
+
+  <a class="doc" href="../tests/degenerate/SUITE.html">
+    <div><p class="q">What is it tested against?</p>
+    <p class="d">62 case files, 800 entries — each a real pathology with a fast control and a
+    declared platform, because a slow compile with no fast twin is just a big program.</p></div>
+    <div class="to">the suite &rarr;</div></a>
+</div>
+
+<h2 style="font-size:19px;margin:44px 0 6px">Runnable, not prose</h2>
 <ul>
-  <li><code>examples/marked_framework.py</code> — the program every number in the blueprint comes from</li>
-  <li><code>examples/recipes/</code> — one runnable file per question, routed by blueprint §7</li>
-  <li><code>scopex.selftest()</code> / <code>scopex.conformance()</code> — run after any jax upgrade;
-      they fail loudly rather than returning a plausible empty answer</li>
+  <li><code>examples/marked_framework.py</code> — the program every number above comes from</li>
+  <li><code>examples/recipes/</code> — one file per question, routed by blueprint §7</li>
 </ul>
 
-<div class="footer">The repository <a href="../README.md">README</a> stays markdown because GitHub
-renders it as the landing page. Everything else here is HTML, and the HTML is the source — there is
-no markdown behind it to drift out of step.</div>
+<div class="footer">The repository <a href="../README.md">README</a> is the only markdown here;
+GitHub renders it as the landing page. Everything else is HTML, and the HTML is the source.</div>
 </main>
 </body></html>
