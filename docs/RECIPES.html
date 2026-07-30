@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recipes — scopex</title>
+<style>
+  :root{
+    --bg:#fbfaf7; --ink:#181b1f; --muted:#5c6470; --rule:#e4e0d7;
+    --accent:#0f766e; --accent-soft:#d7eee9; --accent-ink:#0b544e;
+    --warn:#b45309; --warn-soft:#fbe7cf; --warn-ink:#7c3a06;
+    --bad:#b42318; --bad-soft:#fbe3e0; --bad-ink:#7a1c14;
+    --lens:#5b4bb7; --lens-soft:#e7e3fb; --lens-ink:#3f3486;
+    --code-bg:#0e1116; --code-ink:#e6edf3;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --maxw:900px;
+  }
+  *{box-sizing:border-box} html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{display:grid;grid-template-columns:270px minmax(0,1fr);max-width:1240px;margin:0 auto}
+  nav.toc{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;padding:34px 22px 60px;border-right:1px solid var(--rule);font-size:13.5px}
+  nav.toc .kicker{font:600 11px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+  nav.toc h1{font-size:15px;margin:0 0 6px;line-height:1.3}
+  nav.toc .wip{font:600 10px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--warn-ink);background:var(--warn-soft);padding:3px 7px;border-radius:5px;display:inline-block;margin-bottom:16px}
+  nav.toc a{display:block;color:var(--muted);text-decoration:none;padding:4px 0 4px 12px;border-left:2px solid transparent}
+  nav.toc a:hover{color:var(--ink)}
+  main{padding:46px 52px 140px;min-width:0}
+  .doc{max-width:var(--maxw)}
+  .kicker{font:600 12px/1.4 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1.title{font-size:34px;line-height:1.15;margin:6px 0 10px;letter-spacing:-.01em}
+  .lede{font-size:18px;color:var(--muted);margin:0 0 14px;max-width:66ch}
+  .meta{font:12.5px/1.5 var(--mono);color:var(--muted);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:10px 0;margin:22px 0 34px}
+  h2{font-size:24px;margin:52px 0 8px;letter-spacing:-.01em;scroll-margin-top:20px}
+  h2 .num{font:600 14px/1 var(--mono);color:var(--accent);display:block;margin-bottom:8px}
+  h3{font-size:17.5px;margin:28px 0 6px}
+  h4{font-size:13.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:22px 0 4px}
+  p{margin:12px 0;color:#23282e} strong{font-weight:650}
+  code{font:13px/1.5 var(--mono);background:#efece4;padding:1.5px 5px;border-radius:4px;color:#3a3f46}
+  pre{background:var(--code-bg);color:var(--code-ink);padding:16px 18px;border-radius:10px;overflow-x:auto;margin:14px 0;font:12.5px/1.6 var(--mono)}
+  pre code{background:none;padding:0;color:inherit}
+  pre .c{color:#8b98a5} pre .k{color:#ff7b72} pre .s{color:#a5d6ff} pre .f{color:#d2a8ff} pre .g{color:#7ee787}
+  .box{border-left:3px solid;border-radius:0 8px 8px 0;padding:13px 18px;margin:18px 0;font-size:15px}
+  .box .lab{font:600 11px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:5px}
+  .why{background:var(--accent-soft);border-color:var(--accent)} .why .lab{color:var(--accent-ink)}
+  .keep{background:var(--accent-soft);border-color:var(--accent)} .keep .lab{color:var(--accent-ink)}
+  .gotcha{background:var(--warn-soft);border-color:var(--warn)} .gotcha .lab{color:var(--warn-ink)}
+  .anti{background:var(--bad-soft);border-color:var(--bad)} .anti .lab{color:var(--bad-ink)}
+  .lens{background:var(--lens-soft);border-color:var(--lens)} .lens .lab{color:var(--lens-ink)}
+  .directive{border:1px solid var(--warn);background:linear-gradient(180deg,#fdf5ea,#fbfaf7);border-radius:14px;padding:4px 30px 24px;margin:26px 0;box-shadow:0 3px 22px rgba(180,83,9,.07)}
+  .directive .tag{display:inline-block;font:700 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:#fff;background:var(--warn);padding:7px 12px;border-radius:0 0 7px 7px}
+  .thesis{font-size:17px;font-weight:600;color:var(--accent-ink);margin:16px 0;line-height:1.5;border-left:3px solid var(--accent);padding-left:16px}
+  table{border-collapse:collapse;width:100%;margin:16px 0;font-size:14px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+  th{font:600 11px/1.4 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  td code{font-size:12px}
+  ul,ol{margin:12px 0;padding-left:22px} li{margin:7px 0}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+  .cols h4{margin-top:0}
+  .col-bad h4{color:var(--bad-ink)} .col-good h4{color:var(--accent-ink)}
+  @media (max-width:1000px){.wrap{grid-template-columns:1fr} nav.toc{display:none} main{padding:30px 22px 100px} .cols{grid-template-columns:1fr}}
+  .footer{margin-top:70px;padding-top:18px;border-top:1px solid var(--rule);font-size:13px;color:var(--muted)}
+  .pill{display:inline-block;font:600 10.5px/1 var(--mono);padding:4px 8px;border-radius:20px;margin-right:6px}
+  .pill.keep{background:var(--accent-soft);color:var(--accent-ink)} .pill.new{background:var(--lens-soft);color:var(--lens-ink)} .pill.cut{background:var(--bad-soft);color:var(--bad-ink)}
+</style>
+<style>
+  main{padding:56px 52px 120px;max-width:900px;margin:0 auto}
+  .backlink{font:600 12px/1.4 var(--mono);letter-spacing:.12em;text-transform:uppercase;
+            color:var(--accent);text-decoration:none;display:inline-block;margin-bottom:18px}
+  h2{font-size:19px;margin:40px 0 2px}
+  .glede{font-size:14.5px;color:var(--muted);margin:0 0 12px}
+  .rs{border-top:1px solid var(--rule)}
+  .r{display:grid;grid-template-columns:270px 1fr;gap:20px;padding:12px 0;
+     border-bottom:1px solid var(--rule);align-items:baseline}
+  .fn{font-size:12.5px;background:none;padding:0;color:var(--accent-ink);font-weight:600}
+  .rq{margin:0;font-size:14.5px}
+  .case{font:11.5px/1.5 var(--mono);color:var(--muted)}
+  @media (max-width:700px){main{padding:32px 22px}.r{grid-template-columns:1fr;gap:4px}}
+</style>
+<body><main>
+<a class="backlink" href="index.html">&larr; scopex docs</a>
+
+<div class="kicker">scopex</div>
+<h1 class="title">Recipes</h1>
+<p class="lede">One runnable file per question, in <code>examples/recipes/</code>. Each was written
+while diagnosing a real pathology, names the case it came from, prints the numbers it was derived
+from, and says when its knob stops working.</p>
+<div class="meta">20 recipes, all runnable: <code>python examples/recipes/&lt;name&gt;.py</code> ·
+derived from the 28 arms in <a href="INVESTIGATIONS.html">INVESTIGATIONS</a></div>
+
+<div class="box why"><span class="lab">recipes and investigations are two views of the same 28 cases</span>
+<strong>Recipes are indexed by the QUESTION you arrived with</strong> — "which pass grew the
+module?" — and are runnable. <strong><a href="INVESTIGATIONS.html">Investigations</a> are indexed by
+WHERE THE COST LIVED</strong> — upstream of XLA, inside one HLO pass, below HLO — and are the
+evidence: what each instrument showed, what it missed, and where the trail left scopex for XLA
+source. Start here if you have a slow compile. Go there if you want to know whether to believe a
+claim, or you want the reasoning rather than the command.</div>
+
+<div class="box gotcha"><span class="lab">a recipe is a starting point, not a function</span>
+These are meant to be copied and adapted. Most are below the bar for the package API — asked for by
+one or two investigations rather than used constantly — and a recipe shows the whole procedure
+where an API would hide it behind a name. If you find yourself reaching for the same one across
+three unrelated problems, that is the argument for promoting it.</div>
+
+<h2>Before anything</h2>
+<p class="glede">Is the instrument reading your program, and which stage owns the wall?</p>
+<div class="rs">
+  <div class="r">
+    <code class="fn">trust_the_instrument.py</code>
+    <div><p class="rq">before you believe ANY level: is that level actually reading your program, or is it</p><span class="case">from a cross-cutting defect measured across 21 arms of the corpus (si</span></div>
+  </div>
+  <div class="r">
+    <code class="fn">stage_split.py</code>
+    <div><p class="rq">which STAGE owns the wall: python tracing, lowering, or the backend compiler?</p><span class="case">from einsum_optimal_n10 (jax#2583), CPU -- and the finding is platfor</span></div>
+  </div>
+</div>
+
+<h2>The stage is TRACE</h2>
+<p class="glede">Your Python built the jaxpr slowly. XLA never saw the problem.</p>
+<div class="rs">
+  <div class="r">
+    <code class="fn">who_is_slow_inside_tracing.py</code>
+    <div><p class="rq">``stage_split.py`` says trace-bound. scopex can time that stage and CANNOT attribute</p><span class="case">from einsum_optimal_n11 (jax#2583 / PR#25214) and arity_tree_200 (jax</span></div>
+  </div>
+  <div class="r">
+    <code class="fn">which_transform_wrote_these_eqns.py</code>
+    <div><p class="rq">My TRACE stage is slow. Which transform generated all these equations, and at which source line?</p><span class="case">from `condrec_grad_512` / `_128` / `_32`, cpu (jax#8239, grad through</span></div>
+  </div>
+</div>
+
+<h2>The program is too big</h2>
+<p class="glede">Find where it got big, and which line made it that way.</p>
+<div class="rs">
+  <div class="r">
+    <code class="fn">level_census.py</code>
+    <div><p class="rq">at which LEVEL does the program get big: was it born big, or did XLA multiply it?</p><span class="case">from two arms with opposite answers, which is the whole point of runn</span></div>
+  </div>
+  <div class="r">
+    <code class="fn">blame_the_line.py</code>
+    <div><p class="rq">the jaxpr is N times too big. WHICH LINE OF PYTHON emitted the equations?</p><span class="case">from arity_tree_25/_50/_100 (jax#4667 -- a pytree with N leaves cross</span></div>
+  </div>
+  <div class="r">
+    <code class="fn">is_the_cost_multiplicity.py</code>
+    <div><p class="rq">Is the compile N COPIES of one computation rather than one big computation?</p></div>
+  </div>
+  <div class="r">
+    <code class="fn">widest_instruction.py</code>
+    <div><p class="rq">the two programs have the SAME number of instructions and one compiles 500x slower</p><span class="case">from stackcond_n3000 / _n10000 / _n30000 (diffrax#606, `jnp.stack` of</span></div>
+  </div>
+  <div class="r">
+    <code class="fn">which_level_shows_it.py</code>
+    <div><p class="rq">At which LEVEL does the blowup first appear -- jaxpr, StableHLO, or optimized HLO?</p></div>
+  </div>
+</div>
+
+<h2>The stage is BACKEND</h2>
+<p class="glede">One number covering four phases. Split it before acting.</p>
+<div class="rs">
+  <div class="r">
+    <code class="fn">pass_timings_coverage.py</code>
+    <div><p class="rq">backend-bound: is it ONE HLO pass, and do the passes account for the compile at all?</p></div>
+  </div>
+  <div class="r">
+    <code class="fn">which_pass_ate_the_compile.py</code>
+    <div><p class="rq">Which single XLA pass is the compile, and is the profile you are reading complete?</p></div>
+  </div>
+  <div class="r">
+    <code class="fn">which_pass_grew_the_module.py</code>
+    <div><p class="rq">the optimized module is enormous but the jaxpr is not. WHICH PASS grew it?</p><span class="case">from bisect_m94 / bisect_m64 (jax#10621), CPU</span></div>
+  </div>
+  <div class="r">
+    <code class="fn">pass_divergence.py</code>
+    <div><p class="rq">the program grew below the jaxpr. WHICH PASS multiplied it?</p><span class="case">from ndtri_scan_jacrev_d4/_d16 (jax#2609), CPU, x64 -- A PASS IS TO B</span></div>
+  </div>
+  <div class="r">
+    <code class="fn">pass_set_diff.py</code>
+    <div><p class="rq">WHICH PASSES DID XLA ACTUALLY RUN, and is the guilty pass even in the list?</p><span class="case">from topk_pow20p2048_k128 / topk_pow20p1024_k128 (jax#19653 -- `lax.t</span></div>
+  </div>
+  <div class="r">
+    <code class="fn">where_do_the_arms_diverge.py</code>
+    <div><p class="rq">Which pass blew the module up -- and did the two arms even run the same passes?</p></div>
+  </div>
+</div>
+
+<h2>BACKEND, but the passes explain none of it</h2>
+<p class="glede">Coverage is near zero. The seconds are below the HLO pipeline.</p>
+<div class="rs">
+  <div class="r">
+    <code class="fn">phase_timeline.py</code>
+    <div><p class="rq">the HLO passes account for none of the compile and every size count is flat. Where</p><span class="case">from gatherchain2d (jax#32704), CPU (JAX_PLATFORMS=cpu, jax 0.10.2, x</span></div>
+  </div>
+  <div class="r">
+    <code class="fn">codegen_decision.py</code>
+    <div><p class="rq">the instruction counts match. Did XLA take a different DECISION, and what did the</p><span class="case">from argsort_f32_1e6 / _control (xla#35587 -- `jnp.argsort` on float3</span></div>
+  </div>
+  <div class="r">
+    <code class="fn">shape_cardinality.py</code>
+    <div><p class="rq">the slow arm has FEWER instructions than the fast one. Is the cost the NUMBER OF</p><span class="case">from gemm_shapes_k64 / _k8 (xla#35955), GPU (CUDA, sm_8.9, jax 0.10.2</span></div>
+  </div>
+</div>
+
+<h2>It never finishes</h2>
+<p class="glede">No result to measure. Work from what got written before it died.</p>
+<div class="rs">
+  <div class="r">
+    <code class="fn">compile_that_never_finishes.py</code>
+    <div><p class="rq">the compile never returns. It eats host memory until the OOM killer takes the process</p><span class="case">from topk_pow20p1024_k128 (jax#19653), GPU (CUDA, sm_8.9, jax 0.10.2,</span></div>
+  </div>
+</div>
+
+<h2>Known dead ends</h2>
+<p class="glede">Recorded so nobody spends a week rediscovering them.</p>
+<div class="rs">
+  <div class="r">
+    <code class="fn">why_no_instruction_lineage.py</code>
+    <div><p class="rq">why there is no per-instruction lineage, and the measurement that settles it</p></div>
+  </div>
+</div>
+
+<h2>The shape they all share</h2>
+<pre><code><span class="c"># examples/recipes/which_pass_grew_the_module.py</span>
+<span class="k">def</span> <span class="f">which_pass_grew_the_module</span>(case, control):
+    <span class="s">"""The optimized module is enormous but the jaxpr is not. Which pass grew it?
+
+    FOUND ON: bisect_m94 / bisect_m64 (jax#10621), CPU.
+    MEASURED: both arms track within 1.21x to layout assignment, then ONE pass takes the
+              case 2,458 -> 176,189 instructions while the control goes 2,030 -> 5,446.
+    WHEN IT DOES NOT WORK: if the two arms ran DIFFERENT passes, this is a pass-SELECTION
+              difference, not one pass behaving badly. `diverge` reports which.
+    """</span></code></pre>
+<p>Every recipe carries those four things: the question, the case, the numbers, and the conditions
+under which it stops being true. Where a re-run later disagreed with the original measurement, the
+recipe keeps both rather than quietly updating.</p>
+
+<div class="footer">Part of the <a href="blueprint_scopex.html">scopex blueprint</a>.
+Routing table in §7.</div>
+</main></body></html>
