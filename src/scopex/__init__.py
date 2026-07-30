@@ -17,6 +17,8 @@ never imports scopex at all. See :mod:`scopex.mark`.
 from __future__ import annotations
 
 from .levels import hlo_instructions, walk_hlo, walk_stablehlo
+from .artifacts import (codegen_size, custom_calls, diverge, modules_in, pass_growth,
+                        pass_timeline, selftest)
 from .flags import (backend_initialized, check_env, dump, dump_flags, hlo_text,
                     pass_timings, stablehlo_text, vmodule_env)
 from .mark import LIB, USER, mark_callable, mark_framework, mark_methods, named_scope, parse, scope
@@ -40,5 +42,8 @@ __all__ = [
     # getting text out without hitting a silent trap
     "stablehlo_text", "hlo_text", "dump_flags", "vmodule_env", "check_env",
     "dump", "pass_timings", "backend_initialized",
+    # reading what a compile left behind
+    "pass_growth", "pass_timeline", "diverge", "codegen_size", "custom_calls",
+    "modules_in", "selftest",
     "__version__",
 ]

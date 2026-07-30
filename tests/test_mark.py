@@ -319,3 +319,15 @@ def test_pass_timings_reports_unknown_units():
         "jax.jit(lambda x: jnp.sum(jnp.tanh(x))).lower(jnp.ones((8, 8))).compile()\n")
     assert "unknown_units" in r
     assert r["unknown_units"] == [], f"unconverted units seen: {r['unknown_units']}"
+
+
+# ── reading the dump: the instruments that localised what counts could not ───────────────────────
+def test_artifact_parsers_all_return_something():
+    """Every parser here is TEXT over a format XLA does not promise to keep stable, and this project
+    has twice shipped one that returned empty and read as 'nothing to see' rather than 'broken'.
+    selftest() is the guard; run it after any jax upgrade."""
+    if scopex.backend_initialized():
+        pytest.skip("backend already up; dump() must precede the first compile")
+    r = scopex.selftest(verbose=False)
+    assert r["ok"], f"parsers returning nothing: {r['broken']}"
+    assert r["pass_steps"] > 5 and r["timeline_entries"] > 5
