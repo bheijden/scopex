@@ -331,3 +331,21 @@ def test_artifact_parsers_all_return_something():
     r = scopex.selftest(verbose=False)
     assert r["ok"], f"parsers returning nothing: {r['broken']}"
     assert r["pass_steps"] > 5 and r["timeline_entries"] > 5
+
+
+def test_codegen_size_counts_the_backend_it_is_actually_on():
+    """It counted only .ll and .o. CUDA writes NEITHER object form -- it writes .ptx -- so every GPU
+    dump reported obj_bytes=0: an absence of instrumentation presented as a measured zero. `kinds`
+    now distinguishes "this backend emitted no code" from "scopex was not looking for its format"."""
+    import os
+    from scopex import artifacts
+
+    d = tmp = __import__("tempfile").mkdtemp()
+    (__import__("pathlib").Path(d) / "module_0000.f.1.ptx").write_text("//\n.visible .entry k(){}\n")
+    (__import__("pathlib").Path(d) / "module_0000.f.ir-with-opt.ll").write_text("define void @k(){}\n")
+    c = artifacts.codegen_size(d)
+    assert c["ptx_bytes"] > 0, "ptx not counted -- the CUDA object form is invisible again"
+    assert c["code_bytes"] == c["obj_bytes"] + c["ptx_bytes"]
+    assert ".ptx" in c["kinds"] and ".ll" in c["kinds"]
+    # and an obj_bytes of 0 must be attributable, not bare
+    assert c["obj_bytes"] == 0 and c["kinds"][".ptx"] == 1

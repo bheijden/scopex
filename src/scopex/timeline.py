@@ -96,7 +96,12 @@ PIPELINE_START = "pipeline-start"
 # rather than on a text pattern of its own.
 _LINE_END, _LINE_START = 176, 181
 
-_LLVM = ((".ir-no-opt.ll", "ir_no_opt"), (".ir-with-opt.ll", "ir_with_opt"), (".o", "obj"))
+# Terminal codegen artifacts, newest-last. `.ptx` is XLA:GPU's object form -- omitting it was
+# the same blind spot that made codegen_size report 0 bytes on CUDA. Measured on a CUDA dump:
+# the last .ptx lands 21 ms BEFORE the last .ir-with-opt.ll, so the tail was not actually
+# truncated there; it is listed because the next backend need not be so forgiving.
+_LLVM = ((".ir-no-opt.ll", "ir_no_opt"), (".ir-with-opt.ll", "ir_with_opt"),
+         (".o", "obj"), (".ptx", "ptx"))
 
 
 def _norm(s):

@@ -425,22 +425,44 @@ from .timeline import pass_timeline  # noqa: E402,F401  (re-exported: one implem
 
 
 def codegen_size(dump_dir: str | os.PathLike) -> dict:
-    """LLVM IR line counts and object bytes. Empty dict when the backend emitted none.
+    """Emitted-code size, per backend artifact kind.
 
-    An empty result is meaningful: a program that constant-folds to a literal emits no LLVM module
-    at all, which is itself the diagnosis.
+    ``ir_no_opt_lines`` / ``ir_with_opt_lines``  LLVM IR, both backends
+    ``obj_bytes``   ``.o``   host objects            -- XLA:CPU
+    ``ptx_bytes``   ``.ptx`` device assembly         -- XLA:GPU
+    ``code_bytes``  whichever of the two this backend actually emitted
+    ``kinds``       the artifact extensions found, so a zero is attributable
+
+    WHY ``kinds`` EXISTS. This counted only ``.ll`` and ``.o``, and the CUDA backend writes
+    NEITHER object form -- it writes ``.ptx``. So every GPU dump reported ``obj_bytes = 0``: an
+    absence of instrumentation presented as a measured zero, which is the failure shape this
+    package exists to prevent. Measured on a real CUDA dump at the time: 8 ptx files totalling
+    27,488 bytes, reported as nothing. ``kinds`` now distinguishes "this backend emitted no code
+    artifact" from "scopex was not looking for the one it emitted", and a caller can tell which.
+
+    A genuinely empty result is still meaningful: a program that constant-folds to a literal emits
+    no LLVM module at all, and so does one XLA hands to a library kernel.
     """
-    out: dict = {"ir_no_opt_lines": 0, "ir_with_opt_lines": 0, "obj_bytes": 0, "files": {}}
+    out: dict = {"ir_no_opt_lines": 0, "ir_with_opt_lines": 0,
+                 "obj_bytes": 0, "ptx_bytes": 0, "code_bytes": 0,
+                 "kinds": {}, "files": {}}
     for f in os.listdir(dump_dir):
         p = pathlib.Path(dump_dir) / f
+        ext = "".join(pathlib.Path(f).suffixes[-1:]) or pathlib.Path(f).suffix
         if f.endswith(".ll"):
             n = sum(1 for _ in p.open(errors="replace"))
-            key = "ir_with_opt_lines" if "with-opt" in f else "ir_no_opt_lines"
-            out[key] += n
+            out["ir_with_opt_lines" if "with-opt" in f else "ir_no_opt_lines"] += n
             out["files"][f] = n
         elif f.endswith(".o"):
             out["obj_bytes"] += p.stat().st_size
             out["files"][f] = p.stat().st_size
+        elif f.endswith(".ptx"):
+            out["ptx_bytes"] += p.stat().st_size
+            out["files"][f] = p.stat().st_size
+        else:
+            continue
+        out["kinds"][ext] = out["kinds"].get(ext, 0) + 1
+    out["code_bytes"] = out["obj_bytes"] + out["ptx_bytes"]
     return out
 
 
