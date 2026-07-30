@@ -45,32 +45,18 @@ print(scopex.table(scopex.attribute(units, "site")))
 
 **[The blueprint](docs/blueprint_scopex.html)** is the documentation — the differential method, the
 two routes (with and without instrumenting a framework), the naming contract, the ways of asking
-that silently return nothing, the API, and what scopex will not tell you.
+that silently return nothing, the API, the recipe routing table, reading a dump, and the limits.
 
-**[examples/marked_framework.py](examples/marked_framework.py)** is a runnable framework-plus-user
-model. Every number quoted in the blueprint is its actual output:
+**[examples/recipes/](examples/recipes/)** is one runnable file per question, routed by blueprint
+§7. **[examples/marked_framework.py](examples/marked_framework.py)** is the program every number in
+the blueprint comes from:
 
 ```bash
 python examples/marked_framework.py
 ```
 
-**[examples/recipes/](examples/recipes/)** is one runnable file per question — *which stage owns the
-wall*, *which pass grew the module*, *who is slow inside tracing*, *where did the seconds go when the
-passes account for none of them*. Each names the case it was derived on and the conditions under
-which its knob stops working. Blueprint §7 routes them.
-
-**[docs/HARDENING.md](docs/HARDENING.md)** is for anyone changing a parser: every remaining piece of
-compiler text scopex reads, what prints it, what happens when that changes, and how the two
-self-checks (`scopex.conformance()`, `scopex.selftest()`) cover it.
-
-**[docs/DEFICITS.md](docs/DEFICITS.md)** is for anyone deciding whether to trust a number scopex just
-produced: one section per instrument saying what validates it, **where that validation stops
-working**, what the instrument structurally cannot see, and what it costs in extra compiles. It also
-carries the ship call for each — including the one thing that was measured, found 49–62% correct
-exactly where it would be used, and deliberately **not** built.
-
-**[docs/INVESTIGATIONS.md](docs/INVESTIGATIONS.md)** is the case record — 15 investigations, what each
-instrument did and did not show, and the routes that were tried and rejected with the evidence.
+**[docs/](docs/)** indexes the rest — what each appendix is and who it is for. Nothing under `docs/`
+is scratch.
 
 ## The short version of the caveats
 

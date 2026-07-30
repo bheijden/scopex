@@ -1,5 +1,7 @@
 # The degenerate-compile suite
 
+**Audience: you are adding a case, or running the corpus.**
+
 62 case files, **800 `CASES` entries**, every one a `(fn, args, note)` triple that the harness in
 `_harness.py` measures in a fresh subprocess. The suite exists so `scopex` can be hammered against
 compile pathologies whose *mechanisms* differ, and so a signal that only works on one stage is

@@ -1,5 +1,7 @@
 # Captured pass logs
 
+**Audience: you are touching the coverage guard or its tests.**
+
 Raw stderr from `scopex.pass_timings`' own child process, plus the `jax.monitoring` numbers from
 **the same compile**, gzipped as JSON. They exist so `tests/test_coverage_guard.py` can demonstrate
 the coverage guard firing on real compiler output rather than on a hand-written line.

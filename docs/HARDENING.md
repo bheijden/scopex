@@ -1,5 +1,7 @@
 # HARDENING
 
+**Audience: you are changing a parser, or you just upgraded jax.**
+
 Which parts of scopex read **text a compiler printed**, what produces that text, what happens when
 the producer changes it, and how the two self-checks cover each one.
 

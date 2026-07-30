@@ -1,5 +1,7 @@
 # INVESTIGATIONS
 
+**Audience: you want the evidence behind a claim, or a worked example to copy.**
+
 An investigation log, not a routing table.
 
 Seventeen case files from `tests/degenerate/`, twenty-eight pathological arms, each paired against
