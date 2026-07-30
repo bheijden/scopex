@@ -62,6 +62,9 @@
   .footer{margin-top:70px;padding-top:18px;border-top:1px solid var(--rule);font-size:13px;color:var(--muted)}
   .pill{display:inline-block;font:600 10.5px/1 var(--mono);padding:4px 8px;border-radius:20px;margin-right:6px}
   .pill.keep{background:var(--accent-soft);color:var(--accent-ink)} .pill.new{background:var(--lens-soft);color:var(--lens-ink)} .pill.cut{background:var(--bad-soft);color:var(--bad-ink)}
+  .fixed{background:var(--accent-soft);color:var(--accent-ink);font:600 10.5px/1.4 var(--mono);
+          letter-spacing:.08em;padding:2px 7px;border-radius:4px;margin-right:6px;
+          text-transform:uppercase;vertical-align:1px}
 </style>
 <style>
   main{padding:46px 52px 140px;max-width:1000px;margin:0 auto}
@@ -100,6 +103,14 @@ culprit is worse on those arms than no tool.</p>
 pass, on this backend" in three or four commands, reliably, on twenty-seven of twenty-eight arms.</em>
 It does not find the bad line. On this corpus there is no bad line to find; the pathologies are
 properties of programs, not of statements.</p>
+<div class="box gotcha" style="margin:22px 0"><span class="lab">read the instrument failures as history, not as current behaviour</span>
+This log records what each instrument did <em>at the time of the investigation</em>, and several were
+broken then. <strong>Every one named below has since been fixed and re-verified</strong>; each such
+passage is marked <span style="background:var(--accent-soft);color:var(--accent-ink);font:600 11px/1.4 var(--mono);padding:2px 6px;border-radius:4px">FIXED</span>
+with what it does now. They are kept because the failure SHAPE is the reason the guards exist — an
+instrument that returns a plausible wrong answer is worse than one that returns none, and that is
+why <code>fidelity</code>, <code>conformance()</code> and <code>selftest()</code> are in the package
+at all. Do not read any of them as a reason to distrust the tool today.</div>
 <h2>How to read the numbers</h2>
 <p>Every number below carries its platform and its size parameter. They are not comparable across
 those axes and several are not comparable across arms of the same case file, because the machine was
@@ -347,14 +358,13 @@ Snapshot 32 (<code>after fusion</code>) is 382,246 vs 5,507 — 69x. The <code>f
 module by 106x while doing 2.7x to the m=96 module; max operand count jumps 20 -&gt; 289 in the same
 step; three extra <code>simplification_after_layout_assignment</code> iterations then trim it to 337,333, which
 is why the case runs 45 pass snapshots to the control's 38.</p>
-<p>XLA's own timer agrees, and this is where scopex fails: the raw <code>hlo_pass_pipeline=1</code> log contains
+<p><span class="fixed">fixed</span> XLA's own timer agrees, and this is where scopex failed <em>at the time</em>: the raw <code>hlo_pass_pipeline=1</code> log contains
 exactly one line above one second besides <code>cpu-parallel-task-assigner</code>, and it is
 <code>HLO pass: fusion time: 2.87 min</code> = 172 s of a 395 s compile (at m=94: <code>fusion time: 2.06 min
 (123480735 us)</code> = 123.5 s of 301 s). <code>scopex.flags._PASS_LINE</code> requires
-<code>[\d.]+\s*(us|ms|s)</code> and <code>_UNIT</code> knows only those three, so the line <strong>fails to match and is dropped
+<code>[\d.]+\s*(us|ms|s)</code> and <code>_UNIT</code> knew only those three, so the line <strong>failed to match and was dropped
 silently</strong>. <code>pass_timings</code> reports total 18.69 s and names <code>copy-insertion: 13.0 s</code> as the most
-expensive pass — wrong by 13x, and pointing at the wrong pass. A unit-tolerant re-parse of the same
-log gives 161.12 s. Verified in isolation: <code>_PASS_LINE.search()</code> returns <code>None</code> on that exact line
+expensive pass — wrong by 13x, and pointing at the wrong pass. A unit-tolerant re-parse of the same log gives 161.12 s. <strong>That re-parse is what ships now</strong> — <code>_PASS_LINE</code> prefers the parenthesised microseconds XLA always prints alongside the headline unit, knows ns through h, and warns on anything it cannot convert. Re-verified against the exact line quoted above: <code>fusion = 172.2 s</code>, where it previously matched nothing. <strong>That re-parse is now what ships</strong>: <code>_PASS_LINE</code> prefers the parenthesised microseconds XLA always prints, knows ns through h, and warns on any unit it cannot convert. Re-verified on the exact line from this investigation — <code>fusion = 172.2 s</code>, where it previously matched nothing. Verified in isolation: <code>_PASS_LINE.search()</code> returns <code>None</code> on that exact line
 and matches fine once <code>min</code> is edited to <code>s</code>.</p>
 <p>The mechanism came from a cheap two-axis sweep. On m at unroll=48: m=64/80/94 (<code>m//48 == 1</code>) -&gt;
 65.9 s / 155,857 instrs, 136.6 s / 240,881, 250.5 s / 330,397; m=96/112 (<code>m//48 &gt;= 2</code>) -&gt; 3.0 s /
@@ -405,7 +415,7 @@ over 513 computations, and LLVM has 58 lines of PTX to emit regardless of n.</p>
 <p>299 pass lines in the log using <code>min</code> units, so <code>_PASS_LINE</code> drops it and <code>pass_timings</code> returns a
 non-empty, plausible profile whose largest entry is a millisecond-scale pass. n=512 (41.0 s, under
 60 s) is a clean hit; n=1024 (177 s, over it) is a confident wrong answer. <strong>The tool appears to
-work on the small rung of a ladder and fails silently on the big one</strong> — the most dangerous possible
+work on the small rung of a ladder and failed silently on the big one</strong> <span class="fixed">fixed</span> — the most dangerous possible
 failure shape for a scaling study. The parenthesised <code>(177154325 us)</code> on the same line would have
 parsed.</p>
 <p><strong>Where scopex earned its keep.</strong> At n=512, <code>pass_timings</code> in one call. Everywhere,
@@ -598,8 +608,8 @@ variable is the comparator, not the data.</p>
 <p><strong>Where scopex earned its keep.</strong> <code>hlo_text(compiled)</code> plus a grep. That is a thin claim and it
 should be thin: the discriminator was one string in the text, and scopex's contribution was giving
 me the text without hitting the <code>compiler_ir('hlo')</code> metadata-dropping trap it documents.</p>
-<p><strong>Where I left scopex.</strong> Immediately, and because of a bug. <strong><code>hlo_instructions</code> silently drops every
-tuple-shaped instruction.</strong> <code>_INSTR</code>'s shape group is <code>\S+</code>, and a tuple shape
+<p><strong>Where I left scopex.</strong> Immediately, and because of a bug. <span class="fixed">fixed</span> <strong><code>hlo_instructions</code> silently dropped every
+tuple-shaped instruction.</strong> <span class="fixed">fixed</span> <code>_INSTR</code>'s shape group was <code>\S+</code>, and a tuple shape
 <code>(s32[1000000]{0}, s64[1000000]{0}, u8[12342527]{0})</code> contains spaces. I verified 12 parsed
 instructions against 13 assignment lines in the control's optimized HLO, and the one missed line is
 the <code>cub_sort_pairs</code> custom-call — <strong>the single most diagnostic instruction in the program, and the
@@ -941,7 +951,7 @@ greps for exactly one of these strings; scopex surfaces none of them, and <code>
 <code>stderr_tail</code> only when the parse <em>fails</em>, i.e. never when you have a real profile.</p>
 <h2>The dead ends worth knowing</h2>
 <p>Named, because they cost time to rediscover.</p>
-<p><strong><code>walk_stablehlo</code> is dead on jax 0.10.2 and fails silently.</strong> It returned exactly <strong>1 unit on 21 of
+<p><span class="fixed">fixed</span> <strong><code>walk_stablehlo</code> was dead on jax 0.10.2 and failed silently.</strong> It returned exactly <strong>1 unit on 21 of
 21 arms measured</strong>, including modules of 3,245, 10,713, 21,242, 31,507, 42,442 and 84,845 StableHLO
 lines. <code>attribute(list(walk_stablehlo(low)),'kind')</code> returns <code>{'func': 1}</code>. Cause: the pattern
 <code>^\s*(?:%\S+\s*=\s*)?"?(?P&lt;op&gt;[\w.]+)"?.*?loc\("(?P&lt;loc&gt;[^"]*)"</code> requires an <em>inline quoted</em>
@@ -957,8 +967,8 @@ built on it reports a one-op program with total confidence. Concretely costly tw
 are individually present without a dump and without a compile, and it is the level that returns 1.
 Both cases had to fall back to a raw text line count.</p>
 <p><strong><code>pass_timings</code> on any pass slower than ~60 seconds.</strong> XLA prints durations with
-<code>absl::FormatDuration</code>, which switches to minutes above 60 s. <code>_PASS_LINE</code> accepts only <code>us|ms|s</code>, so
-the slowest pass in the program is dropped <strong>silently</strong> and the tool returns a plausible profile
+<code>absl::FormatDuration</code>, which switches to minutes above 60 s. <span class="fixed">fixed</span> <code>_PASS_LINE</code> accepted only <code>us|ms|s</code>, so
+the slowest pass in the program was dropped <strong>silently</strong> and the tool returned a plausible profile
 naming a millisecond-scale pass. Confirmed on four arms: <code>bisect_m95</code> (<code>fusion time: 2.87 min</code>
 dropped; reported culprit <code>copy-insertion: 13.0 s</code>, wrong by 13x), <code>bisect_m94</code>
 (<code>fusion time: 2.06 min (123480735 us)</code>), <code>switch_ident_1024</code> (<code>copy-insertion time: 2.95 min
@@ -972,7 +982,7 @@ the same format (<code>HLO pass: simplification time: 3.52 s</code> is the <em>p
 5.4 s compile (<code>adconst_2p18</code>), 11.581 s for a 10.856 s backend (<code>jitfib_t22</code>), 12.18 s for a 4.53 s
 backend (<code>dusfold</code>), 41.00 s for a 31.9 s backend (<code>switch_ident_512</code>). The <code>#called:</code> field and the
 pipeline names visible in dump filenames are enough to separate them.</p>
-<p><strong><code>hlo_instructions</code> silently drops tuple-shaped instructions.</strong> <code>_INSTR</code>'s shape group is <code>\S+</code> and
+<p><span class="fixed">fixed</span> <strong><code>hlo_instructions</code> silently dropped tuple-shaped instructions.</strong> <code>_INSTR</code>'s shape group was <code>\S+</code> and
 a tuple shape contains spaces, so <code>sort</code>, <code>while</code>, <code>conditional</code>, every multi-output fusion and every
 tuple-returning custom-call vanish. On <code>argsort</code> the dropped line <em>was the answer</em>
 (<code>xla.gpu.ext.cub_sort_pairs</code>), and the drop is invisible: 12 parsed instructions against 13
@@ -1358,7 +1368,7 @@ alpha-equivalence class</strong> — i.e. the program is one branch written 128 
 <td><code>simplification</code> (6.8121 s) is the pipeline containing <code>constant_folding</code> (6.8115 s); coverage can read 186%. Only the <strong>ranking</strong> is safe.</td>
 </tr>
 <tr>
-<td><code>hlo_instructions</code> drops tuple-shaped instructions</td>
+<td><span class="fixed">fixed</span> <code>hlo_instructions</code> dropped tuple-shaped instructions</td>
 <td><strong>CLOSED</strong></td>
 <td>native enumeration via <code>xla_client.hlo</code>; over 2,811 real dump snapshots the old regex undercounted on 895 (31.8%) and missed 1,208 instructions, never overcounted.</td>
 </tr>
