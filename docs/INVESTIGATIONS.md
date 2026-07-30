@@ -1249,3 +1249,216 @@ indistinguishable from a level with nothing to report — the exact failure `Tim
 
 Both are small edits. Both are the difference, on specific arms above, between a diagnosis and a
 wrong answer delivered with confidence.
+
+---
+
+# Part 3 — the hardening + prototype round
+
+Everything below was measured *after* Parts 1 and 2 were written, on jax/jaxlib 0.10.2, python 3.12,
+CPU unless a backend is named. Part 2's lists are left untouched as the historical record; this part
+says which of them still stand.
+
+## A. Routes tried and rejected, with the evidence
+
+These are not "we did not get to it". Each was built, run against a case whose answer is
+independently known, and found to give a *plausible wrong answer* — the failure this package exists
+to prevent. They are recorded so nobody re-derives them.
+
+### A1. Kill-switch differencing as a time decomposition — NOT VIABLE
+
+Part 2 proposes kill-switch A/B as the route to "which phase owns the time" (it is the last entry
+under *Where a maintainer should not bother with scopex at all*). As a **decomposition of seconds**
+it is disqualified, and worst exactly where it matters.
+
+A kill switch answers *how much total compile time disappears if this pass never runs*, which
+includes every downstream cost the pass **created**. It does not answer *how long did this pass
+take*. On `jax#32704` ncycles=8, CPU, baseline backend 12.7 s (three **interleaved** baselines —
+12.795 / 12.643 / 12.841 s, so the differences are not drift):
+
+| lever | total | implied by differencing | truth |
+|---|---|---|---|
+| `--xla_disable_all_hlo_passes=true` | 0.252 s | `hlo_passes` = 12.47 s (97.5%) | 0.023 s |
+| `--xla_disable_hlo_passes=fusion` | 0.217 s | the `fusion` pass = 12.53 s | 0.00128 s |
+
+The second row is the surgical lever, the one a reader would trust most, and it overstates the
+`fusion` pass by **9,800x**. `fusion` runs in 1.3 ms and produces one `gather_bitcast_fusion` whose
+*emission* then costs 12.5 s; deleting the pass deletes the emission and the difference charges all
+of it to the pass. So on the one corpus case where the answer is known, this route names
+`hlo_passes` at 97.5% when the truth is `emitter` at 99.2%.
+
+Three further defects, each independently disqualifying:
+
+* `--xla_disable_all_hlo_passes=true` **aborts the process** on `jax#2609` ndtri jacrev d4:
+  `F hlo_value.h:241] Check failed: values_.size() == 1 (56 vs. 1)`. A fatal `Check`, not an
+  exception, so it takes the caller's interpreter down and cannot be run in-process at all.
+* Differences go **negative**: `--xla_llvm_disable_expensive_passes=true` measured 11.182 s against a
+  10.776 s baseline, i.e. `llvm_opt = -0.406 s`.
+* The noise floor swamps every small bucket. Six identical baseline compiles spanned 5.621–6.616 s
+  (16.7% spread, 7.5% stdev), and the **first** compile of a session read 10.776 s against a warm
+  steady state of 5.967 s — an 80% systematic bias on whichever arm runs first, which is by
+  construction the baseline. Three of the four target buckets are under 0.3% of that compile and are
+  unresolvable by differencing in principle. (`--xla_backend_optimization_level=0` moved the total by
+  −0.005 s, i.e. it is a no-op lever on this case.)
+
+Kill switches remain the right tool for the question they actually answer — *which knob makes this
+go away* — which is how `--xla_cpu_use_fusion_emitters=false` (12.7 s → 0.072 s, control 0.084 s)
+named the emitter originally. If that ships it must be `scopex.bisect_flags(fn, *args)`, explicitly
+labelled a bisection over **causes**, never a decomposition of **time**. One free property worth
+relying on: an unknown XLA flag is **fatal** (`F parse_flags_from_env.cc:234] Unknown flag in
+XLA_FLAGS`), not a silent no-op, so a lever removed by a future jaxlib crashes loudly.
+
+Superseded by `scopex.backend_split` (§B1), which costs one compile instead of five.
+
+### A2. Per-kernel mtime aggregation for multi-kernel programs — NOT VIABLE
+
+The obvious repair for `backend_split` on programs with many LLVM kernel modules: pair
+`.ir-no-opt.ll` / `.ir-with-opt.ll` / `.o` by kernel stem and sum the per-kernel deltas. On the
+224-kernel `ndtri` d4 arm, per-kernel llvm-opt intervals sum to 4.400 s and per-kernel codegen to
+3.319 s — together **7.72 s, which exceeds the entire 7.40 s backend stage they sit inside**.
+
+Cause: 223 of 223 consecutive kernels begin IR emission before the previous kernel's `.o` is written.
+XLA:CPU compiles kernel modules **in parallel across threads**, so wall-clock intervals overlap and
+summing them double-counts; they are neither wall seconds nor CPU seconds.
+
+This is why `backend_split` reports one `below_hlo` bucket when `n_kernel_modules > 1` rather than a
+per-kernel sum that looks precise and is inflated ~3.2x. The overlap test it keys on is cheap and
+decisive: `min(mtime of .ir-with-opt.ll) < max(mtime of .ir-no-opt.ll)` means the phases interleave.
+**The coverage guard alone would not have caught this** — ndtri's coverage was 0.919/0.924,
+comfortably inside any reasonable band — so the interleave test is load-bearing and not redundant.
+Re-measured this round: 223 kernels, `interleaved=True`, `sound=False`, coverage 0.924.
+
+For a per-kernel bill the route is `TF_CPP_VMODULE=cpu_compiler=3,jit_compiler=3`.
+
+### A3. JAX-internal tracing counters — THERE ARE NONE
+
+`jax._src.monitoring` exposes four record functions, and JAX emits exactly three compile-stage
+duration events, defined at `jax/_src/dispatch.py:59-61`: `jaxpr_trace_duration`,
+`jaxpr_to_mlir_module_duration`, `backend_compile_duration`. Grepping
+`record_event_duration_secs`/`record_event` across `jax/_src` finds only those three plus
+compilation-cache hit/miss counters. `linear_util.cache` calls `util.register_cache`, but the
+registry exists only so `jax.clear_caches()` can walk it (`api.py:2592` → `util.clear_all_caches`);
+it exposes `cache_clear`/`cache_info` sizes, not per-trace timings, and nothing is keyed by call
+site. There is no finer-grained in-JAX source for trace attribution — hence the CPython-level
+profiler in §B2.
+
+### A4. Binary protobuf route for HLO — METHOD EXISTS, SCHEMA DOES NOT
+
+`HloModule.as_serialized_hlo_module_proto()` works (2,087 bytes for a 16-instruction module) and
+`from_serialized_hlo_module_proto()` round-trips it. But there is **no schema anywhere**: zero
+`*_pb2.py` under site-packages, no `hlo.proto` or `xla_data.proto` on the filesystem, no `protoc`,
+`google.protobuf` not importable (not a jax dep), no pip in the venv. Without a schema the wire
+format is field **numbers** only — a generic wire walk confirms the data is all there (field 1 =
+name, 3 = computations, 17 = stack_frame_index carrying FileNames/FunctionNames/FileLocations/
+StackFrames) — but decoding means hardcoding those numbers, checkable against nothing, whose failure
+mode on a wrong guess is an empty list. Strictly worse than printed text, which at least names its
+fields.
+
+### A5. `HloInstruction.metadata` / `.shape` — NOT AVAILABLE
+
+`HloInstruction`'s complete non-dunder surface on jaxlib 0.10.2 is
+`['async_wrapped_root', 'name', 'opcode', 'operands', 'to_string', 'users']`. No `.metadata`, no
+`.shape`. Metadata *is* reachable, but only via `to_string()`, which prints
+`metadata={op_name="..." stack_frame_id=3}` by default despite the missing attribute.
+`HloPrintOptions` exists and has `print_metadata`, but `HloInstruction.to_string()` takes **no
+arguments**; only `HloModule.to_string(options)` accepts it. This is why `hlo_shape` and
+`hlo_metadata` remain text parsers — see `docs/HARDENING.md`, where the blast radius is now one
+known instruction's own string rather than every line of a module.
+
+## B. What was added, and what it is grounded on
+
+### B1. `scopex.backend_split(fn, *args)` — wishlist item 5, and the answer to §A1
+
+Splits `record()['backend']` into `hlo_passes / emitter / llvm_opt / codegen` from dump-artifact
+mtimes, in **one** compile. Validated on `jax#32704` ncycles=8 where the answer is independently
+known: backend 12.634 s → `hlo_passes` 0.023 (0.2%), **`emitter` 12.536 (99.2%)**, `llvm_opt` 0.028,
+`codegen` 0.016, coverage 0.998. It also **scales** with the pathology parameter, which a single
+point cannot show — sweeping ncycles 6/7/8/9 the emitter bucket reads 0.773 / 3.110 / 12.870 /
+53.352 s (4.02x, 4.14x, 4.15x per added link, matching the 4x/link the issue reports) while the other
+three stay flat, and the flattened control's emitter is flat at 0.050–0.055 s across the same sweep.
+
+Re-measured this round on a quieter box: backend 5.823 s, `emitter` **99.12%**, coverage 0.997,
+`sound=True`. That agrees with `pass_timeline`'s independent reading of the same case
+(`<llvm ir emission>` 99.5%) by a completely different route.
+
+Guards, both of which were added after the prototype reproduced this package's signature bug on its
+own first draft: the **interleave** test (§A2) and a **coverage band** of [0.90, 1.10] that *revokes*
+`sound` rather than annotating it. The first draft set `sound=True` on `jnp.tanh(x).sum()` at
+coverage 0.217 — that program dumps 26 files and **no `.ll` or `.o` at all**, because the optimized
+module is a single `kind=kCustom` fusion with `backend_config {"kind":"__ynn_fusion"}`: XLA handed
+the whole computation to a library kernel instead of emitting one, so the phases left no timestamped
+artifact to measure to. Re-measured this round: coverage 0.196, `sound=False`, two warnings.
+
+Limits, stated in the docstring: the un-spanned head+tail is a fixed ~20–25 ms, so **compiles under
+~1 s cannot pass the band** (census of 9 varied small CPU programs: 0/9 sound, coverage 0.20–0.89);
+and dumping perturbs what it measures (+5.8% on gather ncycles=8, +36% on ndtri d4 at 729 files), so
+the shares are internally consistent but the absolute seconds must not be compared against an
+undumped `record()`.
+
+### B2. `scopex.trace_profile(fn, *args)` — wishlist item 7, the biggest hole for trace-bound work
+
+Two implementations, both shipped, with `method` visible in the result. `xplane` uses the python
+tracer inside jaxlib (`ProfileOptions.python_tracer_level=1`); `cprofile` is the stdlib cross-check.
+
+On `einsum_optimal_n10` — the arm Part 1 §A1 could not attribute — **94% of trace self-time in
+`opt_einsum/paths.py:236 _optimal_iterate`**, a third-party frame containing no JAX code, which is
+exactly what the case docstring says attribution must be willing to do. Re-measured this round:
+1,727,005 python events, 2.378 s of 2.531 s = 94.0%, with cProfile reading the same frame at 94.6%
+of its own run. Two independent instruments, 0.6 percentage points apart.
+
+It also answers *which line of my code*, which the frame table alone does not: `retrace_static_40`
+charges **62.0%** to `case_python_retrace_cache_key_storm.py:125 _body` and `jitfib_t20` charges
+**44.2%** to `case_trace_time_nested_jit_fib.py:70 fib` — i.e. it attributes tracing that happens
+*inside nested jits*, where the stage split has one scalar.
+
+**And it falsifies the stage split.** `jaxpr_trace_duration` is emitted only under
+`core.trace_state_clean()` (`jax/_src/pjit.py:528`), so a **top-level `vmap` or `grad` over a jitted
+callee** pushes a trace, no enclosing jit event exists, and the metric reads a silent **0.0**.
+Measured with a 10-operand `einsum(optimize='optimal')`:
+
+```
+jax.jit(inner).lower(*xs)   wall 2.518 s   trace metric 2.511 s
+jax.vmap(inner)(*xs)        wall 2.711 s   trace metric 0.001 s   2.651 s MISSING
+```
+
+`Timings.matched` stays True (lower and backend are non-zero), so nothing warned, and 98% landed in
+`unaccounted` — whose docstring blamed *dispatch, host transfer, or your own code*. It is tracing.
+`record()` itself is safe (it always wraps in `jax.jit(fn).lower(...)`); users timing their own
+`jax.vmap(jitted)(...)` were not. Now flagged by `Timings.trace_looks_blind`, which points here.
+
+Two hard limits, both in the docstring. **Memory correlates with the thing being measured**: ~950k
+events/s and ~0.6 GB RSS per million events, so ~30 s of dense tracing needs ~20 GB — use
+`method='cprofile'` above a few seconds. And the xplane tracer records a **basename only** (0 of 527
+distinct frame names in one capture contained a `/`); resolving one through `sys.modules` is
+ambiguous for 53.7% of names, so frames are classified library-vs-user by a rule whose error is
+one-directional — a user file named `core.py` is under-reported as library, and library time is
+**never** charged to user code.
+
+### B3. `scopex.jaxpr_sharing(jaxpr)` — wishlist item 14
+
+Reports two notions separately **because they have different fixes**: VALUE duplicates (same
+primitive, same params, same operand identities — what CSE collapses) and SHAPE duplicates
+(alpha-equivalent sub-jaxprs — what makes XLA emit N computations, and what survives CSE).
+Alpha-equivalence is a structural hash memoised on `id()`.
+
+Found the `switch_ident` case exactly: `switch_ident_128` → 130 equations, 128 sub-jaxprs, **127
+redundant equations in ONE value group** (`128 x integer_pow`) and **127 redundant sub-jaxprs in ONE
+alpha-equivalence class** — i.e. the program is one branch written 128 times. `switch_ident_512` →
+511 redundant in one class. `walk` counts the equations and structurally cannot say this.
+
+## C. Which Part 2 dead ends are now closed
+
+Part 2's lists are the historical record and are left as written. Verified this round:
+
+| Part 2 entry | status | evidence measured this round |
+|---|---|---|
+| `walk_stablehlo` dead, 1 unit on 21/21 arms | **CLOSED** | native `jaxlib.mlir.ir` walk; `examples/marked_framework.py` → **311 units**, 294 named, 226/311 with a resolved `site`, and `library`/`author`/`split` all populated. The legacy regex on the same module still returns 1. |
+| `pass_timings` drops any pass over 60 s (`min` unit) | **CLOSED** | unknown units now **raise**; `gather2d_8` → 95 passes, 315 log lines, `unknown_units` empty. A new sibling bug was found by the guard on its first live log: XLA pass names contain **spaces** (`HLO pass: simplification after layout assignment`), and `(?P<name>\S+)` dropped 6 of 384 lines. |
+| `pass_timings` total double-counts pipelines | **OPEN** | `simplification` (6.8121 s) is the pipeline containing `constant_folding` (6.8115 s); coverage can read 186%. Only the **ranking** is safe. |
+| `hlo_instructions` drops tuple-shaped instructions | **CLOSED** | native enumeration via `xla_client.hlo`; over 2,811 real dump snapshots the old regex undercounted on 895 (31.8%) and missed 1,208 instructions, never overcounted. |
+| Operand arity and shape unrepresentable in `Ins` | **OPEN** | still true; `examples/recipes/widest_instruction.py` and `shape_cardinality.py` go around it via `walk`/`hlo_instructions` directly. |
+| Below-LLVM-IR artifacts uncounted | **CLOSED** | `codegen_size`, `emitter_*`, and `backend_split` (§B1). |
+| Emitter-stage MLIR unreachable from `dump_flags` | **CLOSED** | `dump(emitter=True)` and `scopex.emitter_growth`. |
+| Trace-stage attribution impossible | **CLOSED** | §B2. |
+| `dump()` reports nothing about what it writes | **PARTLY** | recipes report dump size; `dump()` itself still does not. |
+| Marking-contract views constant on this corpus | **UNCHANGED, and correct** | the corpus is unmarked single-file reproducers. `examples/marked_framework.py` is where those views are exercised. |
+| XLA's own `slow_operation_alarm` output discarded | **OPEN** | wishlist item 8. XLA printed *"Constant folding an instruction is taking > 1s"* verbatim on stderr during the `adconst` arm and nothing in scopex surfaces it. |

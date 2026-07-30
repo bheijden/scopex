@@ -76,7 +76,9 @@
   <a href="#contract">§4 The naming contract</a>
   <a href="#traps">§5 Silent failures</a>
   <a href="#api">§6 API</a>
-  <a href="#limits">§7 What it will not tell you</a>
+  <a href="#recipes">§7 Recipes</a>
+  <a href="#dump">§8 Reading a dump</a>
+  <a href="#limits">§9 What it will not tell you</a>
 </nav>
 <main><div class="doc">
 
@@ -96,11 +98,18 @@ produces confident, wrong answers.</p>
 <table>
   <tr><th>question</th><th>instrument</th><th>cost</th></tr>
   <tr><td>Which STAGE — tracing, lowering, or the backend?</td><td><code>scopex.record</code></td><td>1 compile, no flags</td></tr>
+  <tr><td>Trace-bound: WHICH PYTHON FRAME, and which line of mine?</td><td><code>scopex.trace_profile</code></td><td>1 trace, no compile</td></tr>
+  <tr><td>Backend-bound: which PHASE — passes, emitter, LLVM, codegen?</td><td><code>scopex.backend_split</code></td><td>1 compile, dumped</td></tr>
   <tr><td>Which XLA PASS?</td><td><code>scopex.pass_timings</code></td><td>1 compile, subprocess</td></tr>
   <tr><td>Which SOURCE LINE?</td><td><code>walk</code> + <code>attribute</code></td><td>0 compiles</td></tr>
+  <tr><td>Is it N COPIES of one computation?</td><td><code>scopex.jaxpr_sharing</code></td><td>0 compiles</td></tr>
   <tr><td>What SURVIVED to the backend?</td><td><code>walk_hlo</code></td><td>1 compile</td></tr>
   <tr><td>WHOSE code — library or user?</td><td>the same, once marked</td><td>0 compiles</td></tr>
 </table>
+<p>The two stage-refining rows are the ones that took longest to get right, because
+<code>record</code> reports each of them as a <em>single number</em> and every other level in this
+package starts at the jaxpr — which is the <em>output</em> of tracing and the <em>input</em> to the
+backend. Neither end was reachable until this release. §7 routes each question to a worked recipe.</p>
 <div class="box why"><span class="lab">why order matters</span>
 Source attribution explains time spent in tracing and in HLO passes. It says <em>nothing</em> about
 time spent in kernel autotuning — that time is spent RUNNING candidate kernels, not analysing your
@@ -330,14 +339,28 @@ Counting occurrences of a scope that is demonstrably present:</p>
   <tr><td>jaxpr <code>source_info.name_stack</code></td><td>4</td><td>correct</td></tr>
   <tr><td><code>Lowered.as_text()</code></td><td><strong>0</strong></td><td>defaults to <code>debug_info=False</code></td></tr>
   <tr><td><code>Lowered.as_text(debug_info=True)</code></td><td>4</td><td>correct</td></tr>
-  <tr><td><code>Lowered.compiler_ir('stablehlo')</code></td><td><strong>0</strong></td><td>drops locations</td></tr>
-  <tr><td><code>Lowered.compiler_ir('hlo')</code></td><td><strong>0</strong></td><td>drops metadata</td></tr>
+  <tr><td><code>str(Lowered.compiler_ir('stablehlo'))</code></td><td><strong>0</strong></td><td><code>Operation.__str__</code> defaults to <code>enable_debug_info=False</code></td></tr>
+  <tr><td><code>…compiler_ir('stablehlo').operation.get_asm(enable_debug_info=True)</code></td><td>4</td><td>correct — same object</td></tr>
+  <tr><td><code>str(Lowered.compiler_ir('hlo'))</code></td><td><strong>0</strong></td><td>drops metadata</td></tr>
   <tr><td><code>Compiled.as_text()</code></td><td>9</td><td>correct</td></tr>
   <tr><td><code>hlo_modules()[0].to_string()</code></td><td>9</td><td>correct</td></tr>
 </table>
 <p>The <code>compiler_ir</code> rows are the dangerous ones: it is the accessor that <em>looks</em>
 structured, so its empty answer gets believed. Use <code>scopex.stablehlo_text()</code> and
-<code>scopex.hlo_text()</code>.</p>
+<code>scopex.hlo_text()</code> — or, better, <code>scopex.stablehlo_module()</code>, which hands you
+the <code>ir.Module</code> itself with nothing re-lowered.</p>
+<div class="box anti"><span class="lab">a correction, and it cost this package a whole parser</span>
+This table used to read "<code>compiler_ir('stablehlo')</code> — <strong>drops locations</strong>",
+and that explanation is <strong>false</strong>. The count of 0 is real, but it is
+<code>Operation.__str__</code>'s <code>enable_debug_info=False</code> default, <em>not</em> the IR. The
+same object printed with <code>enable_debug_info=True</code> is <strong>byte-identical</strong> to
+<code>as_text(debug_info=True)</code> — verified again for this release: 958 chars, 20 <code>loc(</code>,
+and <code>compiler_ir('stablehlo') is compiler_ir('stablehlo')</code>, so nothing is re-lowered and
+nothing is copied. The trap is real; the conclusion drawn from it — <em>"this route cannot see
+provenance"</em> — was not, and it is precisely why <code>walk_stablehlo</code> was originally written
+as a line parser over printed text. That parser then returned <strong>1 unit on 16 of 21 real
+programs</strong>. A wrong explanation for a real observation is worth more scrutiny than the
+observation.</div>
 <h3>Enabling the heavy instruments</h3>
 <table>
   <tr><th></th><th>before <code>import jax</code></th><th>after import, before 1st compile</th><th>after 1st compile</th></tr>
@@ -358,9 +381,12 @@ report "no effect" without naming the backend.</div>
 <h2 id="api"><span class="num">§6</span>API</h2>
 <pre><code>scopex.record(fn, *args)              <span class="c"># Timings: trace / lower / backend / wall</span>
 scopex.regime(t)                      <span class="c"># heuristic label; says so</span>
+scopex.trace_profile(fn, *args)       <span class="c"># inside the TRACE stage: frames + your file:line</span>
+scopex.backend_split(fn, *args)       <span class="c"># inside the BACKEND stage: passes/emitter/llvm/codegen</span>
 scopex.pass_timings(src)              <span class="c"># {pass: seconds}, via subprocess</span>
 scopex.dump(path=None)                <span class="c"># context manager; XLA's own artifacts</span>
 
+scopex.jaxpr_sharing(jaxpr)           <span class="c"># duplicate subexpressions: VALUE and SHAPE</span>
 scopex.walk(jaxpr)                    <span class="c"># -> Eqn, one per equation, nested included</span>
 scopex.walk_hlo(compiled)             <span class="c"># -> Ins, optimized HLO, with source sites</span>
 scopex.walk_stablehlo(lowered)        <span class="c"># -> Ins</span>
@@ -385,7 +411,138 @@ payload buried inside <code>pjit</code>, <code>pjit×3</code>, <code>scan</code>
 payload to the same source line. Run <code>verify_parity</code> on your own program; disagreement is
 a scopex bug.</div>
 
-<h2 id="limits"><span class="num">§7</span>What it will not tell you</h2>
+<h2 id="recipes"><span class="num">§7</span>Recipes — one file per question</h2>
+<p><code>examples/recipes/</code> holds a runnable module per question. Each one names the corpus
+case it was derived on, prints the numbers it was derived <em>from</em>, and documents the conditions
+under which its knob stops working. They are not demos: every number in every docstring was measured,
+and where a re-run disagreed with the original the recipe says so and keeps both.</p>
+
+<div class="box why"><span class="lab">start here</span>
+<code>trust_the_instrument.py</code> first, in a fresh process, then <code>stage_split.py</code>.
+The first asks whether the levels are reading your program at all; the second decides which of the
+rows below you are in. Everything else is downstream of that answer.</div>
+
+<h3>Routing</h3>
+<table>
+  <tr><th>if the stage split says…</th><th>recipe</th><th>the question it answers</th></tr>
+  <tr><td colspan="3"><strong>before anything</strong></td></tr>
+  <tr><td>—</td><td><code>trust_the_instrument.py</code></td><td>Is this level reading my program, or returning a plausible empty answer?</td></tr>
+  <tr><td>—</td><td><code>stage_split.py</code></td><td>Which stage owns the wall — tracing, lowering, or the backend?</td></tr>
+  <tr><td colspan="3"><strong>trace-bound</strong></td></tr>
+  <tr><td>trace-bound</td><td><code>who_is_slow_inside_tracing.py</code></td><td>scopex can time the stage and cannot attribute inside it. So <em>who</em>?</td></tr>
+  <tr><td>trace-bound</td><td><code>which_transform_wrote_these_eqns.py</code></td><td>Which transform generated all these equations, and at which source line?</td></tr>
+  <tr><td colspan="3"><strong>the program is too big</strong></td></tr>
+  <tr><td>any</td><td><code>level_census.py</code></td><td>At which level does it get big — was it <em>born</em> big, or did XLA multiply it?</td></tr>
+  <tr><td>any</td><td><code>blame_the_line.py</code></td><td>The jaxpr is N× too big. Which line of python emitted the equations?</td></tr>
+  <tr><td>any</td><td><code>is_the_cost_multiplicity.py</code></td><td>Is the compile N copies of one computation rather than one big one?</td></tr>
+  <tr><td>any</td><td><code>widest_instruction.py</code></td><td>Same instruction count, 500× slower. Where is the size? (In one node's operand list.)</td></tr>
+  <tr><td>any</td><td><code>which_level_shows_it.py</code></td><td>At which level does the blowup <em>first</em> appear?</td></tr>
+  <tr><td colspan="3"><strong>backend-bound</strong></td></tr>
+  <tr><td>backend-bound</td><td><code>pass_timings_coverage.py</code></td><td>Is it one HLO pass — and do the passes account for the compile <em>at all</em>?</td></tr>
+  <tr><td>backend-bound</td><td><code>which_pass_ate_the_compile.py</code></td><td>Which single pass is the compile, and is the profile complete?</td></tr>
+  <tr><td>backend-bound</td><td><code>which_pass_grew_the_module.py</code></td><td>The optimized module is enormous but the jaxpr is not. Which pass grew it?</td></tr>
+  <tr><td>backend-bound</td><td><code>pass_divergence.py</code></td><td>It grew below the jaxpr. Which pass multiplied it?</td></tr>
+  <tr><td>backend-bound</td><td><code>pass_set_diff.py</code></td><td>Which passes actually <em>ran</em>? Is the guilty pass even in the list?</td></tr>
+  <tr><td>backend-bound</td><td><code>where_do_the_arms_diverge.py</code></td><td>Which pass blew it up — and did the two arms run the same passes?</td></tr>
+  <tr><td colspan="3"><strong>backend-bound and the passes account for none of it</strong></td></tr>
+  <tr><td>coverage ≈ 0</td><td><code>phase_timeline.py</code></td><td>Where did the seconds <em>actually</em> go? (The phases that are not passes.)</td></tr>
+  <tr><td>counts are null</td><td><code>codegen_decision.py</code></td><td>The counts match. Did XLA take a different <em>decision</em>?</td></tr>
+  <tr><td>counts are inverted</td><td><code>shape_cardinality.py</code></td><td>The slow arm has <em>fewer</em> instructions. Is the cost the number of distinct shapes?</td></tr>
+  <tr><td colspan="3"><strong>it never finishes</strong></td></tr>
+  <tr><td>no result at all</td><td><code>compile_that_never_finishes.py</code></td><td>It eats host memory until the OOM killer arrives. Which pass never returned?</td></tr>
+</table>
+
+<div class="box gotcha"><span class="lab">the recipe that has no scopex call in it</span>
+<code>who_is_slow_inside_tracing.py</code> exists because the original investigation concluded scopex
+"can never say WHO without a sampling profiler over the tracing call stack". It <em>is</em> that
+profiler, and it ends the einsum investigation in one call: <strong>100% of 3,152 trace-stage samples
+in <code>opt_einsum</code></strong>, hot leaf <code>paths.py:256 _optimal_iterate</code> at 54.4% —
+against a stage split reading trace 31.468 s vs 0.005 s and <em>all five</em> scopex attribution
+views identical between the arms. That capability is now also a first-class API,
+<code>scopex.trace_profile</code>, which charges 94% of the same case to the same third-party frame
+and additionally names the user <code>file:line</code> responsible.</div>
+
+<div class="box anti"><span class="lab">read the caveat, not just the number</span>
+Two live traps the recipes carry because they were hit while writing them. <strong>(1)</strong>
+<code>pass_timings</code> sums pipelines <em>with</em> their member passes, so coverage came back
+<strong>186%</strong> on one arm (<code>simplification</code> 6.8121 s is the pipeline
+<em>containing</em> <code>constant_folding</code> 6.8115 s). The ranking is safe; the total is an upper
+bound. <strong>(2)</strong> <code>PassStep.instrs</code> is the module <em>after</em>
+<code>after_pass</code> while <code>PassStep.name</code> is <code>before_pass</code>, so a naive read
+credits the wrong pass — and looking one entry back does not fix it, because <code>after_pass</code>
+repeats while a pass leaves the module unchanged.</div>
+
+<h2 id="dump"><span class="num">§8</span>Reading a dump</h2>
+<p>Most of what XLA knows about your compile is already on disk the moment you ask for it. A dump is
+the only route to the per-pass module snapshots, the emitter's own MLIR, the LLVM IR, the object
+file, the fusion decision log — and to the <em>timestamps</em>, which are the only in-package
+instrument that reaches phases XLA does not time.</p>
+
+<pre><code><span class="k">with</span> scopex.dump(passes=<span class="s">'.*'</span>) <span class="k">as</span> d:      <span class="c"># BEFORE the first compile. See the trap below.</span>
+    jax.jit(fn).lower(x).compile()
+
+scopex.modules_in(d)                  <span class="c"># which modules are in here, largest first</span>
+scopex.pass_growth(d, module=…)       <span class="c"># [PassStep]: instrs/computations per snapshot</span>
+scopex.pass_timeline(d)               <span class="c"># [(label, seconds)] incl. the phases after HLO</span>
+scopex.diverge(d_case, d_control)     <span class="c"># lockstep walk of two curves</span>
+scopex.codegen_size(d)                <span class="c"># .ll line counts, object bytes</span>
+scopex.emitter_growth(d)              <span class="c"># the backend emitter's own MLIR pipeline</span>
+scopex.fusion_steps(d)                <span class="c"># GPU priority-fusion decisions, as the proto it is</span>
+scopex.hlo_at(d, index)               <span class="c"># the module as it stood at snapshot N</span></code></pre>
+
+<h3>What is in the directory</h3>
+<table>
+  <tr><th>file</th><th>what it is</th><th>read it with</th></tr>
+  <tr><td><code>module_NNNN.<em>fn</em>.<em>i</em>.<em>pipeline</em>.after_<em>A</em>.before_<em>B</em>.txt</code></td><td>the module as it stood between two passes</td><td><code>pass_growth</code>, <code>hlo_at</code></td></tr>
+  <tr><td><code>module_NNNN.<em>fn</em>.<em>kernel</em>-pre-optimization.mlir</code></td><td>the emitter's MLIR before its own pipeline</td><td><code>emitter_growth</code></td></tr>
+  <tr><td><code>…mlir-passes.log</code></td><td>MLIR's <code>PrintIRPass</code> log for that kernel</td><td><code>emitter_growth</code></td></tr>
+  <tr><td><code>…ir-no-opt.ll</code> / <code>…ir-with-opt.ll</code></td><td>LLVM IR before / after LLVM's own passes</td><td><code>codegen_size</code>, <code>backend_split</code></td></tr>
+  <tr><td><code>…obj-file.<em>kernel</em>.o</code></td><td>the emitted object</td><td><code>codegen_size</code>, <code>backend_split</code></td></tr>
+  <tr><td><code>priority_fusion_dump.txt</code></td><td>GPU fusion decision log, a text proto</td><td><code>fusion_steps</code></td></tr>
+</table>
+
+<div class="box anti"><span class="lab">the trap that makes a dump silently empty</span>
+XLA reads <code>XLA_FLAGS</code> when its backend is <strong>first initialised</strong>. Setting it
+after any compile — or after anything that commits an array to a device, including
+<code>jnp.ones(1)</code> at module scope — is a <strong>silent no-op</strong>, and you get an empty
+directory and conclude there was nothing to see. <code>scopex.dump</code> and
+<code>scopex.backend_split</code> both <em>raise</em> rather than allow it. Two arms means two
+processes.</div>
+
+<div class="box gotcha"><span class="lab">what a dump costs, and it is unwarned</span>
+<code>dump(passes='.*')</code> on one corpus arm produced <strong>944 MB across 950 files in 358 s
+— from a 24-equation jaxpr</strong>. Another produced 1,089 files. Dumping also <em>perturbs what it
+measures</em>: writing snapshots costs wall time that lands in the pass-pipeline bucket (+5.8% on one
+case, +36% on a 729-file one), so shares from a dumped compile are internally consistent but their
+absolute seconds must not be compared against an undumped <code>record()</code>.</div>
+
+<h3>The timestamps are an instrument</h3>
+<p>XLA writes each snapshot <em>as its pass completes</em>, so consecutive mtimes bound the pass
+between them — and the interval between the last HLO snapshot and the first <code>.ll</code> is
+everything XLA's pass timer cannot see. On <code>jax#32704</code> (chained 2-D fancy indexing, CPU)
+that is the entire finding: the HLO pass pipeline accounts for <strong>0.1%</strong> of the compile
+and <code>&lt;llvm ir emission&gt;</code> for <strong>99.5%</strong>, while every count-based view is a
+null — jaxpr equations identical, optimized instructions 1.04×, emitted IR +16 lines.</p>
+<pre><code>scopex.backend_split(fn, x)  <span class="c"># hlo_passes 0.15% · emitter 99.12% · llvm_opt 0.29% · codegen 0.18%</span>
+                             <span class="c"># sound=True · coverage 0.997 · 1 kernel module</span></code></pre>
+<div class="box why"><span class="lab">why <code>sound</code> and <code>coverage</code> come first</span>
+XLA:CPU compiles kernel modules <strong>concurrently</strong>, so global phase boundaries only
+describe a real ordering when there is exactly one. On a 223-kernel program the phases interleave
+223/223 and per-kernel intervals sum to <em>more than the backend stage they sit inside</em> — so
+<code>backend_split</code> reports one <code>below_hlo</code> bucket and <code>sound=False</code>
+rather than inventing a split. That matters because multi-kernel is exactly where LLVM and codegen
+<em>are</em> the answer: a splitter that quietly mislabelled there would have its blind spot aligned
+with the quantity it measures. Note the interleave test is <strong>not</strong> redundant with
+coverage — that program's coverage was 0.924, comfortably inside any reasonable band.</div>
+<div class="box gotcha"><span class="lab">no <code>.ll</code> and no <code>.o</code> is a result, not a failure</span>
+A program that constant-folds to a literal emits no LLVM module. So does one XLA hands to a library
+kernel: <code>jnp.tanh(x).sum()</code> dumps 26 files and not one LLVM artifact, because the optimized
+module is a single <code>kind=kCustom</code> fusion with
+<code>backend_config {"kind":"__ynn_fusion"}</code>. There is then nothing timestamped to measure to,
+and <code>backend_split</code> says so (<code>coverage 0.196</code>, <code>sound=False</code>) instead
+of reporting a measured zero.</div>
+
+<h2 id="limits"><span class="num">§9</span>What it will not tell you</h2>
 <p><strong>It does not rank lines by compile seconds.</strong> It attributes STRUCTURE — equations,
 instructions, fusion decisions. Time attribution below the stage split needs per-pass timing, and
 even that does not divide cleanly by source line.</p>
@@ -398,8 +555,22 @@ against it — barrier placement, region bisection — declined on every real pr
 <p><strong>Counts do not scale with problem size.</strong> <code>vmap</code> batches rather than
 unrolls, so a program at N=8 and N=30 gives byte-identical equation counts. Reading a count as
 "cost per stage" is wrong.</p>
-<p><strong>Nested-jit trace time is invisible.</strong> JAX emits the tracing timer only when
-<code>core.trace_state_clean()</code>, i.e. at top level; tracing inside an inner <code>jit</code> is
-folded into the parent and cannot be separated.</p>
+<p><strong>Nested-jit trace time is invisible <em>to the stage split</em>.</strong> JAX emits the
+tracing timer only when <code>core.trace_state_clean()</code>
+(<code>jax/_src/pjit.py:528</code>), so tracing inside an inner <code>jit</code> is folded into the
+parent and cannot be separated by <code>record</code>. <code>scopex.trace_profile</code> hooks CPython
+frames rather than pjit and does separate it — on a nested-jit fib it charges 44.2% to the user's own
+<code>fib</code>, across 22 nested <code>_trace_for_jit</code> calls.</p>
+<div class="box anti"><span class="lab">the same guard, failing silently — worth knowing</span>
+That guard has a worse consequence than a missing breakdown. A <strong>top-level</strong>
+<code>vmap</code> or <code>grad</code> over a jitted callee pushes a trace, so no enclosing jit event
+exists and the trace metric reads a silent <strong>0.0</strong>. Measured with a 10-operand
+<code>einsum(optimize='optimal')</code>: <code>jax.jit(inner).lower(*xs)</code> reads wall 2.518 s /
+trace 2.511 s, but <code>jax.vmap(inner)(*xs)</code> reads wall 2.711 s / trace <strong>0.001 s</strong>
+— 2.651 s missing, landing in <code>unaccounted</code>, whose docstring used to blame dispatch or host
+transfer. <code>Timings.matched</code> stays True throughout, so nothing warned.
+<code>record()</code> itself is safe (it always wraps in <code>jax.jit(fn).lower(...)</code>); timing
+your own <code>jax.vmap(jitted)(...)</code> with a listener is not.
+<code>Timings.trace_looks_blind</code> now flags exactly that combination.</div>
 
 </div></main></div></body></html>

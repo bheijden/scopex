@@ -10,8 +10,9 @@ call                                         found       verdict
 jaxpr ``source_info.name_stack``                  4      correct
 ``Lowered.as_text()``                             0      TRAP -- defaults to debug_info=False
 ``Lowered.as_text(debug_info=True)``              4      correct
-``Lowered.compiler_ir('stablehlo')``              0      TRAP -- drops location info
-``Lowered.compiler_ir('hlo')``                    0      TRAP -- drops metadata
+``str(Lowered.compiler_ir('stablehlo'))``         0      TRAP -- the PRINTER's default, not the IR
+``compiler_ir('hlo').as_hlo_text()``              0      TRAP -- the PRINTER again, see below
+``compiler_ir('hlo').get_hlo_module()``           4      correct -- scopex.pre_optimization_hlo
 ``Compiled.as_text()``                            9      correct
 ``executable.get_hlo_text()``                     9      correct
 ``executable.hlo_modules()[0].to_string()``       9      correct
@@ -19,29 +20,70 @@ jaxpr ``source_info.name_stack``                  4      correct
 
 The ``compiler_ir`` rows are the dangerous ones: it is the accessor that *looks* structured and
 principled, so a reader trusts its empty answer and concludes the IR carries no provenance.
+
+AND ONE OF THEM WAS OVER-READ, WHICH IS ITS OWN LESSON. ``compiler_ir('stablehlo')`` returns an
+``ir.Module`` -- the very object jax lowered into, ``is``-identical across calls. It does not drop
+anything. Only ``__str__`` does, because ``Operation.__str__`` defaults to
+``enable_debug_info=False``. Ask the same object to print with debug info and you get text
+BYTE-IDENTICAL to ``as_text(debug_info=True)`` (48,770 chars, 478 ``loc(``, measured on
+``examples/marked_framework.py``)::
+
+    m = lowered.compiler_ir('stablehlo')
+    str(m)                                    # 0 loc(  -- the trap
+    m.operation.print(enable_debug_info=True) # 478 loc( -- same as as_text(debug_info=True)
+
+So "this accessor prints nothing useful" was true and "this route cannot see provenance" was not.
+:func:`scopex.walk_stablehlo` walks that module directly.
+
+AND THEN THE ``hlo`` ROW TURNED OUT TO BE THE SAME STORY, WHICH IS WHY THAT SENTENCE IS WORTH
+KEEPING. This file used to end by warning that the ``hlo`` row had not been re-examined and must
+not be assumed to behave like the ``stablehlo`` one. It does. ``compiler_ir('hlo')`` returns an
+``XlaComputation`` with two printers, and only one of them is lossy::
+
+    c = lowered.compiler_ir('hlo')
+    c.as_hlo_text()                    #   692 chars, 0 op_name, 0 stack_frame_id  -- the trap
+    c.get_hlo_module().to_string()     # 2,092 chars, 9 op_name, 6 stack_frame_id  -- and the
+                                       #   StackFrameIndex tables, so sites resolve
+
+Same call, same object, 3x the text. So the pre-optimization module carries FULL provenance and
+always did; :func:`scopex.pre_optimization_hlo` is that route, and it needs no dump directory.
+Twice now the lossy thing has been a printer default and the loud conclusion has been about the
+IR. When an accessor here looks empty, print the object another way before believing it.
 """
 
 from __future__ import annotations
 
 import contextlib
 import os
-import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import warnings
 
+from . import _parse
+
 __all__ = ["stablehlo_text", "hlo_text", "check_env", "dump_flags", "vmodule_env",
            "backend_initialized", "dump", "pass_timings", "TRAPS"]
+
+# The pass-log pattern and its unit table now live in scopex._parse, next to a verbatim capture of
+# the lines XLA printed -- including the `min` line that broke them. Kept reachable under their old
+# names so existing callers and tests still find them; there is exactly one definition.
+_PASS_LINE = _parse._PASS_LINE
+_UNIT = _parse.UNITS
 
 TRAPS = {
     "lowered_as_text_default": (
         "Lowered.as_text() defaults to debug_info=False and prints no locations. "
         "Use scopex.stablehlo_text(lowered), or pass debug_info=True."),
     "compiler_ir": (
-        "Lowered.compiler_ir('stablehlo'|'hlo') drops location/metadata entirely. "
-        "It is not a structured alternative to as_text(debug_info=True); it is a lossy one."),
+        "str(Lowered.compiler_ir('stablehlo')) prints no locations -- Operation.__str__ defaults "
+        "to enable_debug_info=False. The OBJECT keeps them: print it with enable_debug_info=True "
+        "and you get text byte-identical to as_text(debug_info=True), or walk it with "
+        "scopex.walk_stablehlo. compiler_ir('hlo') is the SAME STORY, one accessor further down: "
+        "XlaComputation.as_hlo_text() strips every metadata= block (692 chars, 0 op_name) while "
+        "the same object's .get_hlo_module().to_string() keeps all of it (2,092 chars, 9 op_name, "
+        "6 stack_frame_id) -- use scopex.pre_optimization_hlo."),
     "vmodule_silent": (
         "TF_CPP_VMODULE alone is a silent no-op: importing jax sets TF_CPP_MIN_LOG_LEVEL=1, which "
         "suppresses all VLOG output. Set TF_CPP_MIN_LOG_LEVEL=0 as well."),
@@ -78,12 +120,22 @@ def vmodule_env(spec: str = "hlo_pass_pipeline=1") -> dict[str, str]:
     return {"TF_CPP_MIN_LOG_LEVEL": "0", "TF_CPP_VMODULE": spec}
 
 
-def dump_flags(path: str, *, fusion: bool = True, passes: str | None = None) -> dict[str, str]:
+def dump_flags(path: str, *, fusion: bool = True, passes: str | None = None,
+               emitter: bool = False) -> dict[str, str]:
     """XLA_FLAGS for dumping compiler artifacts.
 
     ``fusion`` adds the priority-fusion decision dump (free: it is written during the pass that
     already runs). ``passes`` is a regex of pass names to snapshot HLO around; ``".*"`` snapshots
     every pass and is large.
+
+    ``emitter`` opens the level BELOW the HLO passes: each backend's emitter runs its own MLIR
+    pipeline (~65 passes on 0.10.2) before LLVM, and ``--xla_dump_emitter_re`` writes a per-kernel
+    snapshot of every one. Verified present on jaxlib 0.10.2 on CPU and GPU; read the result with
+    :func:`scopex.emitter_growth`. It is a BOOL and not a regex on purpose -- the flag's argument
+    looks like ``--xla_dump_hlo_pass_re``'s but is matched against the fixed dump-kind tag
+    ``"mlir-fusion"``, so naming the kernel you want returns an empty level and no error. Measured
+    by bisection; see the block comment in ``scopex/_parse.py``. Not free: ~400 KB of log per
+    kernel.
 
     NOT included: ``--xla_dump_fusion_visualization``. Measured 2.08x compile time, 14.3 MB, and no
     timestamps -- the structured fusion dump supersedes it.
@@ -93,6 +145,8 @@ def dump_flags(path: str, *, fusion: bool = True, passes: str | None = None) -> 
         parts.append("--xla_dump_hlo_pass_re=priority-fusion")
     if passes:
         parts.append(f"--xla_dump_hlo_pass_re={passes}")
+    if emitter:
+        parts.append(f"--xla_dump_emitter_re={_parse.EMITTER_DUMP_KIND}")
     return {"XLA_FLAGS": " ".join(parts)}
 
 
@@ -146,7 +200,7 @@ def backend_initialized() -> bool:
 
 @contextlib.contextmanager
 def dump(path: str | None = None, *, passes: str | None = None, fusion: bool = True,
-         keep: bool = True):
+         emitter: bool = False, keep: bool = True):
     """Compile inside this block with XLA dumping enabled, and yield the directory.
 
         with scopex.dump() as d:
@@ -156,6 +210,13 @@ def dump(path: str | None = None, *, passes: str | None = None, fusion: bool = T
     RAISES if the backend is already up, because setting XLA_FLAGS then is a silent no-op and a
     silent no-op is worse than an error -- you get an empty directory and conclude there was
     nothing to see. Call this before your first compile, or use a fresh process.
+
+    AND THE EXIT IS NOT AN UNDO. The env var is restored on the way out, but the XLA backend was
+    already CONSTRUCTED from it, and nothing rebuilds the backend. So every later compile in this
+    process still runs under the dump flags. Measured in this project's own test suite: a module
+    that opened a dump made a `call` instruction vanish from an unrelated later compile, failing a
+    test that passed in isolation. If you need a compile that is not under dump flags, it has to be
+    a different process -- which is why the corpus harness runs one subprocess per measurement.
     """
     if backend_initialized():
         raise RuntimeError(
@@ -179,7 +240,8 @@ def dump(path: str | None = None, *, passes: str | None = None, fusion: bool = T
     os.makedirs(d, exist_ok=True)
     prev = os.environ.get("XLA_FLAGS")
     os.environ["XLA_FLAGS"] = " ".join(
-        ([prev] if prev else []) + list(dump_flags(d, fusion=fusion, passes=passes).values()))
+        ([prev] if prev else [])
+        + list(dump_flags(d, fusion=fusion, passes=passes, emitter=emitter).values()))
     try:
         yield d
     finally:
@@ -191,36 +253,26 @@ def dump(path: str | None = None, *, passes: str | None = None, fusion: bool = T
             shutil.rmtree(d, ignore_errors=True)
 
 
-# The line XLA actually prints (hlo_pass_pipeline.cc:176), verified by reading the log rather than
-# guessing at it:
-#     HLO pass: async-collective-replacer time: 24 us (24 us) (cumulative: 24 us, max: 24 us, ...)
-# A first attempt matched "<word> ... <number> s" and dutifully reported the glog timestamp prefix
-# `I0729` as the most expensive pass in the program. This format is NOT a stable interface --
-# `n_lines` and `stderr_tail` exist so a parse failure is visible instead of returning {}.
-# The line XLA prints (hlo_pass_pipeline.cc:176):
-#     HLO pass: async-collective-replacer time: 24 us (24 us) (cumulative: 24 us, ...)
+# The log is TEXT and there is no other route to it, so the pattern that reads it lives in
+# scopex._parse together with a verbatim sample of the lines XLA printed -- including the one that
+# broke it. Recorded here because it is the reason this module does not own a regex any more:
+#
+#     HLO pass: async-collective-replacer time: 34 us (34 us) (cumulative: 34 us, max: 34 us, ...)
 #     HLO pass: autotuner time: 1.19 min (71651421 us) (cumulative: 1.2 min, ...)
 #
-# XLA SWITCHES UNITS ON MAGNITUDE, and that made the first version of this parser dangerous rather
-# than merely incomplete. `_UNIT` knew only us/ms/s, so a pass reported in `min` was silently
-# dropped -- and the pass reported in `min` is BY CONSTRUCTION the slowest one. Measured on a GPU
-# conv autotuning case: exactly 1 of 640 pass lines used `min`, it was the autotuner at 98.8% of a
-# 72.5 s compile, and dropping it left `pass_timings` returning a plausible dict topped by
-# `remat-pipeline: 0.1196`. The tool did not fail to answer; it reported the OPPOSITE of the truth
-# with no warning. A parser whose blind spot is correlated with the thing being measured is worse
-# than no parser.
-#
-# So: prefer the PARENTHESISED microseconds, which XLA always emits in `us` regardless of the
-# headline unit, and fall back to value+unit only when it is absent.
-_PASS_LINE = re.compile(
-    r"HLO pass:\s+(?P<name>\S+)\s+time:\s+(?P<val>[\d.]+)\s*(?P<unit>[a-z]+)"
-    r"(?:\s*\((?P<us>\d+)\s*us\))?")
-_UNIT = {"ns": 1e-9, "us": 1e-6, "ms": 1e-3, "s": 1.0, "sec": 1.0,
-         "min": 60.0, "m": 60.0, "h": 3600.0}
+# XLA SWITCHES UNITS ON MAGNITUDE, which made the first version of this parser dangerous rather than
+# merely incomplete: it knew us/ms/s, so a pass reported in `min` was silently dropped -- and the
+# pass reported in `min` is BY CONSTRUCTION the slowest one. Measured on a GPU conv autotuning case:
+# exactly 1 of 640 pass lines used `min`, it was the autotuner at 98.8% of a 72.5 s compile, and
+# dropping it left `pass_timings` returning a plausible dict topped by `remat-pipeline: 0.1196`. The
+# tool did not fail to answer; it reported the OPPOSITE of the truth with no warning. An unknown
+# unit is now a ParseError, and a parse that reads fewer lines than the log visibly contains is too.
+# An even earlier attempt matched "<word> ... <number> s" and reported the glog timestamp prefix
+# `I0729` as the most expensive pass in the program.
 
 
 def pass_timings(module_src: str, *, python: str | None = None, timeout: int = 1800,
-                 vmodule: str = "hlo_pass_pipeline=1") -> dict:
+                 vmodule: str = "hlo_pass_pipeline=1", module: str | None = None) -> dict:
     """Per-XLA-pass timings, by running ``module_src`` in a FRESH SUBPROCESS with vmodule set.
 
     A subprocess is not laziness. ``TF_CPP_VMODULE`` is read by the C++ logging layer when the
@@ -231,9 +283,13 @@ def pass_timings(module_src: str, *, python: str | None = None, timeout: int = 1
     ``TF_CPP_MIN_LOG_LEVEL=0`` and ``TF_CPP_VMODULE``. Both are required: importing jax sets
     MIN_LOG_LEVEL=1, which suppresses every VLOG, so VMODULE alone is a silent no-op.
 
-    Returns ``{"passes": {name: seconds}, "n_lines": int, "stderr_tail": str}``. An empty ``passes``
-    with a non-empty ``stderr_tail`` usually means the vmodule spec did not match this XLA build --
-    the log format is not a stable interface and this parser is best-effort by nature.
+    Returns ``{"passes": {name: seconds}, "n_lines": int, "modules": [...], "stderr_tail": str}``.
+
+    ``modules`` IS PART OF THE ANSWER, not decoration. One compile logs several modules -- JAX's own
+    warm-up ``jit_convert_element_type`` and friends run through the same pipelines as the program
+    you asked about -- and ``passes`` sums over all of them, so a total is not "your program" unless
+    that list has one entry. Measured on a two-line CPU program: 832 log lines, 807 pass lines, 3
+    modules. Pass ``module="jit_your_fn"`` to keep only the pipelines XLA ran for that module.
     """
     env = dict(os.environ)
     env.update(vmodule_env(vmodule))
@@ -241,25 +297,24 @@ def pass_timings(module_src: str, *, python: str | None = None, timeout: int = 1
     p = subprocess.run([python or sys.executable, "-c", module_src],
                        capture_output=True, text=True, timeout=timeout, env=env)
     log = p.stderr + p.stdout
+    if module:
+        # Keep only the stretches of log between a header naming this module and the next header.
+        keep, on = [], False
+        for line in log.splitlines():
+            hdr = _parse.pass_pipeline_headers(line)
+            if hdr:
+                on = module in hdr[0][0]
+            if on:
+                keep.append(line)
+        log_used = "\n".join(keep)
+    else:
+        log_used = log
     out: dict[str, float] = {}
-    unknown: set = set()
-    for m in _PASS_LINE.finditer(log):
-        if m.group("us") is not None:                  # authoritative, always microseconds
-            secs = int(m.group("us")) * 1e-6
-        else:
-            u = m.group("unit")
-            if u not in _UNIT:                          # never silently drop -- see above
-                unknown.add(u)
-                continue
-            secs = float(m.group("val")) * _UNIT[u]
-        out[m.group("name")] = out.get(m.group("name"), 0.0) + secs
-    if unknown:
-        warnings.warn(
-            f"pass_timings saw time units it cannot convert: {sorted(unknown)}. Those passes were "
-            f"EXCLUDED, and XLA reports large times in large units, so the excluded ones are "
-            f"probably the expensive ones. Add them to scopex.flags._UNIT.",
-            RuntimeWarning, stacklevel=2)
+    for t in _parse.pass_timing_lines(log_used):
+        out[t.name] = out.get(t.name, 0.0) + t.seconds
     return {"passes": dict(sorted(out.items(), key=lambda kv: -kv[1])),
             "n_lines": len(log.splitlines()),
-            "unknown_units": sorted(unknown),
+            "modules": sorted({m for m, _ in _parse.pass_pipeline_headers(log)}),
+            "module_filter": module,      # None => `passes` sums over every module in `modules`
+            "unknown_units": [],          # unconvertible units now raise; kept for shape stability
             "stderr_tail": p.stderr[-1500:] if not out else ""}

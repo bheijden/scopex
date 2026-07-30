@@ -61,8 +61,35 @@ class Timings(dict):
     @property
     def unaccounted(self) -> float:
         """Wall time minus the three stages. Large values mean the time is somewhere JAX does not
-        instrument -- dispatch, host transfer, or your own code."""
+        instrument -- dispatch, host transfer, your own code, or (see
+        :meth:`trace_looks_blind`) tracing that JAX declined to time."""
         return self.get("wall", 0.0) - self.total
+
+    @property
+    def trace_looks_blind(self) -> bool:
+        """True when ``trace`` reads ~0 while most of the wall is unaccounted.
+
+        That combination has ONE common cause and it is not dispatch. JAX emits
+        ``jaxpr_trace_duration`` only under ``core.trace_state_clean()``
+        (jax/_src/pjit.py:528), so a TOP-LEVEL ``vmap`` or ``grad`` over a jitted callee pushes a
+        trace, no enclosing jit event exists, and the metric reads a silent 0.0 while real tracing
+        happens. Measured on jax 0.10.2 / CPU with a 10-operand ``einsum(optimize='optimal')``::
+
+            jax.jit(inner).lower(*xs)   wall 2.518 s   trace 2.511 s
+            jax.vmap(inner)(*xs)        wall 2.711 s   trace 0.001 s   2.651 s unaccounted
+
+        ``matched`` stays True in the second row -- lower and backend are non-zero -- so nothing
+        else in this module notices. :func:`scopex.trace_profile` is oblivious to
+        ``trace_state_clean`` (it hooks CPython frames, not pjit) and reports the same 2.6 s.
+
+        :func:`record` itself is SAFE from this, because it always wraps in
+        ``jax.jit(fn).lower(...)``. You are exposed when you time your own
+        ``jax.vmap(jitted)(...)`` with a listener.
+        """
+        w = self.get("wall", 0.0)
+        return (self.matched and w > 0.05
+                and self.get("trace", 0.0) < 0.01 * w
+                and self.unaccounted > 0.5 * w)
 
     def __str__(self) -> str:
         w = self.get("wall", 0.0)
@@ -79,6 +106,13 @@ class Timings(dict):
         rows.append(f"{'unaccounted':10s} {self.unaccounted:9.3f} "
                     f"{100 * self.unaccounted / max(1e-9, w):6.1f}%")
         rows.append(f"{'WALL':10s} {w:9.3f}")
+        if self.trace_looks_blind:
+            rows.append(
+                "\ntrace reads ~0.0 while most of the wall is unaccounted. Do NOT read that as\n"
+                "dispatch or host transfer. JAX emits jaxpr_trace_duration only under\n"
+                "core.trace_state_clean(), so a TOP-LEVEL vmap/grad over a jitted callee makes\n"
+                "the metric silently zero while tracing happens (measured: 2.651 s of 2.711 s).\n"
+                "  scopex.trace_profile(fn, *args)   hooks CPython frames, so it sees it anyway")
         b = self.get("backend", 0.0)
         if b / max(1e-9, w) > 0.5:
             rows.append(
@@ -86,7 +120,7 @@ class Timings(dict):
                 "codegen -- which want opposite responses. To split it:\n"
                 "  scopex.pass_timings(src)   per-XLA-pass seconds (runs a SUBPROCESS: vmodule is\n"
                 "                             read at `import jax` and cannot be set after)\n"
-                "  scopex.dump()              XLA's own artifacts (must precede the FIRST compile;\n"
+                "  scopex.dump()              XLA's own artifacts (must precede the 1st compile;\n"
                 "                             setting XLA_FLAGS later is a SILENT no-op)")
         if self.get("cache_events"):
             rows.append(f"cache events: {dict(self['cache_events'])}")
@@ -95,6 +129,24 @@ class Timings(dict):
 
 @contextmanager
 def _listen(acc, events, seen):
+    """Register the two listeners for the duration of the block, then REMOVE them.
+
+    An earlier version of this module stated in two places that "jax.monitoring has no public
+    deregister; listeners are process-global and cannot be removed in jax 0.10.2", and `record`'s
+    docstring told users to run each measurement in a fresh subprocess because of it. That is not
+    true on jax 0.10.2 and may never have been: ``jax.monitoring`` re-exports
+    ``unregister_event_duration_listener``, ``unregister_event_listener``,
+    ``unregister_event_time_span_listener``, ``unregister_scalar_listener`` and
+    ``clear_event_listeners``. Verified by counting ``jax._src.monitoring`` listeners across a
+    register/unregister pair: 0 -> 1 -> 0.
+
+    Note the ASYMMETRIC NAMES -- ``register_event_duration_secs_listener`` pairs with
+    ``unregister_event_duration_listener`` (no ``_secs``) -- and that the unregister functions
+    ``assert callback in <list>`` before removing, so they raise AssertionError (or ValueError under
+    ``python -O``, where the assert is stripped and ``list.remove`` raises instead) if the callback
+    is already gone. Cleanup must never be able to fail a measurement that succeeded, so both are
+    swallowed here.
+    """
     def cb(name, value, **kw):
         seen.add(name)
         if name in _KEYS:
@@ -102,14 +154,18 @@ def _listen(acc, events, seen):
         elif "cache" in name:
             events[name] += 1
 
+    ev = lambda name, **kw: cb(name, 0.0, **kw)                              # noqa: E731
     jax.monitoring.register_event_duration_secs_listener(cb)
-    jax.monitoring.register_event_listener(lambda name, **kw: cb(name, 0.0, **kw))
+    jax.monitoring.register_event_listener(ev)
     try:
         yield
     finally:
-        # jax.monitoring has no public deregister; listeners are process-global and additive. That
-        # is why `record` warns against calling it many times in one process (see its docstring).
-        pass
+        for fname, f in (("unregister_event_duration_listener", cb),
+                         ("unregister_event_listener", ev)):
+            try:
+                getattr(jax.monitoring, fname)(f)
+            except Exception:            # missing in a future jax, or already removed
+                pass
 
 
 def record(fn, *args, clear_caches: bool = True, **kwargs) -> Timings:
@@ -118,9 +174,15 @@ def record(fn, *args, clear_caches: bool = True, **kwargs) -> Timings:
     ``clear_caches`` makes this a COLD compile, which is almost always what you want to measure --
     a warm compile returns in microseconds and tells you nothing.
 
-    CAVEAT: ``jax.monitoring`` listeners are process-global and cannot be removed in jax 0.10.2, so
-    calling this repeatedly in one process accumulates listeners and inflates later readings. For
-    a benchmark loop, run each measurement in a fresh subprocess.
+    SAFE TO CALL REPEATEDLY IN ONE PROCESS. Its listeners are removed when it returns (see
+    :func:`_listen`), and even before that fix they did not inflate later readings, because each
+    call's listener writes into its own accumulator -- three consecutive records on one program read
+    total/wall 0.92, 0.96, 0.96. What is NOT safe is a hand-rolled timing loop without
+    ``jax.clear_caches()``, which measures a warm compile and reads ~0.
+
+    THIS FUNCTION IS ALSO SAFE FROM THE ``trace_state_clean`` BLIND SPOT, because it always wraps in
+    ``jax.jit(fn).lower(...)``. Timing your own ``jax.vmap(jitted)(...)`` with a listener is not --
+    see :meth:`Timings.trace_looks_blind`.
     """
     acc: defaultdict = defaultdict(float)
     events: defaultdict = defaultdict(int)

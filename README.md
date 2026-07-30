@@ -54,6 +54,18 @@ model. Every number quoted in the blueprint is its actual output:
 python examples/marked_framework.py
 ```
 
+**[examples/recipes/](examples/recipes/)** is one runnable file per question — *which stage owns the
+wall*, *which pass grew the module*, *who is slow inside tracing*, *where did the seconds go when the
+passes account for none of them*. Each names the case it was derived on and the conditions under
+which its knob stops working. Blueprint §7 routes them.
+
+**[docs/HARDENING.md](docs/HARDENING.md)** is for anyone changing a parser: every remaining piece of
+compiler text scopex reads, what prints it, what happens when that changes, and how the two
+self-checks (`scopex.conformance()`, `scopex.selftest()`) cover it.
+
+**[docs/INVESTIGATIONS.md](docs/INVESTIGATIONS.md)** is the case record — 15 investigations, what each
+instrument did and did not show, and the routes that were tried and rejected with the evidence.
+
 ## The short version of the caveats
 
 - **Measure a control.** A number from one program is not a diagnosis. A near-identical *fast*
@@ -64,8 +76,10 @@ python examples/marked_framework.py
   eight offending instructions share one correct source line whose per-instruction interventions
   span a 19.6× range. Correct is not the same as actionable.
 - **Two accessors silently return nothing** where they look authoritative: `Lowered.as_text()`
-  defaults to `debug_info=False`, and `compiler_ir(...)` drops locations entirely. Use
-  `scopex.stablehlo_text()` / `scopex.hlo_text()`. The blueprint has the full table.
+  defaults to `debug_info=False`, and printing `compiler_ir(...)` shows no locations — that one is
+  MLIR's `Operation.__str__` default, not the IR, which carries them. Use
+  `scopex.stablehlo_text()` / `scopex.hlo_text()`, or `scopex.stablehlo_module()` for the module
+  itself. The blueprint has the full table and why the wrong explanation cost a parser.
 
 ## Correctness
 
