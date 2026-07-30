@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The degenerate-compile suite — scopex</title>
+<style>
+  :root{
+    --bg:#fbfaf7; --ink:#181b1f; --muted:#5c6470; --rule:#e4e0d7;
+    --accent:#0f766e; --accent-soft:#d7eee9; --accent-ink:#0b544e;
+    --warn:#b45309; --warn-soft:#fbe7cf; --warn-ink:#7c3a06;
+    --bad:#b42318; --bad-soft:#fbe3e0; --bad-ink:#7a1c14;
+    --lens:#5b4bb7; --lens-soft:#e7e3fb; --lens-ink:#3f3486;
+    --code-bg:#0e1116; --code-ink:#e6edf3;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --maxw:900px;
+  }
+  *{box-sizing:border-box} html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{display:grid;grid-template-columns:270px minmax(0,1fr);max-width:1240px;margin:0 auto}
+  nav.toc{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;padding:34px 22px 60px;border-right:1px solid var(--rule);font-size:13.5px}
+  nav.toc .kicker{font:600 11px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+  nav.toc h1{font-size:15px;margin:0 0 6px;line-height:1.3}
+  nav.toc .wip{font:600 10px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--warn-ink);background:var(--warn-soft);padding:3px 7px;border-radius:5px;display:inline-block;margin-bottom:16px}
+  nav.toc a{display:block;color:var(--muted);text-decoration:none;padding:4px 0 4px 12px;border-left:2px solid transparent}
+  nav.toc a:hover{color:var(--ink)}
+  main{padding:46px 52px 140px;min-width:0}
+  .doc{max-width:var(--maxw)}
+  .kicker{font:600 12px/1.4 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1.title{font-size:34px;line-height:1.15;margin:6px 0 10px;letter-spacing:-.01em}
+  .lede{font-size:18px;color:var(--muted);margin:0 0 14px;max-width:66ch}
+  .meta{font:12.5px/1.5 var(--mono);color:var(--muted);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:10px 0;margin:22px 0 34px}
+  h2{font-size:24px;margin:52px 0 8px;letter-spacing:-.01em;scroll-margin-top:20px}
+  h2 .num{font:600 14px/1 var(--mono);color:var(--accent);display:block;margin-bottom:8px}
+  h3{font-size:17.5px;margin:28px 0 6px}
+  h4{font-size:13.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:22px 0 4px}
+  p{margin:12px 0;color:#23282e} strong{font-weight:650}
+  code{font:13px/1.5 var(--mono);background:#efece4;padding:1.5px 5px;border-radius:4px;color:#3a3f46}
+  pre{background:var(--code-bg);color:var(--code-ink);padding:16px 18px;border-radius:10px;overflow-x:auto;margin:14px 0;font:12.5px/1.6 var(--mono)}
+  pre code{background:none;padding:0;color:inherit}
+  pre .c{color:#8b98a5} pre .k{color:#ff7b72} pre .s{color:#a5d6ff} pre .f{color:#d2a8ff} pre .g{color:#7ee787}
+  .box{border-left:3px solid;border-radius:0 8px 8px 0;padding:13px 18px;margin:18px 0;font-size:15px}
+  .box .lab{font:600 11px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:5px}
+  .why{background:var(--accent-soft);border-color:var(--accent)} .why .lab{color:var(--accent-ink)}
+  .keep{background:var(--accent-soft);border-color:var(--accent)} .keep .lab{color:var(--accent-ink)}
+  .gotcha{background:var(--warn-soft);border-color:var(--warn)} .gotcha .lab{color:var(--warn-ink)}
+  .anti{background:var(--bad-soft);border-color:var(--bad)} .anti .lab{color:var(--bad-ink)}
+  .lens{background:var(--lens-soft);border-color:var(--lens)} .lens .lab{color:var(--lens-ink)}
+  .directive{border:1px solid var(--warn);background:linear-gradient(180deg,#fdf5ea,#fbfaf7);border-radius:14px;padding:4px 30px 24px;margin:26px 0;box-shadow:0 3px 22px rgba(180,83,9,.07)}
+  .directive .tag{display:inline-block;font:700 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:#fff;background:var(--warn);padding:7px 12px;border-radius:0 0 7px 7px}
+  .thesis{font-size:17px;font-weight:600;color:var(--accent-ink);margin:16px 0;line-height:1.5;border-left:3px solid var(--accent);padding-left:16px}
+  table{border-collapse:collapse;width:100%;margin:16px 0;font-size:14px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+  th{font:600 11px/1.4 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  td code{font-size:12px}
+  ul,ol{margin:12px 0;padding-left:22px} li{margin:7px 0}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+  .cols h4{margin-top:0}
+  .col-bad h4{color:var(--bad-ink)} .col-good h4{color:var(--accent-ink)}
+  @media (max-width:1000px){.wrap{grid-template-columns:1fr} nav.toc{display:none} main{padding:30px 22px 100px} .cols{grid-template-columns:1fr}}
+  .footer{margin-top:70px;padding-top:18px;border-top:1px solid var(--rule);font-size:13px;color:var(--muted)}
+  .pill{display:inline-block;font:600 10.5px/1 var(--mono);padding:4px 8px;border-radius:20px;margin-right:6px}
+  .pill.keep{background:var(--accent-soft);color:var(--accent-ink)} .pill.new{background:var(--lens-soft);color:var(--lens-ink)} .pill.cut{background:var(--bad-soft);color:var(--bad-ink)}
+</style>
+<style>
+  main{padding:46px 52px 140px;max-width:1000px;margin:0 auto}
+  .backlink{font:600 12px/1.4 var(--mono);letter-spacing:.12em;text-transform:uppercase;
+             color:var(--accent);text-decoration:none;display:inline-block;margin-bottom:18px}
+  .aud{font-size:15px;color:var(--muted);border-left:3px solid var(--accent);padding:8px 0 8px 16px;
+        margin:14px 0 28px;background:var(--accent-soft);border-radius:0 8px 8px 0}
+  blockquote{border-left:3px solid var(--rule);margin:16px 0;padding:2px 0 2px 18px;color:var(--muted)}
+  h1{font-size:32px;line-height:1.15;margin:6px 0 10px;letter-spacing:-.01em}
+</style>
+<body>
+<main>
+<a class="backlink" href="../../docs/index.html">&larr; scopex docs</a>
+<h1>The degenerate-compile suite</h1>
+<div class="aud"><strong>Audience: you are adding a case, or running the corpus.</strong></div>
+<p>62 case files, <strong>800 <code>CASES</code> entries</strong>, every one a <code>(fn, args, note)</code> triple that the harness in
+<code>_harness.py</code> measures in a fresh subprocess. The suite exists so <code>scopex</code> can be hammered against
+compile pathologies whose <em>mechanisms</em> differ, and so a signal that only works on one stage is
+caught being useless on the other fifteen.</p>
+<p>Run everything on one backend:</p>
+<pre><code class="language-bash">cd /home/bas/scopex/tests/degenerate
+JAX_PLATFORMS=cpu python _harness.py --platform cpu            # all 800, serial, ~hours
+JAX_PLATFORMS=cpu python _harness.py --platform cpu &lt;names...&gt;  # a subset
+</code></pre>
+<p>Environment these numbers were taken on: jax 0.10.2 / jaxlib 0.10.2, python 3.12, x64 enabled by
+the harness child, 20-core CPU, one CUDA GPU that was <strong>off-limits</strong> for the whole of this work
+(a separate investigation owned it), so every GPU column below is <em>pending</em>, never <em>negative</em>.</p>
+<hr />
+<h2>Suite integrity (checked mechanically, this session)</h2>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>files that import and expose <code>CASES</code></td>
+<td><strong>62 / 62</strong> (0 import failures)</td>
+</tr>
+<tr>
+<td>total discovered cases</td>
+<td><strong>800</strong></td>
+</tr>
+<tr>
+<td>duplicate case names across files</td>
+<td><strong>0</strong></td>
+</tr>
+<tr>
+<td>orphan <code>*_control</code> entries (control with no case)</td>
+<td><strong>0</strong></td>
+</tr>
+<tr>
+<td>malformed <code>CASES</code> values (not <code>(callable, tuple, str)</code>)</td>
+<td><strong>0</strong></td>
+</tr>
+<tr>
+<td><code>jax.Array</code> at module scope (recursive scan of module globals and of every <code>args</code> tuple)</td>
+<td><strong>0</strong></td>
+</tr>
+<tr>
+<td>jax activity during <code>import</code> (monitoring listener: compiles, lowerings, device_puts)</td>
+<td><strong>0 events, 0 backends initialised, 9.3 s total import for all 62 files</strong></td>
+</tr>
+<tr>
+<td>cases with an exactly-suffixed <code>&lt;name&gt;_control</code></td>
+<td><strong>736 / 800</strong></td>
+</tr>
+<tr>
+<td>cases deliberately shipped without a paired control</td>
+<td><strong>64</strong> (see below)</td>
+</tr>
+</tbody>
+</table>
+<p>One cross-file hazard was checked and is <strong>safe as long as the harness keeps its current shape</strong>:
+three files write <code>jax.config.update("jax_num_cpu_devices", ...)</code> at module scope
+(<code>spmd_reshard_permute</code> -&gt; 64, <code>spmd_uneven_shard_cliff</code> -&gt; 8, <code>spmd_halo_conv_dim_choice</code> -&gt; 8).
+<code>discover()</code> imports all 62 files into the <em>parent</em>, so the last writer wins there — but the parent
+never compiles, and <code>_CHILD</code> imports exactly one case file per measurement, so every child sees its
+own file's value. A config write is not a device claim: the probe above confirms zero backends are
+initialised at import. <code>remat_threshold_activation_chain</code> applies its config <em>inside</em> the traced
+function for the same reason, and says so.</p>
+<p>The 64 unpaired entries are <strong>not</strong> missing controls; each is a variant/contrast arm whose file
+documents why it is unpaired, and each lives in a file that also ships properly-suffixed pairs.
+Three patterns:</p>
+<ul>
+<li><strong>size-sweep arms below the harness floor</strong> — <code>switch_ident_{64,128}</code> (the file says outright that
+  controls exist only where the arm can clear <code>MIN_COMPILE_S</code>, since <code>classify()</code> checks the floor
+  before it ever consults a control), <code>bisect_m{64..256}</code> (the cliff <em>is</em> the sweep; the paired
+  control <code>bisect_m95_control</code> is m=96 and is measured once to serve both roles), <code>topk_pow{19,21,22}</code>.</li>
+<li><strong>contrast arms that are themselves the cheap twin</strong> — <code>ndtri_scan_jacfwd_*</code>, <code>seqgrad_N*_scan</code>,
+  <code>fusion_rolled_n*</code>, <code>einsum_optimal_*_pathlit</code>, <code>f8chain_{f32,f16,bf16}_*</code>, <code>i4chain_i32_d64</code>,
+  <code>argsort_{u32,f64,bitcast_i32}_*</code>, <code>linalg_chol_d32</code>, <code>rngdist_{t,poisson,cauchy}_*</code>,
+  <code>dynwhile_plain_fori_*</code>, <code>cumad_cumprod_n65536</code>.</li>
+<li><strong>falsification arms</strong> — <code>adconst_*_{wtraced,live,stack}</code>, <code>dusfold_dynidx_300</code>,
+  <code>seqmask_arange_b64_m50000</code>, <code>assocscan64_realwide_32k</code>, <code>xtile_issue_lowrank_subtrees</code>,
+  <code>tilerank_peak{9,11,14}</code>, <code>rngimpl_unsafe_rbg_k64</code>, <code>convT*_tinyk</code>.</li>
+</ul>
+<p>Read those rows against their siblings in the same results table, not against a <code>_control</code> suffix.</p>
+<hr />
+<h2>Every case file</h2>
+<p><code>Origin</code> is <strong>mined</strong> (a real issue/PR, URL in the docstring) or <strong>synth</strong> (constructed from
+compiler source and then measured — stated as such in the docstring).
+<code>Status</code>: <strong>cpu-ok</strong> = reproduces on CPU with its control; <strong>cpu-ok(lower)</strong> = reproduces but the
+seconds are in <code>lower_s</code>, so <code>_harness.classify()</code> scores it "no (below floor)" by design;
+<strong>cpu-ok(bytes)</strong> = the artifact is memory, not time; <strong>gpu-pending</strong> = written and structurally
+verified, mechanism is GPU-side, never run on a GPU here; <strong>no-repro</strong> = deliberate negative,
+committed to bound the axis; <strong>weak</strong> = real but under <code>MIN_VS_CONTROL</code>.</p>
+<table>
+<thead>
+<tr>
+<th>File (<code>case_*.py</code>)</th>
+<th>n</th>
+<th>Gap / stage</th>
+<th>Mechanism in one line</th>
+<th>The one variable the control moves</th>
+<th>Platform</th>
+<th>Origin</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ad_control_flow_ndtri_scan</code></td>
+<td>11</td>
+<td>AD rules x control flow</td>
+<td><code>jacrev</code> through <code>scan</code> over <code>ndtri</code>, which still has no derivative rule, so AD goes through the primitive's expansion</td>
+<td><code>custom_vjp</code> with the analytic derivative wrapped around <code>ndtri</code></td>
+<td>either (reported CPU)</td>
+<td>mined jax#2609</td>
+<td><strong>cpu-ok 16.3x</strong> (this run: 107.8 s vs 6.6 s at d16)</td>
+</tr>
+<tr>
+<td><code>ad_graph_shape_seq_update</code></td>
+<td>10</td>
+<td>AD graph shape / HLO scheduling</td>
+<td>gradient of a sequential in-place update is super-linear in N while the jaxpr stays exactly linear</td>
+<td>drop <code>jax.grad</code>; same loop, same shapes</td>
+<td>either</td>
+<td>mined jax#17335</td>
+<td>cpu-ok, weak (this run: 6.2x, 71.0 s vs 11.5 s at N=1000)</td>
+</tr>
+<tr>
+<td><code>ad_transpose_bounded_while</code></td>
+<td>8</td>
+<td>AD transpose of control flow</td>
+<td>an O(1) forward pass whose transpose costs O(max_steps) to trace, lower and compile</td>
+<td>one decorator: <code>jax.grad(loss)</code> vs <code>loss</code></td>
+<td>either (reported CPU)</td>
+<td>mined jax#8239</td>
+<td>cpu-ok (this run: 5.9x compile / 5.5x lower at 512)</td>
+</tr>
+<tr>
+<td><code>ad_transpose_cond_recursion</code></td>
+<td>8</td>
+<td>AD transpose of control flow</td>
+<td>reverse mode through a recursively-halved <code>lax.cond</code> tree; the recursion is in Python, the cost is in transpose</td>
+<td>one decorator; control grows underneath, so read the ratio's <em>trend</em></td>
+<td>either</td>
+<td>mined jax#8239</td>
+<td>cpu-ok(lower) 9.6x (this run: 15.2 s vs 1.6 s lower at M=128)</td>
+</tr>
+<tr>
+<td><code>batching_rule_cho_solve_grad</code></td>
+<td>12</td>
+<td>batching rule x linalg</td>
+<td>compile time of <code>grad(vmap(cho_solve))</code> grows with BATCH size, which it must not</td>
+<td>drop <code>value_and_grad</code>; second axis is the batch sweep itself</td>
+<td>GPU reported (V100); CPU informative</td>
+<td>mined jax#21313</td>
+<td>gpu-pending</td>
+</tr>
+<tr>
+<td><code>batching_rule_conv_persample</code></td>
+<td>10</td>
+<td>batching rule x conv</td>
+<td>per-sample conv gradients: compile scales with SAMPLE COUNT, runtime does not</td>
+<td>formulation: <code>grad</code> of the summed batch instead of per-sample <code>vmap</code></td>
+<td>either (reported CPU 2019)</td>
+<td>mined jax#1606</td>
+<td><strong>flat at N=300 in this run</strong> (0.47 s, 1.1x) -- the 2019 number needs N=1000 or a GPU</td>
+</tr>
+<tr>
+<td><code>codegen_multiplicity_switch_branches</code></td>
+<td>14</td>
+<td>many computations -&gt; LLVM codegen</td>
+<td><code>lax.switch</code> over n identical branches is super-linear in n; nothing dedups the identical computations</td>
+<td>the same call with a branch list of length 1</td>
+<td>either</td>
+<td>mined jax#4453</td>
+<td><strong>cpu-ok 194x</strong> (this run: 19.4 s vs 0.10 s at 512 branches)</td>
+</tr>
+<tr>
+<td><code>compilemem_literal_bytes</code></td>
+<td>14</td>
+<td><strong>gap 15</strong> compile-time HOST memory</td>
+<td>a closure-captured array becomes a dense literal that exists in ~4 copies at once; the HLO module is 5 instructions</td>
+<td>the same array passed as a jit ARGUMENT</td>
+<td>either</td>
+<td>synth</td>
+<td>cpu-ok(bytes+time)</td>
+</tr>
+<tr>
+<td><code>compilemem_peak_live_fanout</code></td>
+<td>28</td>
+<td><strong>gap 15</strong> peak buffer memory</td>
+<td>use count decides fusion: a value read twice cannot fuse, so N buffers stay live at byte-identical jaxpr size</td>
+<td>one operand token: <code>acc</code> vs the parameter <code>x</code></td>
+<td>either</td>
+<td>synth</td>
+<td>cpu-ok(bytes)</td>
+</tr>
+<tr>
+<td><code>const_fold_ad_scatter</code></td>
+<td>17</td>
+<td>constant folding, reached through AD</td>
+<td>AD turns a constant-index gather into an all-constant scatter, which XLA then folds at compile time</td>
+<td>index tables become traced ARGUMENTS</td>
+<td>either (reported CPU)</td>
+<td>mined pyroki#56</td>
+<td><strong>cpu-ok 16.1x</strong> (this run: 45.2 s vs 2.8 s at 2^22)</td>
+</tr>
+<tr>
+<td><code>const_fold_dus_reduction</code></td>
+<td>7</td>
+<td>constant folding (better controls)</td>
+<td>one scalar store into a jit-internal constant, with controls that do not also delete the reduction</td>
+<td>in-jit constant kept, only the store's operand hoisted</td>
+<td>either</td>
+<td>mined jax#12789</td>
+<td>cpu-ok, ratio 39x but 1.97 s -- under the floor (this run)</td>
+</tr>
+<tr>
+<td><code>const_fold_fft_capture</code></td>
+<td>8</td>
+<td>constant folding, backend-split</td>
+<td>FFT of a closure-captured array: &gt;10 s on GPU, ~0.1 s on CPU for byte-identical HLO</td>
+<td>captured array -&gt; jit parameter</td>
+<td><strong>GPU</strong> (CPU is the negative)</td>
+<td>mined jax#10596</td>
+<td>gpu-pending</td>
+</tr>
+<tr>
+<td><code>constant_folding_cumsum_seqmask</code></td>
+<td>13</td>
+<td>constant folding of a scan ladder</td>
+<td><code>cumsum</code> over an all-constant array is evaluated by the compiler, log2(maxlen) levels of it</td>
+<td>keep the ladder, make the input a parameter</td>
+<td><strong>GPU</strong> (measured there earlier); CPU flat</td>
+<td>mined mlcommons/algorithmic-efficiency#877</td>
+<td>gpu-verified earlier; <strong>CPU flat 0.9x</strong> (this run)</td>
+</tr>
+<tr>
+<td><code>constant_folding_dus</code></td>
+<td>12</td>
+<td>constant folding</td>
+<td>XLA folds a whole N^3 buffer at compile time to serve one scalar store</td>
+<td>hoist the buffer out of the jit</td>
+<td>either (reported CPU)</td>
+<td>mined jax#12789</td>
+<td>cpu-ok 8.8x but 1.21 s -- under the floor (this run; the 2022 report was 3.31 s)</td>
+</tr>
+<tr>
+<td><code>dtype_expansion_assoc_scan</code></td>
+<td>6</td>
+<td>dtype expansion / algebraic simplification</td>
+<td><code>associative_scan</code> compiles ~7x slower for complex than for real, from a one-line toggle</td>
+<td><code>complexify=False</code></td>
+<td>either</td>
+<td>mined jax#18221</td>
+<td><strong>largely CLOSED: 1.3x in this run</strong> (3.84 vs 2.92 s at 50k)</td>
+</tr>
+<tr>
+<td><code>dtype_expansion_assoc_scan_width</code></td>
+<td>7</td>
+<td>dtype expansion, WIDTH axis</td>
+<td>same as above plus dtype width and a FLOP-matched arm the sibling lacks</td>
+<td>complex-&gt;real at matched scan length</td>
+<td>either</td>
+<td>mined jax#18221</td>
+<td><strong>largely CLOSED: 1.3x in this run</strong> (7.20 vs 5.64 s at 32k)</td>
+</tr>
+<tr>
+<td><code>dtype_f8_convert_expansion</code></td>
+<td>12</td>
+<td><strong>gap 14</strong> narrow dtypes</td>
+<td><code>FloatNormalization</code> inserts convert pairs; <code>f8_e4m3fn</code> needs a longer emitter expansion than <code>f8_e5m2</code></td>
+<td>one dtype token: <code>e4m3fn</code> -&gt; <code>e5m2</code> at equal depth</td>
+<td>CPU measured</td>
+<td>synth</td>
+<td>cpu-ok (3.1x)</td>
+</tr>
+<tr>
+<td><code>dtype_int4_subbyte_ops</code></td>
+<td>13</td>
+<td><strong>gap 14</strong> sub-byte dtypes</td>
+<td>int4 produces ~4x the HLO of int8 and costs the SAME on CPU</td>
+<td>int4 -&gt; int8 (and int32 as a second control)</td>
+<td>CPU measured</td>
+<td>synth</td>
+<td><strong>no-repro</strong> (CPU)</td>
+</tr>
+<tr>
+<td><code>emitter_flat_cost_topk</code></td>
+<td>18</td>
+<td>GPU emitter, flat cost</td>
+<td><code>lax.top_k</code> costs a flat multi-second compile at EVERY size; <code>jnp.sort</code> does not</td>
+<td><code>jnp.sort(v)[-k:]</code> instead of <code>lax.top_k</code> — the control is the <em>larger</em> program</td>
+<td><strong>GPU</strong> (CPU is the negative)</td>
+<td>mined jax#19653</td>
+<td>gpu-pending</td>
+</tr>
+<tr>
+<td><code>export_poly_constraint_chain</code></td>
+<td>16</td>
+<td><strong>gap 8</strong> shape polymorphism</td>
+<td><code>_DecisionByElimination</code> pairs each new constraint against every derived combination; transitive DEPTH is exponential at fixed constraint COUNT</td>
+<td>the right-hand side of K-1 constraints: a variable -&gt; the constant 2</td>
+<td>either (host Python)</td>
+<td>synth</td>
+<td>cpu-ok(lower) 66x</td>
+</tr>
+<tr>
+<td><code>export_poly_monomial_blowup</code></td>
+<td>10</td>
+<td><strong>gap 8</strong> shape polymorphism</td>
+<td><code>_DimExpr.__mul__</code> distributes eagerly, so <code>(v0+1)*...*(v_{K-1}+1)</code> is 2^K monomials and bounding is O(4^K)</td>
+<td><code>+ 1</code> on each factor (1 monomial vs 2^K)</td>
+<td>either (host Python)</td>
+<td>synth</td>
+<td>cpu-ok(lower) 441x</td>
+</tr>
+<tr>
+<td><code>ffi_customcall_count</code></td>
+<td>16</td>
+<td><strong>gap 6</strong> custom call / FFI</td>
+<td>N identity FFI custom calls interleaved into an N-op chain; compile ~N^2.6 for zero added arithmetic</td>
+<td>delete the <code>pure_callback</code> line; axis B fixes op count and moves only call count</td>
+<td>either</td>
+<td>synth</td>
+<td>cpu-ok 28x</td>
+</tr>
+<tr>
+<td><code>ffi_target_diversity_lapack</code></td>
+<td>16</td>
+<td><strong>gap 6</strong> FFI target diversity</td>
+<td>6 distinct LAPACK FFI targets vs 1, at equal call count</td>
+<td>all K calls to one target</td>
+<td>CPU measured</td>
+<td>synth</td>
+<td><strong>no-repro</strong> (0.97x)</td>
+</tr>
+<tr>
+<td><code>fusion_pass_barrier_chain</code></td>
+<td>12</td>
+<td>fusion pass, INVERTED control</td>
+<td>fusion is superlinear in unrolled chain length, and ADDING an <code>optimization_barrier</code> makes it FASTER</td>
+<td>the barrier: the <code>_control</code> arm is the one with the extra op</td>
+<td>either</td>
+<td>mined xla#7971 / jax#18787</td>
+<td>inconclusive at n2000 (2.92 vs 3.19 s, 0.9x); re-read at n4000</td>
+</tr>
+<tr>
+<td><code>gather_2d_chain</code></td>
+<td>10</td>
+<td>indexing lowering, <strong>CPU-only</strong></td>
+<td>chained 2D fancy indexing compiles exponentially on CPU; flat on GPU (248x vs 1.02x, both measured)</td>
+<td>indexing FORM: <code>data[r, c]</code> vs <code>data_flat[r*N + c]</code></td>
+<td><strong>CPU-only</strong></td>
+<td>mined jax#32704</td>
+<td>cpu-ok 248x</td>
+</tr>
+<tr>
+<td><code>gpu_autotune_conv_transpose</code></td>
+<td>8</td>
+<td><strong>GPU autotuner</strong></td>
+<td><code>lhs_dilate</code> sends a conv into <code>GpuConvAlgorithmPicker</code>, which benchmarks every cuDNN candidate: ~252 s compile, 1.8 ms run</td>
+<td>stride 1 instead of 16 (same shapes, same HLO)</td>
+<td><strong>GPU-only by construction</strong></td>
+<td>mined xla#5541 / jax#17464</td>
+<td>gpu-pending</td>
+</tr>
+<tr>
+<td><code>gpu_autotune_gemm_shape_diversity</code></td>
+<td>8</td>
+<td><strong>GPU autotuner</strong></td>
+<td>K distinct GEMM shapes pay K autotunes; K identical shapes pay one</td>
+<td>one shape for all K dots, FLOPs matched to 2%</td>
+<td><strong>GPU-only by construction</strong></td>
+<td>mined xla#35955</td>
+<td>gpu-pending</td>
+</tr>
+<tr>
+<td><code>graph_depth_tree_reduce</code></td>
+<td>8</td>
+<td>critical-path DEPTH</td>
+<td>does depth alone cost, at fixed op count, op kind, dtype and bytes?</td>
+<td><code>jax.tree.reduce</code> (chain) vs a balanced tree — depth differs 100x-3100x at equal eqn count</td>
+<td>either</td>
+<td>mined optax#1498</td>
+<td><strong>CPU NEGATIVE (this run): 0.8x</strong> -- 95.9 s chain vs 113.4 s tree, depth is not the variable on XLA:CPU</td>
+</tr>
+<tr>
+<td><code>indexing_lowering_gather_chain</code></td>
+<td>8</td>
+<td>indexing lowering</td>
+<td>the same jax#32704 chain against the reporter's <em>corrected</em> flatten (the naive one is not a control at all)</td>
+<td><code>cols = flat[rows*N + cols]</code></td>
+<td><strong>CPU</strong> (GPU measured flat)</td>
+<td>mined jax#32704</td>
+<td>cpu-ok</td>
+</tr>
+<tr>
+<td><code>layout_conv_nested_computation</code></td>
+<td>10</td>
+<td><strong>gap 1</strong> layout / transpose folding</td>
+<td><code>ConvCanonicalization</code> walks only <code>entry_computation()</code>, so the identical conv inside a <code>scan</code> body never gets canonicalised and falls to the elemental emitter</td>
+<td><code>dimension_numbers</code> NCHW -&gt; NHWC; a second pair moves only WHERE the conv lives</td>
+<td><strong>CPU-only by construction</strong></td>
+<td>synth</td>
+<td>cpu-ok 19.7x</td>
+</tr>
+<tr>
+<td><code>layout_conv_spatial_rank</code></td>
+<td>8</td>
+<td><strong>gap 1</strong> layout / dimension_numbers</td>
+<td>two extra size-1 spatial axes cross XLA:CPU's <code>num_spatial_dims in 1..3</code> Eigen gate, so every conv becomes a hand-emitted loop nest for zero extra MACs</td>
+<td>reshape back to rank 4; same bytes, same MAC count</td>
+<td><strong>CPU-only by construction</strong></td>
+<td>synth</td>
+<td>cpu-ok 10x</td>
+</tr>
+<tr>
+<td><code>layout_dot_dimension_numbers</code></td>
+<td>16</td>
+<td><strong>gap 1</strong> layout, dot half</td>
+<td>permuted <code>dot_general</code> dimension_numbers force <code>DotDecomposer</code> to insert transposes; jaxpr identical, HLO different</td>
+<td>canonical batch-major dimension_numbers</td>
+<td>either; CPU weak, GPU is where it should matter</td>
+<td>synth</td>
+<td><strong>weak</strong> (1.3-2.5x), gpu-pending</td>
+</tr>
+<tr>
+<td><code>llvm_ptx_unrolled_sample</code></td>
+<td>8</td>
+<td>below XLA (LLVM/PTX)</td>
+<td>python-unrolled sampling loop, diagnosed in 2020 as exponential <em>below</em> XLA</td>
+<td>the reporter's own <code>scan=True</code> static flag</td>
+<td>either (reported CPU+GPU)</td>
+<td>mined jax#2777 (closed)</td>
+<td>expect no-repro</td>
+</tr>
+<tr>
+<td><code>llvm_scan_unroll_spill</code></td>
+<td>12</td>
+<td><strong>gap 4</strong> LLVM codegen</td>
+<td><code>scan(unroll=K)</code> at fixed trip count: same FLOPs, K x the straight-line code and live values in one block; <code>--xla_backend_optimization_level=0</code> removes 74-89% of the compile</td>
+<td>one integer: <code>unroll=1</code></td>
+<td>either; CPU measured</td>
+<td>synth</td>
+<td>cpu-ok 184x</td>
+</tr>
+<tr>
+<td><code>llvm_unroll_sorted_scatter</code></td>
+<td>18</td>
+<td>below XLA (LLVM unroll)</td>
+<td>one integer in a scatter's update width (34 vs 35) flips LLVM into full loop unrolling</td>
+<td>flag control, plus the width read ACROSS rows</td>
+<td>either</td>
+<td>mined xla#22233</td>
+<td><strong>flat at w1091 (0.10 s, 1.2x)</strong> -- no cliff there on CPU/0.10.2; the across-row w34/w35 read is still untested</td>
+</tr>
+<tr>
+<td><code>lowering_arity_pytree</code></td>
+<td>14</td>
+<td><strong>gap 9</strong> lowering as a stage</td>
+<td>cost is set by the NUMBER of arrays crossing the jit boundary, and most of it lands before XLA</td>
+<td>the container only: N <code>(dim,)</code> leaves vs one <code>(N, dim)</code> array</td>
+<td>either</td>
+<td>mined jax#4667</td>
+<td>cpu-ok(lower)</td>
+</tr>
+<tr>
+<td><code>lowering_stage_xla_metadata</code></td>
+<td>10</td>
+<td><strong>gap 9 + 10</strong></td>
+<td>MLIR attributes are uniqued, so cost tracks the number of DISTINCT metadata values, not equation count or byte count</td>
+<td>one string literal: <code>f"v{i:08d}"</code> vs <code>"v00000000"</code></td>
+<td>either</td>
+<td>synth</td>
+<td>cpu-ok(lower) 5-11x</td>
+</tr>
+<tr>
+<td><code>manymodules_dispatch_constant</code></td>
+<td>24</td>
+<td><strong>gap 12</strong> many small modules</td>
+<td>K real XLA compilations happen inside <code>.lower()</code> via <code>ensure_compile_time_eval</code>; the measured module compiles in 0.1 s after 20-38 s are already spent</td>
+<td>an unused static tag held at 0 -&gt; 1 compile + K-1 cache hits</td>
+<td>either</td>
+<td>synth</td>
+<td>cpu-ok(lower) 11-55x</td>
+</tr>
+<tr>
+<td><code>operand_arity_stack_in_cond</code></td>
+<td>8</td>
+<td>operand arity</td>
+<td><code>jnp.stack([y]*N)</code> on a never-taken branch: ONE instruction with N operands</td>
+<td><code>jnp.broadcast_to</code> — same value, 4 operands</td>
+<td>either (reported CPU)</td>
+<td>mined diffrax#606</td>
+<td><strong>cpu-ok: &gt;265 s vs 0.15 s control</strong>, XLA's own "Very slow compile?" alarm fired (this run; killed at 265 s)</td>
+</tr>
+<tr>
+<td><code>pallas_kernel_multiplicity</code></td>
+<td>16</td>
+<td><strong>gap 5</strong> Pallas/Triton</td>
+<td>K kernels differing in one baked constant are K modules for the <em>second</em> compiler; the HLO is identical in both arms</td>
+<td>hold the constant fixed so all K kernels hash equal</td>
+<td><strong>GPU</strong> for Triton arms; interp arms run on CPU</td>
+<td>synth</td>
+<td>gpu-pending (CPU interp = null)</td>
+</tr>
+<tr>
+<td><code>pallas_triton_body_size</code></td>
+<td>24</td>
+<td><strong>gap 5</strong> Pallas/Triton</td>
+<td>a <code>pallas_call</code> is one opaque custom call: its body is compiled by Triton-&gt;LLVM-&gt;NVPTX-&gt;ptxas, invisible to every XLA-side metric; grid extent costs nothing</td>
+<td>the same chain as plain <code>jnp</code> ops; and <code>interpret=True</code> on a byte-identical kernel</td>
+<td><strong>GPU</strong> for Triton arms; interp arms run on CPU</td>
+<td>synth</td>
+<td>gpu-pending</td>
+</tr>
+<tr>
+<td><code>pass_selection_argsort_dtype</code></td>
+<td>13</td>
+<td>which PASS runs at all</td>
+<td><code>SortRewriter</code> swaps in a CUB radix sort only for some dtypes, so one dtype token changes the pass selection (~25x on GPU)</td>
+<td>the same lambda on int32</td>
+<td><strong>GPU</strong> (verified there earlier); CPU is the negative</td>
+<td>mined xla#35587</td>
+<td>gpu-verified earlier</td>
+</tr>
+<tr>
+<td><code>primitive_cumulative_ad_rule</code></td>
+<td>17</td>
+<td><strong>gap 13</strong> cumulative ops</td>
+<td><code>cumlogsumexp</code> has an associative-scan AD rule where <code>cumsum</code> has a closed-form one, so the reverse pass expands</td>
+<td><code>lax.cumlogsumexp</code> -&gt; <code>lax.cumsum</code></td>
+<td>either; CPU measured</td>
+<td>synth</td>
+<td>cpu-ok 8-13x</td>
+</tr>
+<tr>
+<td><code>primitive_fft_length_diversity</code></td>
+<td>12</td>
+<td><strong>gap 13</strong> FFT</td>
+<td>256 FFTs of 256 DISTINCT lengths vs 256 of one length: the CPU FFT custom call is keyed by length</td>
+<td><code>n=BASE+i</code> -&gt; <code>n=BASE</code></td>
+<td>CPU verified; GPU should be stronger</td>
+<td>synth</td>
+<td>cpu-ok 2.7x</td>
+</tr>
+<tr>
+<td><code>primitive_linalg_expm_vs_lapack</code></td>
+<td>16</td>
+<td><strong>gap 13</strong> linalg</td>
+<td>two findings: <code>expm</code> <em>unrolls in jax</em> (19.7x), while every linalg PRIMITIVE (cholesky/qr/svd/eigh/lu) is compile-time free on CPU</td>
+<td><code>expm(y)</code> -&gt; <code>matrix_power(y, 13)</code>; cholesky column is the second control</td>
+<td>CPU verified</td>
+<td>synth</td>
+<td>cpu-ok 19.7x + no-repro half</td>
+</tr>
+<tr>
+<td><code>primitive_rng_distribution_expansion</code></td>
+<td>24</td>
+<td><strong>gap 13</strong> RNG</td>
+<td>which DISTRIBUTION you sample swings compile ~10x at fixed draw count; threefry-vs-rbg does nothing on CPU</td>
+<td><code>random.gamma</code> -&gt; <code>random.uniform</code> at the same shape</td>
+<td>CPU verified</td>
+<td>synth</td>
+<td>cpu-ok 4.4-10x + rbg no-repro</td>
+</tr>
+<tr>
+<td><code>primitive_select_and_scatter_poolgrad</code></td>
+<td>18</td>
+<td><strong>gap 13</strong> reduce_window</td>
+<td>grad of MAX-pool becomes <code>select_and_scatter</code>, which <code>SelectAndScatterExpander</code> rewrites into a big loop nest; grad of AVG-pool does not</td>
+<td><code>lax.max</code> -&gt; <code>lax.add</code></td>
+<td>CPU verified</td>
+<td>synth</td>
+<td>cpu-ok 12.8x</td>
+</tr>
+<tr>
+<td><code>primitive_while_dyn_trip_batching</code></td>
+<td>18</td>
+<td><strong>gap 13</strong> dynamic while</td>
+<td><code>_while_loop_batching_rule</code> fixpoint iteration costs ~K^2 in jax's own Python (35.7 s of LOWERING); XLA does NOT unroll a data-dependent while on CPU</td>
+<td>one index in the body: <code>c[j-1]</code> -&gt; <code>c[j]</code></td>
+<td>either (host Python)</td>
+<td>synth</td>
+<td>cpu-ok(lower) + unroll no-repro</td>
+</tr>
+<tr>
+<td><code>python_pytree_node_count</code></td>
+<td>12</td>
+<td><strong>gap 10</strong> Python-side cost</td>
+<td>cost tracks pytree NODE count (and container kind) at fixed leaf count</td>
+<td>same 32 leaves + M empty nodes carried in a LIST</td>
+<td>either</td>
+<td>synth</td>
+<td>inconclusive at M=16000 (1.0x compile / 1.4x lower); read the M=64000 arm</td>
+</tr>
+<tr>
+<td><code>python_retrace_cache_key_storm</code></td>
+<td>24</td>
+<td><strong>gap 10 + 9</strong></td>
+<td>a jitted helper called K times with a varying-but-irrelevant cache key traces K times and lowers K identical MLIR functions; XLA inlines them all</td>
+<td>an unused static arg held at 0 / a constant dict key</td>
+<td>either</td>
+<td>synth</td>
+<td>cpu-ok(lower)</td>
+</tr>
+<tr>
+<td><code>remat_threshold_activation_chain</code></td>
+<td>18</td>
+<td><strong>gap 3</strong> rematerialization</td>
+<td><code>HloRematerialization</code> is a THRESHOLD pass: nothing below the memory limit, expanding-window block scan above it. CPU absence <em>verified</em> (94-pass list enumerated; pass absent)</td>
+<td>0.625x activation bytes (under the limit); plus a flag control and an effort control</td>
+<td><strong>GPU-only</strong></td>
+<td>synth</td>
+<td>gpu-pending (CPU absence verified)</td>
+</tr>
+<tr>
+<td><code>shape_diversity_kernel_dedup</code></td>
+<td>12</td>
+<td><strong>gap 2</strong> scheduling / buffer assignment</td>
+<td>written to test gap 2 and FALSIFIES it: allocation count and peak temp are identical; what changes is kernel dedup -&gt; N distinct trip counts for LLVM</td>
+<td>all parts one length vs all different, same total bytes</td>
+<td>CPU measured</td>
+<td>synth</td>
+<td>cpu-ok(artifacts), weak wall clock</td>
+</tr>
+<tr>
+<td><code>size_cliff_bisection_unroll</code></td>
+<td>17</td>
+<td>compiler-heuristic cliff</td>
+<td>m=95 does not finish, m=96 compiles in ~10 s: <code>scan</code> unroll x nested scan x double vmap</td>
+<td>m=96 — one column, ~1% MORE arithmetic</td>
+<td>either (reported CPU)</td>
+<td>mined jax#10621</td>
+<td>cliff, expect hang at m95</td>
+</tr>
+<tr>
+<td><code>size_cliff_topk</code></td>
+<td>12</td>
+<td>GPU emitter cliff</td>
+<td><code>top_k</code> blows up at particular input LENGTHS; n+1 is fine</td>
+<td>one character: <code>n = (1&lt;&lt;20) + 1</code></td>
+<td><strong>GPU-only by construction</strong></td>
+<td>mined jax#19653</td>
+<td>gpu-pending (expect no-repro on 0.10.2)</td>
+</tr>
+<tr>
+<td><code>spmd_halo_conv_dim_choice</code></td>
+<td>6</td>
+<td><strong>gap 7</strong> SPMD halo exchange</td>
+<td>sharding a conv's SPATIAL dim forces halo exchange (192 synthesised collective-permutes); sharding BATCH keeps it device-local</td>
+<td>one token's position inside one <code>PartitionSpec</code></td>
+<td>CPU measured (8 fake devices)</td>
+<td>synth</td>
+<td><strong>no-repro</strong> (1.2-2.3x) — falsifies "partitioner cost = HLO emitted"</td>
+</tr>
+<tr>
+<td><code>spmd_reshard_permute</code></td>
+<td>14</td>
+<td><strong>gap 7</strong> SPMD reshard</td>
+<td>a <code>PartitionSpec</code> that permutes which mesh axis owns which dim forces all-to-all + collective-permute synthesis: 72 StableHLO lines -&gt; 2228 HLO lines</td>
+<td>every constraint pinned to the SAME spec</td>
+<td>CPU (fake devices); backend-independent</td>
+<td>synth</td>
+<td>cpu-ok 23.9x</td>
+</tr>
+<tr>
+<td><code>spmd_uneven_shard_cliff</code></td>
+<td>14</td>
+<td><strong>gap 7</strong> SPMD divisibility</td>
+<td>N=513 on an 8-way mesh makes ragged tiles, so every boundary-dependent op grows iota/compare/select (0 -&gt; 8003 selects)</td>
+<td>N=512 (strictly smaller); second control N=520 (strictly LARGER and still faster)</td>
+<td>CPU (fake devices)</td>
+<td>synth</td>
+<td>cpu-ok 7.3x (<strong>weak</strong> vs the 10x bar)</td>
+</tr>
+<tr>
+<td><code>symbolic_tile_rank_blowup</code></td>
+<td>10</td>
+<td>XTile fusion emitter</td>
+<td>symbolic-tile propagation blows up once intermediates exceed rank ~8</td>
+<td>op-count-matched control with MORE tensordots and rank &lt;= 8</td>
+<td><strong>GPU</strong> (18.5x measured earlier); CPU path fixed by PR#41174</td>
+<td>mined xla#41173</td>
+<td>gpu-verified earlier, CPU fixed</td>
+</tr>
+<tr>
+<td><code>trace_time_einsum_optimal</code></td>
+<td>9</td>
+<td>trace time (third-party)</td>
+<td><code>einsum(optimize='optimal')</code> burns ~10 s inside opt_einsum and 0 s in XLA</td>
+<td>one keyword: <code>optimize='auto'</code>; sharper still, an explicit path literal</td>
+<td>platform-independent</td>
+<td>mined jax#2583 / PR#25214</td>
+<td>cpu-ok(trace/lower)</td>
+</tr>
+<tr>
+<td><code>trace_time_nested_jit_fib</code></td>
+<td>10</td>
+<td>trace time / call-graph inlining</td>
+<td>doubly-recursive jit with <code>static_argnums</code> costs phi^t; single recursion costs t</td>
+<td><code>fib(t-1) + fib(t-2)</code> -&gt; <code>fib(t-1) + 1</code></td>
+<td>either</td>
+<td>mined jax#22385</td>
+<td>cpu-ok</td>
+</tr>
+<tr>
+<td><code>width_fanout_llvm_codegen</code></td>
+<td>8</td>
+<td><strong>gaps 11 + 2, lands in 4</strong></td>
+<td>fan-out topology alone: spread operands defeat LLVM's CSE/hoisting of a shared transcendental expansion. Every HLO-level metric is EQUAL; object code differs 6.3x</td>
+<td>one integer index: <code>ps[i]</code> vs <code>ps[0]</code></td>
+<td>CPU measured</td>
+<td>synth</td>
+<td>cpu-ok 4x (<strong>weak</strong>)</td>
+</tr>
+<tr>
+<td><code>width_vs_depth_fixed_opcount</code></td>
+<td>8</td>
+<td><strong>gap 11</strong> width vs depth</td>
+<td>W independent chains at exactly 8191 equations for every W: XLA:CPU charges nothing for ILP alone</td>
+<td>the W=1 serial chain, same op count</td>
+<td>CPU measured</td>
+<td>synth</td>
+<td><strong>no-repro</strong> (1.2x) — the negative control for the width axis</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Stage coverage</h2>
+<p><strong>Covered, with at least one case that separates from its control:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Files</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>tracing / Python front end</td>
+<td><code>trace_time_einsum_optimal</code>, <code>trace_time_nested_jit_fib</code>, <code>python_pytree_node_count</code>, <code>python_retrace_cache_key_storm</code>, <code>lowering_arity_pytree</code></td>
+</tr>
+<tr>
+<td>jax-internal rule expansion (AD, batching, primitives)</td>
+<td><code>ad_*</code> (4), <code>batching_rule_*</code> (2), <code>primitive_*</code> (6), <code>dtype_expansion_*</code> (2)</td>
+</tr>
+<tr>
+<td>symbolic shapes / <code>jax.export</code></td>
+<td><code>export_poly_monomial_blowup</code>, <code>export_poly_constraint_chain</code></td>
+</tr>
+<tr>
+<td>jaxpr -&gt; StableHLO lowering</td>
+<td><code>lowering_stage_xla_metadata</code>, <code>lowering_arity_pytree</code>, <code>primitive_while_dyn_trip_batching</code></td>
+</tr>
+<tr>
+<td>per-module dispatch constant (many modules)</td>
+<td><code>manymodules_dispatch_constant</code>, <code>python_retrace_cache_key_storm</code></td>
+</tr>
+<tr>
+<td>HLO simplification / constant folding</td>
+<td><code>constant_folding_dus</code>, <code>const_fold_dus_reduction</code>, <code>const_fold_ad_scatter</code>, <code>const_fold_fft_capture</code>, <code>constant_folding_cumsum_seqmask</code></td>
+</tr>
+<tr>
+<td>HLO expanders (<code>SelectAndScatterExpander</code>, <code>FloatNormalization</code>, <code>DotDecomposer</code>)</td>
+<td><code>primitive_select_and_scatter_poolgrad</code>, <code>dtype_f8_convert_expansion</code>, <code>layout_dot_dimension_numbers</code></td>
+</tr>
+<tr>
+<td>layout assignment / transpose folding / conv canonicalisation</td>
+<td><code>layout_conv_spatial_rank</code>, <code>layout_conv_nested_computation</code>, <code>layout_dot_dimension_numbers</code></td>
+</tr>
+<tr>
+<td>fusion decisions</td>
+<td><code>fusion_pass_barrier_chain</code>, <code>compilemem_peak_live_fanout</code>, <code>shape_diversity_kernel_dedup</code></td>
+</tr>
+<tr>
+<td>scheduling / buffer assignment</td>
+<td><code>ad_graph_shape_seq_update</code>, <code>shape_diversity_kernel_dedup</code> (falsifies the naive premise)</td>
+</tr>
+<tr>
+<td>rematerialization (threshold pass)</td>
+<td><code>remat_threshold_activation_chain</code> (GPU)</td>
+</tr>
+<tr>
+<td>SPMD partitioning</td>
+<td><code>spmd_reshard_permute</code>, <code>spmd_uneven_shard_cliff</code>, <code>spmd_halo_conv_dim_choice</code></td>
+</tr>
+<tr>
+<td>emitters (elemental, top_k, XTile)</td>
+<td><code>emitter_flat_cost_topk</code>, <code>layout_conv_spatial_rank</code>, <code>symbolic_tile_rank_blowup</code></td>
+</tr>
+<tr>
+<td>pass SELECTION (which pass runs at all)</td>
+<td><code>pass_selection_argsort_dtype</code>, <code>remat_threshold_activation_chain</code></td>
+</tr>
+<tr>
+<td>custom call / FFI</td>
+<td><code>ffi_customcall_count</code>, <code>ffi_target_diversity_lapack</code></td>
+</tr>
+<tr>
+<td>second compilers (Pallas/Triton)</td>
+<td><code>pallas_triton_body_size</code>, <code>pallas_kernel_multiplicity</code></td>
+</tr>
+<tr>
+<td>LLVM / NVPTX / ptxas (below XLA)</td>
+<td><code>llvm_scan_unroll_spill</code>, <code>llvm_unroll_sorted_scatter</code>, <code>width_fanout_llvm_codegen</code>, <code>codegen_multiplicity_switch_branches</code>, <code>llvm_ptx_unrolled_sample</code></td>
+</tr>
+<tr>
+<td>GPU autotuners (conv, GEMM)</td>
+<td><code>gpu_autotune_conv_transpose</code>, <code>gpu_autotune_gemm_shape_diversity</code></td>
+</tr>
+<tr>
+<td>compile-time MEMORY as the artifact</td>
+<td><code>compilemem_literal_bytes</code>, <code>compilemem_peak_live_fanout</code></td>
+</tr>
+<tr>
+<td>size/heuristic cliffs (non-monotone in size)</td>
+<td><code>size_cliff_bisection_unroll</code>, <code>size_cliff_topk</code>, <code>llvm_unroll_sorted_scatter</code>, <code>spmd_uneven_shard_cliff</code></td>
+</tr>
+<tr>
+<td>graph shape at fixed op count (depth, width, fan-out)</td>
+<td><code>graph_depth_tree_reduce</code>, <code>width_vs_depth_fixed_opcount</code>, <code>width_fanout_llvm_codegen</code>, <code>operand_arity_stack_in_cond</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Not covered (no case in the suite touches these):</strong></p>
+<ol>
+<li><strong>Persistent / distributed compilation cache</strong> — every measurement here asserts the cache is off.
+   Cache-key computation cost, false misses across jax versions, and cache-write serialisation are
+   all unrepresented.</li>
+<li><strong>Multi-host / multi-slice SPMD</strong> — the three SPMD files use fake CPU devices on one host. No
+   case exercises collective-permute <em>scheduling</em> across hosts, <code>jax.experimental.multihost_utils</code>,
+   or the latency-hiding scheduler.</li>
+<li><strong>TPU / Mosaic</strong> — out of scope by declaration (no TPU in this environment); the Pallas files
+   cover only the Triton path, so <code>mosaic</code>/<code>tpu_sc</code> lowering is untouched.</li>
+<li><strong>AOT / <code>jax.export</code> serialisation round-trips</strong> — the two export files stop at symbolic-shape
+   arithmetic; nothing measures <code>Exported</code> serialisation, deserialisation or calling convention
+   refinement.</li>
+<li><strong><code>shard_map</code> / manual collectives</strong> — all sharding cases go through <code>with_sharding_constraint</code>
+   and automatic partitioning.</li>
+<li><strong>Sparse (<code>jax.experimental.sparse</code>) and <code>jax.experimental.jet</code> / higher-order AD beyond grad-of-grad.</strong></li>
+<li><strong><code>jax.lax.platform_dependent</code>, custom partitioning, and custom-call <em>layout</em> constraints</strong> —
+   <code>ffi_*</code> covers call count and target diversity only; nothing covers FFI attribute payloads,
+   aliasing, or user-registered targets with C++ handlers.</li>
+<li><strong>Autotuning caches on GPU</strong> (<code>--xla_gpu_dump_autotune_results_to</code>) as a <em>variable</em> — the two
+   autotune cases measure the un-cached path only.</li>
+<li><strong>Runtime/thunk construction as its own stage</strong> — <code>ffi_customcall_count</code> implicates it (the cost
+   survives <code>--xla_backend_optimization_level=0</code>) but no case isolates thunk-sequence construction
+   from the HLO pipeline.</li>
+<li><strong>Compiler <em>version</em> as an axis</strong> — <code>symbolic_tile_rank_blowup</code> documents a CPU regression that
+    was fixed between 0.9.0 and 0.9.1, but the suite pins one jax build and cannot sweep it.</li>
+</ol>
+<hr />
+<h2>Harness blind spots this suite deliberately exercises</h2>
+<p><code>_harness.classify()</code> gates on <code>compile_s &gt;= 3.0</code> first, then on <code>compile_s / control.compile_s &gt;= 10</code>.
+Eleven files are <em>designed</em> to score "no" under that rule while reproducing perfectly:</p>
+<ul>
+<li><strong>cost is in <code>lower_s</code>, not <code>compile_s</code></strong> — <code>export_poly_monomial_blowup</code> (441x),
+  <code>export_poly_constraint_chain</code> (66x), <code>manymodules_dispatch_constant</code> (11-55x),
+  <code>lowering_stage_xla_metadata</code> (5-11x), <code>python_retrace_cache_key_storm</code>, <code>python_pytree_node_count</code>,
+  <code>lowering_arity_pytree</code>, <code>primitive_while_dyn_trip_batching</code>, <code>ad_control_flow_ndtri_scan</code>.</li>
+<li><strong>cost is in bytes, not seconds</strong> — <code>compilemem_peak_live_fanout</code> (1x -&gt; 50x peak temp at 2.5x wall
+  clock), <code>compilemem_literal_bytes</code> (memory and time move in <em>opposite</em> directions when one literal
+  is split into 64).</li>
+<li><strong>real but under the 10x bar</strong> — <code>spmd_uneven_shard_cliff</code> (7.3x), <code>layout_conv_nested_computation</code>
+  at D=64 (8.1x), <code>width_fanout_llvm_codegen</code> (4x), <code>dtype_expansion_assoc_scan</code> (~7x).</li>
+</ul>
+<p>A tool that only reads <code>compile_s</code> fails all of them, which is the point of keeping them.</p>
+<p>One harness bug was found and fixed while running the sweep below: <code>_run_one</code> did not catch
+<code>subprocess.TimeoutExpired</code>, so the first case that outran <code>--timeout</code> aborted the whole sweep and
+discarded every row already measured. <code>stackcond_n30000</code> does exactly that (it is still compiling at
+265 s). Timeouts are now returned as data and <code>classify()</code> reports
+<code>TIMEOUT (&gt;Ns, still compiling)</code>, which is a <em>reproduction</em>, not a failure.</p>
+<hr />
+<h2>CPU sweep, 2026-07-29 (62 pairs, 124 fresh-process measurements)</h2>
+<pre><code class="language-bash">JAX_PLATFORMS=cpu python _harness.py --platform cpu --timeout 300 &lt;62 case+control names&gt;
+</code></pre>
+<p>Raw output: <code>cpu_subset_2026-07-29.log</code>, <code>cpu_subset_2026-07-29.json</code>. One case+control pair from
+every file that has any CPU-side story, at the largest size that was not expected to exceed ~60 s.
+<strong>Contention caveat</strong>: load average was 11-13 on 20 cores throughout (other agents compiling) and the
+GPU was held by 8 foreign processes. Absolute seconds are UPPER BOUNDS; the paired ratios are taken
+back to back under the same load and are the numbers to read. Numbers below are <code>compile_s</code> unless
+<code>lower</code> is stated.</p>
+<p><strong>A. Reproduced on <code>compile_s</code> — clears both harness bars (14)</strong></p>
+<table>
+<thead>
+<tr>
+<th>case</th>
+<th>compile</th>
+<th>control</th>
+<th>x</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>gatherchain2d_9</code></td>
+<td>53.51</td>
+<td>0.15</td>
+<td><strong>363x</strong></td>
+</tr>
+<tr>
+<td><code>switch_ident_512</code></td>
+<td>19.38</td>
+<td>0.10</td>
+<td><strong>194x</strong></td>
+</tr>
+<tr>
+<td><code>jitfib_t22</code></td>
+<td>10.21</td>
+<td>0.09</td>
+<td><strong>119x</strong></td>
+</tr>
+<tr>
+<td><code>gather2d_8</code></td>
+<td>15.06</td>
+<td>0.15</td>
+<td><strong>101x</strong></td>
+</tr>
+<tr>
+<td><code>arity_tree_100</code></td>
+<td>10.62</td>
+<td>0.30</td>
+<td><strong>35x</strong> (also 12.1x on <code>lower_s</code>)</td>
+</tr>
+<tr>
+<td><code>linalg_expm_d32</code></td>
+<td>4.00</td>
+<td>0.20</td>
+<td><strong>20x</strong></td>
+</tr>
+<tr>
+<td><code>scan_unroll_32</code></td>
+<td>3.97</td>
+<td>0.24</td>
+<td><strong>17x</strong></td>
+</tr>
+<tr>
+<td><code>ndtri_scan_jacrev_d16</code></td>
+<td>107.81</td>
+<td>6.63</td>
+<td><strong>16x</strong></td>
+</tr>
+<tr>
+<td><code>adconst_idx_2p22</code></td>
+<td>45.21</td>
+<td>2.80</td>
+<td><strong>16x</strong></td>
+</tr>
+<tr>
+<td><code>spmd_reshard_d128</code></td>
+<td>6.55</td>
+<td>0.46</td>
+<td><strong>14x</strong></td>
+</tr>
+<tr>
+<td><code>poolgrad_max2d_d128</code></td>
+<td>3.48</td>
+<td>0.30</td>
+<td><strong>12x</strong></td>
+</tr>
+<tr>
+<td><code>convrank_k256</code></td>
+<td>5.27</td>
+<td>0.47</td>
+<td><strong>11x</strong></td>
+</tr>
+<tr>
+<td><code>convscan_nchw_d128</code></td>
+<td>3.82</td>
+<td>0.35</td>
+<td><strong>11x</strong></td>
+</tr>
+<tr>
+<td><code>stackcond_n30000</code></td>
+<td><strong>&gt;265</strong> (killed)</td>
+<td>0.15</td>
+<td><strong>&gt;1700x</strong>, and XLA printed its own <code>Very slow compile?</code> alarm</td>
+</tr>
+</tbody>
+</table>
+<p><strong>B. Reproduced on <code>lower_s</code>, scored "no (below floor)" by design (9)</strong></p>
+<table>
+<thead>
+<tr>
+<th>case</th>
+<th>lower</th>
+<th>control lower</th>
+<th>x</th>
+<th>compile (both arms)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>einsum_optimal_n11</code></td>
+<td>56.43</td>
+<td>0.60</td>
+<td><strong>94x</strong></td>
+<td>0.36 / 0.35</td>
+</tr>
+<tr>
+<td><code>manymod_100</code></td>
+<td>37.70</td>
+<td>1.39</td>
+<td><strong>27x</strong></td>
+<td>0.12 / 0.12</td>
+</tr>
+<tr>
+<td><code>exportpoly_monomials_128</code></td>
+<td>9.26</td>
+<td>0.74</td>
+<td><strong>13x</strong></td>
+<td>0.13 / 0.13</td>
+</tr>
+<tr>
+<td><code>retrace_static_320</code></td>
+<td>9.85</td>
+<td>0.85</td>
+<td><strong>12x</strong></td>
+<td>5.58 / 3.09</td>
+</tr>
+<tr>
+<td><code>dynwhile_fixpoint_k128</code></td>
+<td>13.04</td>
+<td>1.27</td>
+<td><strong>10x</strong></td>
+<td>2.84 / 2.75</td>
+</tr>
+<tr>
+<td><code>condrec_grad_128</code></td>
+<td>15.19</td>
+<td>1.57</td>
+<td><strong>9.6x</strong></td>
+<td>1.79 / 0.77</td>
+</tr>
+<tr>
+<td><code>meta_distinct_1200</code></td>
+<td>5.46</td>
+<td>1.00</td>
+<td><strong>5.5x</strong></td>
+<td>4.84 / 4.64</td>
+</tr>
+<tr>
+<td><code>bwl_grad_512</code></td>
+<td>2.77</td>
+<td>0.50</td>
+<td><strong>5.5x</strong></td>
+<td>4.43 / 0.76</td>
+</tr>
+<tr>
+<td><code>exportpoly_chain_k9</code></td>
+<td>3.16</td>
+<td>0.78</td>
+<td><strong>4.1x</strong></td>
+<td>0.13 / 0.13</td>
+</tr>
+</tbody>
+</table>
+<p>Every arm in group B has a <code>compile_s</code> ratio of 1.0-1.8x. A profiler that reads only compile time
+reports nine healthy programs here.</p>
+<p><strong>C. Separates, but misses a bar (14)</strong> — ratio first, then why it does not score:</p>
+<p><code>dusfold_sum_300</code> 39x but 1.97 s · <code>litmem_dense_32</code> 36x but 1.28 s (its real artifact is bytes) ·
+<code>xtile_issue</code> 13x but 0.91 s (the CPU emitter fix landed; GPU is where this lives) ·
+<code>cumad_lse_n262144</code> 8.9x · <code>constfold_ones_352</code> 8.8x at 1.21 s · <code>ffi_cb_chain_2048</code> 7.0x ·
+<code>seqgrad_N1000</code> 6.2x (71.0 vs 11.5 s) · <code>rngdist_gamma_k16</code> 5.3x · <code>fanout_spread_p512</code> 4.0x ·
+<code>peaklive_fanout_n256</code> 3.9x (artifact is peak bytes) · <code>spmd_uneven_d32</code> 3.8x (7.3x at d64) ·
+<code>f8chain_e4m3fn_d48</code> 3.6x · <code>fftlen_distinct_k128</code> 2.5x · <code>shapediv_bitrev_n256</code> 1.9x.</p>
+<p><strong>D. Flat, exactly as the file predicts (17)</strong> — GPU-side mechanism, or a committed negative:</p>
+<p><code>topkflat_n2p20_k8</code> · <code>topk_pow20_k128</code> · <code>argsort_f32_1e6</code> · <code>cho_grad_b1024</code> · <code>convT_dilate16</code> ·
+<code>gemm_shapes_k32</code> · <code>fftcap_1000000</code> · <code>remat_small_flag</code> · <code>i4chain_d64</code> · <code>lap_div_96</code> ·
+<code>spmd_halo_conv_d32</code> · <code>dotdims_mid_k32</code> (2.3x) · <code>widthdepth_w256</code> (0.9x — the width null) ·
+<code>pallas_interp_d256</code> · <code>pallas_kernels_interp_64</code> · <code>unrolled_sample_7</code> (jax#2777 stays closed) ·
+<code>pallas_body_d64</code>, which fails with exactly the documented
+<code>ValueError: Only interpret mode is supported on CPU backend.</code></p>
+<p><strong>E. Flat, and that is NEW information (8)</strong> — the suite's documented status for these is now weaker:</p>
+<table>
+<thead>
+<tr>
+<th>case</th>
+<th>this run</th>
+<th>what it means</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>assocscan_complex_50k</code></td>
+<td>3.84 vs 2.92 s (1.3x)</td>
+<td>jax#18221's ~7x complex/real gap has <strong>largely closed</strong> on 0.10.2/CPU</td>
+</tr>
+<tr>
+<td><code>assocscan64_complex_32k</code></td>
+<td>7.20 vs 5.64 s (1.3x)</td>
+<td>same, on the width axis</td>
+</tr>
+<tr>
+<td><code>treereduce_chain_n10000</code></td>
+<td>95.94 vs 113.43 s (0.8x)</td>
+<td><strong>depth is not the variable</strong> on XLA:CPU at fixed op count — an independent confirmation of <code>width_vs_depth_fixed_opcount</code>'s null, from the opposite direction</td>
+</tr>
+<tr>
+<td><code>sorted_scatter_w1091</code></td>
+<td>0.10 s, 1.2x</td>
+<td>no unroll cliff at w1091 on CPU/0.10.2; the across-row w34/w35 read is still untested</td>
+</tr>
+<tr>
+<td><code>conv_persample_300</code></td>
+<td>0.47 s, 1.1x</td>
+<td>the 2019 CPU number does not reproduce at N=300</td>
+</tr>
+<tr>
+<td><code>seqmask_cumsum_b64_m20000</code></td>
+<td>0.32 s, 0.9x</td>
+<td>CPU flat; the file's own measurement was on GPU</td>
+</tr>
+<tr>
+<td><code>fusion_chain_n2000</code></td>
+<td>2.92 vs 3.19 s (0.9x)</td>
+<td>the inverted-control effect is not visible at n2000; re-read at n4000</td>
+</tr>
+<tr>
+<td><code>pytree_keyed_16000</code></td>
+<td>1.0x compile / 1.4x lower</td>
+<td>needs the M=64000 arm to separate</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Totals for this sweep</strong>: 23 of 62 sampled cases reproduced decisively on CPU (14 on <code>compile_s</code>,
+9 on <code>lower_s</code>), 14 more separated from their control but under a harness bar, 17 were flat as
+designed, and 8 were flat in a way that updates the suite. Zero files failed to import, zero errors
+other than the two intended ones (<code>pallas_body_d64</code>'s CPU <code>ValueError</code>, and <code>stackcond_n30000</code> killed
+at 265 s of compile).</p>
+<div class="footer">Part of the <a href="../../docs/blueprint_scopex.html">scopex blueprint</a>.
+Every number measured on jax 0.10.2.</div>
+</main>
+</body></html>

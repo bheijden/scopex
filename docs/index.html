@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scopex — documentation</title>
+<style>
+  :root{
+    --bg:#fbfaf7; --ink:#181b1f; --muted:#5c6470; --rule:#e4e0d7;
+    --accent:#0f766e; --accent-soft:#d7eee9; --accent-ink:#0b544e;
+    --warn:#b45309; --warn-soft:#fbe7cf; --warn-ink:#7c3a06;
+    --bad:#b42318; --bad-soft:#fbe3e0; --bad-ink:#7a1c14;
+    --lens:#5b4bb7; --lens-soft:#e7e3fb; --lens-ink:#3f3486;
+    --code-bg:#0e1116; --code-ink:#e6edf3;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --maxw:900px;
+  }
+  *{box-sizing:border-box} html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{display:grid;grid-template-columns:270px minmax(0,1fr);max-width:1240px;margin:0 auto}
+  nav.toc{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;padding:34px 22px 60px;border-right:1px solid var(--rule);font-size:13.5px}
+  nav.toc .kicker{font:600 11px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+  nav.toc h1{font-size:15px;margin:0 0 6px;line-height:1.3}
+  nav.toc .wip{font:600 10px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--warn-ink);background:var(--warn-soft);padding:3px 7px;border-radius:5px;display:inline-block;margin-bottom:16px}
+  nav.toc a{display:block;color:var(--muted);text-decoration:none;padding:4px 0 4px 12px;border-left:2px solid transparent}
+  nav.toc a:hover{color:var(--ink)}
+  main{padding:46px 52px 140px;min-width:0}
+  .doc{max-width:var(--maxw)}
+  .kicker{font:600 12px/1.4 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1.title{font-size:34px;line-height:1.15;margin:6px 0 10px;letter-spacing:-.01em}
+  .lede{font-size:18px;color:var(--muted);margin:0 0 14px;max-width:66ch}
+  .meta{font:12.5px/1.5 var(--mono);color:var(--muted);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:10px 0;margin:22px 0 34px}
+  h2{font-size:24px;margin:52px 0 8px;letter-spacing:-.01em;scroll-margin-top:20px}
+  h2 .num{font:600 14px/1 var(--mono);color:var(--accent);display:block;margin-bottom:8px}
+  h3{font-size:17.5px;margin:28px 0 6px}
+  h4{font-size:13.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:22px 0 4px}
+  p{margin:12px 0;color:#23282e} strong{font-weight:650}
+  code{font:13px/1.5 var(--mono);background:#efece4;padding:1.5px 5px;border-radius:4px;color:#3a3f46}
+  pre{background:var(--code-bg);color:var(--code-ink);padding:16px 18px;border-radius:10px;overflow-x:auto;margin:14px 0;font:12.5px/1.6 var(--mono)}
+  pre code{background:none;padding:0;color:inherit}
+  pre .c{color:#8b98a5} pre .k{color:#ff7b72} pre .s{color:#a5d6ff} pre .f{color:#d2a8ff} pre .g{color:#7ee787}
+  .box{border-left:3px solid;border-radius:0 8px 8px 0;padding:13px 18px;margin:18px 0;font-size:15px}
+  .box .lab{font:600 11px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:5px}
+  .why{background:var(--accent-soft);border-color:var(--accent)} .why .lab{color:var(--accent-ink)}
+  .keep{background:var(--accent-soft);border-color:var(--accent)} .keep .lab{color:var(--accent-ink)}
+  .gotcha{background:var(--warn-soft);border-color:var(--warn)} .gotcha .lab{color:var(--warn-ink)}
+  .anti{background:var(--bad-soft);border-color:var(--bad)} .anti .lab{color:var(--bad-ink)}
+  .lens{background:var(--lens-soft);border-color:var(--lens)} .lens .lab{color:var(--lens-ink)}
+  .directive{border:1px solid var(--warn);background:linear-gradient(180deg,#fdf5ea,#fbfaf7);border-radius:14px;padding:4px 30px 24px;margin:26px 0;box-shadow:0 3px 22px rgba(180,83,9,.07)}
+  .directive .tag{display:inline-block;font:700 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:#fff;background:var(--warn);padding:7px 12px;border-radius:0 0 7px 7px}
+  .thesis{font-size:17px;font-weight:600;color:var(--accent-ink);margin:16px 0;line-height:1.5;border-left:3px solid var(--accent);padding-left:16px}
+  table{border-collapse:collapse;width:100%;margin:16px 0;font-size:14px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+  th{font:600 11px/1.4 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  td code{font-size:12px}
+  ul,ol{margin:12px 0;padding-left:22px} li{margin:7px 0}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+  .cols h4{margin-top:0}
+  .col-bad h4{color:var(--bad-ink)} .col-good h4{color:var(--accent-ink)}
+  @media (max-width:1000px){.wrap{grid-template-columns:1fr} nav.toc{display:none} main{padding:30px 22px 100px} .cols{grid-template-columns:1fr}}
+  .footer{margin-top:70px;padding-top:18px;border-top:1px solid var(--rule);font-size:13px;color:var(--muted)}
+  .pill{display:inline-block;font:600 10.5px/1 var(--mono);padding:4px 8px;border-radius:20px;margin-right:6px}
+  .pill.keep{background:var(--accent-soft);color:var(--accent-ink)} .pill.new{background:var(--lens-soft);color:var(--lens-ink)} .pill.cut{background:var(--bad-soft);color:var(--bad-ink)}
+</style>
+<style>
+  main{padding:56px 52px 140px;max-width:900px;margin:0 auto}
+  .card{display:block;border:1px solid var(--rule);border-radius:12px;padding:18px 22px;margin:14px 0;
+         text-decoration:none;color:inherit;transition:box-shadow .15s,border-color .15s}
+  .card:hover{border-color:var(--accent);box-shadow:0 3px 18px rgba(15,118,110,.08)}
+  .card h3{margin:0 0 4px;font-size:17px;color:var(--accent-ink)}
+  .card .aud{font:600 11px/1.4 var(--mono);letter-spacing:.08em;text-transform:uppercase;
+              color:var(--muted);margin-bottom:6px}
+  .card p{margin:0;font-size:14.5px;color:#3a4048}
+  .primary{border-width:2px;border-color:var(--accent);background:var(--accent-soft)}
+</style>
+<body>
+<main>
+<div class="kicker">scopex</div>
+<h1 class="title">Documentation</h1>
+<p class="lede">Attribute a jitted JAX program's compilation artifacts back to the code that wrote
+them. Start with the blueprint; everything else is an appendix it links from the section that needs
+it.</p>
+<div class="meta">scopex 0.1.0 · jax 0.10.2 · every number measured, and reproducible with
+<code>python examples/marked_framework.py</code> ·
+<a href="https://github.com/bheijden/scopex">github.com/bheijden/scopex</a></div>
+
+<a class="card primary" href="blueprint_scopex.html">
+  <div class="aud">you are profiling a jitted JAX program</div>
+  <h3>The blueprint &rarr;</h3>
+  <p>The documentation. The differential method, the two routes (with and without instrumenting a
+  framework), the naming contract, the ways of asking that silently return nothing, the API, the
+  recipe routing table, reading a dump, and the limits.</p></a>
+
+<a class="card" href="DEFICITS.html">
+  <div class="aud">you are deciding whether to trust a number scopex just produced</div>
+  <h3>Deficits</h3>
+  <p>Per instrument: what validates it, where that validation fails, what it cannot see, and what it
+  costs in extra compiles. A wrong method is worse than a missing one, so each one's blind spots are
+  written down rather than discovered.</p></a>
+
+<a class="card" href="HARDENING.html">
+  <div class="aud">you are changing a parser, or you just upgraded jax</div>
+  <h3>Hardening</h3>
+  <p>Every place scopex reads text a compiler printed, what produces that text, what happens when the
+  producer changes it, and how <code>selftest()</code> and <code>conformance()</code> cover each one.
+  Seven parsers have shipped broken here; this is how the eighth gets caught.</p></a>
+
+<a class="card" href="INVESTIGATIONS.html">
+  <div class="aud">you want the evidence behind a claim, or a worked example to copy</div>
+  <h3>Investigations</h3>
+  <p>Twenty-eight pathological compiles worked end to end: what each instrument did and did not show,
+  where the trail left scopex for XLA source, and the routes tried and rejected. The blueprint's
+  claims cite this.</p></a>
+
+<a class="card" href="../tests/degenerate/SUITE.html">
+  <div class="aud">you are adding a corpus case, or running the suite</div>
+  <h3>The degenerate-compile suite</h3>
+  <p>62 case files, 800 entries, each a pathology with a fast control and a declared platform. The
+  thing scopex is hammered against.</p></a>
+
+<h2>Runnable, not prose</h2>
+<ul>
+  <li><code>examples/marked_framework.py</code> — the program every number in the blueprint comes from</li>
+  <li><code>examples/recipes/</code> — one runnable file per question, routed by blueprint §7</li>
+  <li><code>scopex.selftest()</code> / <code>scopex.conformance()</code> — run after any jax upgrade;
+      they fail loudly rather than returning a plausible empty answer</li>
+</ul>
+
+<div class="footer">The repository <a href="../README.md">README</a> stays markdown because GitHub
+renders it as the landing page. Everything else here is HTML, and the HTML is the source — there is
+no markdown behind it to drift out of step.</div>
+</main>
+</body></html>

@@ -1028,7 +1028,7 @@ def pass_log_totals(log: str) -> dict:
 #
 # `sum(pass_timing_lines(...))` DOUBLE-COUNTS, and by a lot. XLA registers some pipelines as passes,
 # so a nested pipeline prints a `time:` line that is the SUM of the passes inside it, alongside
-# theirs. Measured over the corpus sweep in docs/HARDENING.md: the naive sum reaches 187% of the
+# theirs. Measured over the corpus sweep in docs/HARDENING.html: the naive sum reaches 187% of the
 # backend compile on `adconst_idx_2p22` and `dusfold_sum_200`, and 104% on `jitfib_t22`. A
 # "fraction of the compile" that reads 1.87 is not a fraction and cannot be banded.
 #

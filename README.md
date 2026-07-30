@@ -55,8 +55,9 @@ the blueprint comes from:
 python examples/marked_framework.py
 ```
 
-**[docs/](docs/)** indexes the rest — what each appendix is and who it is for. Nothing under `docs/`
-is scratch.
+**[docs/index.html](docs/index.html)** indexes the rest — what each appendix is and who it is
+for. Nothing under `docs/` is scratch, and it is all HTML: this README is the only markdown in the
+project, because GitHub renders it as the landing page.
 
 ## The short version of the caveats
 

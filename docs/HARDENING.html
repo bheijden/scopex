@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HARDENING — scopex</title>
+<style>
+  :root{
+    --bg:#fbfaf7; --ink:#181b1f; --muted:#5c6470; --rule:#e4e0d7;
+    --accent:#0f766e; --accent-soft:#d7eee9; --accent-ink:#0b544e;
+    --warn:#b45309; --warn-soft:#fbe7cf; --warn-ink:#7c3a06;
+    --bad:#b42318; --bad-soft:#fbe3e0; --bad-ink:#7a1c14;
+    --lens:#5b4bb7; --lens-soft:#e7e3fb; --lens-ink:#3f3486;
+    --code-bg:#0e1116; --code-ink:#e6edf3;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --maxw:900px;
+  }
+  *{box-sizing:border-box} html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{display:grid;grid-template-columns:270px minmax(0,1fr);max-width:1240px;margin:0 auto}
+  nav.toc{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;padding:34px 22px 60px;border-right:1px solid var(--rule);font-size:13.5px}
+  nav.toc .kicker{font:600 11px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+  nav.toc h1{font-size:15px;margin:0 0 6px;line-height:1.3}
+  nav.toc .wip{font:600 10px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--warn-ink);background:var(--warn-soft);padding:3px 7px;border-radius:5px;display:inline-block;margin-bottom:16px}
+  nav.toc a{display:block;color:var(--muted);text-decoration:none;padding:4px 0 4px 12px;border-left:2px solid transparent}
+  nav.toc a:hover{color:var(--ink)}
+  main{padding:46px 52px 140px;min-width:0}
+  .doc{max-width:var(--maxw)}
+  .kicker{font:600 12px/1.4 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1.title{font-size:34px;line-height:1.15;margin:6px 0 10px;letter-spacing:-.01em}
+  .lede{font-size:18px;color:var(--muted);margin:0 0 14px;max-width:66ch}
+  .meta{font:12.5px/1.5 var(--mono);color:var(--muted);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:10px 0;margin:22px 0 34px}
+  h2{font-size:24px;margin:52px 0 8px;letter-spacing:-.01em;scroll-margin-top:20px}
+  h2 .num{font:600 14px/1 var(--mono);color:var(--accent);display:block;margin-bottom:8px}
+  h3{font-size:17.5px;margin:28px 0 6px}
+  h4{font-size:13.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:22px 0 4px}
+  p{margin:12px 0;color:#23282e} strong{font-weight:650}
+  code{font:13px/1.5 var(--mono);background:#efece4;padding:1.5px 5px;border-radius:4px;color:#3a3f46}
+  pre{background:var(--code-bg);color:var(--code-ink);padding:16px 18px;border-radius:10px;overflow-x:auto;margin:14px 0;font:12.5px/1.6 var(--mono)}
+  pre code{background:none;padding:0;color:inherit}
+  pre .c{color:#8b98a5} pre .k{color:#ff7b72} pre .s{color:#a5d6ff} pre .f{color:#d2a8ff} pre .g{color:#7ee787}
+  .box{border-left:3px solid;border-radius:0 8px 8px 0;padding:13px 18px;margin:18px 0;font-size:15px}
+  .box .lab{font:600 11px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:5px}
+  .why{background:var(--accent-soft);border-color:var(--accent)} .why .lab{color:var(--accent-ink)}
+  .keep{background:var(--accent-soft);border-color:var(--accent)} .keep .lab{color:var(--accent-ink)}
+  .gotcha{background:var(--warn-soft);border-color:var(--warn)} .gotcha .lab{color:var(--warn-ink)}
+  .anti{background:var(--bad-soft);border-color:var(--bad)} .anti .lab{color:var(--bad-ink)}
+  .lens{background:var(--lens-soft);border-color:var(--lens)} .lens .lab{color:var(--lens-ink)}
+  .directive{border:1px solid var(--warn);background:linear-gradient(180deg,#fdf5ea,#fbfaf7);border-radius:14px;padding:4px 30px 24px;margin:26px 0;box-shadow:0 3px 22px rgba(180,83,9,.07)}
+  .directive .tag{display:inline-block;font:700 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:#fff;background:var(--warn);padding:7px 12px;border-radius:0 0 7px 7px}
+  .thesis{font-size:17px;font-weight:600;color:var(--accent-ink);margin:16px 0;line-height:1.5;border-left:3px solid var(--accent);padding-left:16px}
+  table{border-collapse:collapse;width:100%;margin:16px 0;font-size:14px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+  th{font:600 11px/1.4 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  td code{font-size:12px}
+  ul,ol{margin:12px 0;padding-left:22px} li{margin:7px 0}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+  .cols h4{margin-top:0}
+  .col-bad h4{color:var(--bad-ink)} .col-good h4{color:var(--accent-ink)}
+  @media (max-width:1000px){.wrap{grid-template-columns:1fr} nav.toc{display:none} main{padding:30px 22px 100px} .cols{grid-template-columns:1fr}}
+  .footer{margin-top:70px;padding-top:18px;border-top:1px solid var(--rule);font-size:13px;color:var(--muted)}
+  .pill{display:inline-block;font:600 10.5px/1 var(--mono);padding:4px 8px;border-radius:20px;margin-right:6px}
+  .pill.keep{background:var(--accent-soft);color:var(--accent-ink)} .pill.new{background:var(--lens-soft);color:var(--lens-ink)} .pill.cut{background:var(--bad-soft);color:var(--bad-ink)}
+</style>
+<style>
+  main{padding:46px 52px 140px;max-width:1000px;margin:0 auto}
+  .backlink{font:600 12px/1.4 var(--mono);letter-spacing:.12em;text-transform:uppercase;
+             color:var(--accent);text-decoration:none;display:inline-block;margin-bottom:18px}
+  .aud{font-size:15px;color:var(--muted);border-left:3px solid var(--accent);padding:8px 0 8px 16px;
+        margin:14px 0 28px;background:var(--accent-soft);border-radius:0 8px 8px 0}
+  blockquote{border-left:3px solid var(--rule);margin:16px 0;padding:2px 0 2px 18px;color:var(--muted)}
+  h1{font-size:32px;line-height:1.15;margin:6px 0 10px;letter-spacing:-.01em}
+</style>
+<body>
+<main>
+<a class="backlink" href="index.html">&larr; scopex docs</a>
+<h1>HARDENING</h1>
+<div class="aud"><strong>Audience: you are changing a parser, or you just upgraded jax.</strong></div>
+<p>Which parts of scopex read <strong>text a compiler printed</strong>, what produces that text, what happens when
+the producer changes it, and how the two self-checks cover each one.</p>
+<p>This document exists because the failure mode of a text parser is not a crash. Three parsers shipped
+broken in this package and all three returned a <em>plausible</em> answer — an empty level, a ranking topped
+by the wrong pass, a module of 21,000 operations reported as one. Every one was found by <em>using</em> the
+tool, never by reading it. So the rule here is not "avoid regexes"; it is:</p>
+<blockquote>
+<p><strong>A parser that cannot fail loudly must not be trusted to fail quietly.</strong>
+Every remaining pattern is paired with a <em>witness</em> — an independent, deliberately cruder count of
+what the input visibly contains. Fewer results than the witness is a <code>ParseError</code>, not a result.</p>
+</blockquote>
+<p>This document is about the <strong>parsers</strong>. Its companion, <a href="DEFICITS.html"><code>DEFICITS.html</code></a>, is about the
+<strong>numbers they produce</strong>: one section per instrument saying what validates it, where that validation
+stops working, what the instrument cannot see, and what it costs in compiles. Read this one before
+editing a pattern; read that one before trusting a result.</p>
+<hr />
+<h2>0. The three that shipped broken</h2>
+<p>Kept at the top because they are the shape of the next one.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>parser</th>
+<th>what it did</th>
+<th>why nobody noticed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>walk_stablehlo</code></td>
+<td>returned <strong>1 unit on 16 of 21 real programs</strong>, including modules of 3,214 and 21,000 operations</td>
+<td>jax emits <code>loc(#loc17)</code> on the operation and defines <code>#loc17 = loc("…")</code> separately; the pattern matched only the inline form. A length-1 iterator passes <code>if not units</code>, so the level looked <strong>empty</strong>, not <strong>broken</strong>.</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>walk_hlo</code> metadata</td>
+<td>dropped every <strong>unquoted</strong> metadata value</td>
+<td><code>(\w+)="([^"]*)"</code> matches <code>op_name="…"</code> but not <code>stack_frame_id=5</code>. Every instruction still returned a non-empty dict, so the loss was invisible at instruction scale. It produced the published conclusion that the optimized module carries no source location. It does.</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>pass_timings</code></td>
+<td>dropped the <strong>slowest pass in the program</strong></td>
+<td>XLA switches to <code>min</code> above 60 s. Measured: 1 of 640 lines used <code>min</code>, it was the autotuner at <strong>98.8% of a 72.5 s compile</strong>, and dropping it left a plausible dict topped by <code>remat-pipeline: 0.1196</code>. The tool reported the opposite of the truth.</td>
+</tr>
+</tbody>
+</table>
+<p>The pattern is the point, and it is a design constraint, not an anecdote:</p>
+<blockquote>
+<p><strong>A parser whose blind spot correlates with the quantity being measured is worse than no parser.</strong></p>
+</blockquote>
+<p>Bug 3 is the purest form — the <em>slowest</em> pass is precisely the one most likely to be printed in a
+unit the parser did not know. Bug 1 is the same shape: region-bearing ops (<code>while</code>, <code>case</code>, <code>sort</code>)
+were 100% invisible, and those are exactly the expensive ones.</p>
+<hr />
+<h2>1. What is no longer parsed at all</h2>
+<p>The largest hardening win was deleting parsers, not guarding them. These now read an object graph:</p>
+<table>
+<thead>
+<tr>
+<th>level</th>
+<th>was</th>
+<th>now</th>
+<th>evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>StableHLO ops</td>
+<td>line regex over printed text</td>
+<td>recursive walk of the real MLIR module (<code>jaxlib.mlir.ir</code>: <code>Operation.regions/blocks/operations</code>)</td>
+<td>strict per-opcode <strong>superset</strong> on all 10 test programs; <code>marked_framework</code> 296 → <strong>311</strong> units, <code>control_flow</code> 90 → 107, <code>switch_5way</code> 26 → 37</td>
+</tr>
+<tr>
+<td>StableHLO names</td>
+<td>regex over <code>#locNN = loc(...)</code></td>
+<td><code>ir.NameLoc.name_str</code> / <code>.child_loc</code>, two-level peel matched to jax's <code>source_info_to_location</code></td>
+<td>294/311 named; no path may end in <code>:</code> and none may be a bare frame name (asserted)</td>
+</tr>
+<tr>
+<td>StableHLO sites</td>
+<td>constant <code>'&lt;see-jaxpr-level&gt;'</code></td>
+<td><code>ir.CallSiteLoc</code> + <code>ir.FileLineColLoc</code></td>
+<td>real <code>file:line</code> for <strong>226/311</strong>; <strong>91.6%</strong> land on a file:line the jaxpr level also reports, so the two levels now <em>join</em></td>
+</tr>
+<tr>
+<td>HLO instructions</td>
+<td><code>_INSTR</code> line classifier</td>
+<td><code>xla_client.hlo.HloModule.computations() → .instructions()</code></td>
+<td>over <strong>2,811</strong> real dump snapshots the old regex undercounted on <strong>895 (31.8%)</strong>, never overcounted, missed <strong>1,208</strong> instructions</td>
+</tr>
+<tr>
+<td>HLO opcodes</td>
+<td>text</td>
+<td><code>HloInstruction.opcode</code> enum</td>
+<td>alias table <strong>harvested</strong>, not guessed: exactly 6 divergences over 3,017 snapshots</td>
+</tr>
+<tr>
+<td><code>pass_growth</code> counts</td>
+<td><code>_INSTR</code> line count</td>
+<td><code>hlo_module_from_text()</code> — XLA's own parser</td>
+<td>parsed <strong>2,811/2,811</strong>, and <em>raises</em> on non-HLO dump files rather than returning an empty module</td>
+</tr>
+<tr>
+<td>fusion decisions</td>
+<td>grep</td>
+<td>full text-proto parse (<code>scopex.fusion</code>)</td>
+<td><strong>455/455</strong> real dumps parse; an unknown step kind arrives as a <strong>visible key</strong> rather than being dropped</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>The lesson that generalises.</strong> Bug 1's real cause was not the loc-alias indirection. It was
+<strong>regions</strong>: MLIR prints an op owning a region across many lines with its <code>loc(...)</code> after the
+closing brace, so <em>no single line</em> carries both opcode and location. A line-oriented reader cannot
+be patched into correctness there — it has the wrong shape. It also cannot see ops that are never
+printed at all: <code>stablehlo.reduce</code>'s short <code>applies stablehlo.add across dimensions</code> form has a
+real <code>add</code> + <code>return</code> inside its region with no line to match.</p>
+</blockquote>
+<p>One correction to a documented claim, because it is what sent the original implementation to the
+text in the first place: <code>flags.py</code> listed <code>compiler_ir('stablehlo')</code> as a trap that "drops location
+info", because <code>str()</code> of it shows 0 <code>loc(</code>. That is <code>Operation.__str__</code>'s <code>enable_debug_info=False</code>
+default, <strong>not the IR</strong>. The same object printed with <code>enable_debug_info=True</code> is byte-identical to
+<code>as_text(debug_info=True)</code>: 48,770 chars, 478 <code>loc(</code>. The trap is real; the conclusion drawn from it
+was not.</p>
+<hr />
+<h2>2. The invariant: <code>expect(...)</code> with a witness</h2>
+<p>Everything still parsed from text goes through one function in <code>scopex/_parse.py</code>:</p>
+<pre><code class="language-python">expect(parser_name, matches, text, witness=...)
+</code></pre>
+<p><code>witness</code> is a <strong>cruder</strong> pattern than the parser it guards, counting what the input <em>visibly</em>
+contains. Returning fewer results than the witness raises <code>ParseError</code>.</p>
+<p><strong>It is a count, not a boolean.</strong> <code>n &gt; 0</code> would not have caught bug 1 — one unit from a
+3,214-operation module is non-zero. Verified by reintroducing each historical bug against live
+compiles:</p>
+<table>
+<thead>
+<tr>
+<th>reintroduced bug</th>
+<th>what the guard said</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>stablehlo inline-loc-only (bug 1)</td>
+<td><code>returned 1 operations from input that visibly contains at least 7</code></td>
+</tr>
+<tr>
+<td>quoted-only metadata (bug 2)</td>
+<td><code>returned 0 stack_frame_id values</code> — on all 6 test programs</td>
+</tr>
+<tr>
+<td>unit table without <code>min</code> (bug 3)</td>
+<td><code>cannot convert time units</code></td>
+</tr>
+</tbody>
+</table>
+<p>Empty input still legitimately returns 0. <code>allow_empty=True</code> covers the parsers whose absence is real
+information (a program need not contain a custom call).</p>
+<p><strong>The guard found a fourth bug on the first live log it ran against.</strong> XLA pass names contain
+<strong>spaces</strong>, and <code>(?P&lt;name&gt;\S+)</code> silently dropped them: 384 lines of a CPU compile said <code>HLO pass:</code>
+and only 378 parsed. The six missing were <code>HLO pass: simplification after layout assignment</code> and
+<code>HLO pass: after layout assignment</code>. Same family as the other three — a silent undercount leaving a
+plausible ranking. Nobody was looking; the witness check simply refused to return.</p>
+<hr />
+<h2>3. Every remaining text parser</h2>
+<p>All of them live in <code>scopex/_parse.py</code> and nowhere else. This is <strong>enforced</strong>:
+<code>tests/test_parse_quarantine.py::test_no_other_module_parses_compiler_output_with_a_regex</code> scans
+every module in the package for <code>re.compile|search|match|finditer|findall|sub|split</code> and fails on any
+that has escaped, with a two-entry allowlist that names why each is exempt. <em>(This test caught a
+duplicate filename parser being introduced into <code>phases.py</code> during this very round; the fix was to
+delete it and call <code>_parse.emitter_dump_name</code>, which was already hardened against a bug the duplicate
+would have reintroduced.)</em></p>
+<p>Each parser carries a docstring naming the exact printing component and a <strong>verbatim measured
+sample</strong> frozen as a module constant.</p>
+<h3>3.1 Optimized-HLO instruction text</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>parsers</strong></td>
+<td><code>hlo_metadata</code>, <code>hlo_shape</code>, <code>hlo_shape_and_opcode</code>, <code>is_hlo_instruction_line</code>, <code>custom_call_targets</code></td>
+</tr>
+<tr>
+<td><strong>produced by</strong></td>
+<td><code>xla::HloInstruction::ToString</code>, <code>xla::OpMetadata</code>, <code>xla::HloComputation::ToString</code></td>
+</tr>
+<tr>
+<td><strong>why not native</strong></td>
+<td><code>HloInstruction</code>'s complete non-dunder surface on jaxlib 0.10.2 is <code>async_wrapped_root, name, opcode, operands, to_string, users</code>. <strong>No <code>.metadata</code>, no <code>.shape</code>.</strong> <code>HloPrintOptions</code> has <code>print_metadata</code>, but <code>HloInstruction.to_string()</code> takes no arguments — only <code>HloModule.to_string(options)</code> does.</td>
+</tr>
+<tr>
+<td><strong>blast radius</strong></td>
+<td>reduced from "classify every line of a module" to "one instruction's own string". Instructions are enumerated <strong>natively</strong> and only then handed to the pattern.</td>
+</tr>
+<tr>
+<td><strong>if the format changes</strong></td>
+<td>per-instruction: a <code>metadata={</code> present but unreadable raises. Per-<strong>module</strong>: <code>check_metadata_coverage</code> counts how many instructions resolved and raises if the ratio collapses. The module-level check is the one that matters — with a quoted-only pattern every instruction still returns a non-empty dict, so bug 2 is invisible at instruction scale. Before this guard, reintroducing bug 2 returned 19 units with no error; now all 6 test programs raise.</td>
+</tr>
+<tr>
+<td><strong>conformance</strong></td>
+<td><code>hlo_metadata</code> (≥2, both a quoted and an unquoted value), <code>hlo_metadata[module]</code> (≥12), <code>hlo_metadata[stack_frame_id]</code> (≥9 — bug 2 resolved zero), <code>check_metadata_coverage</code>, <code>hlo_shape</code> (≥20), <code>hlo_shape[tuple]</code> (≥2), <code>is_hlo_instruction_line</code> (≥20), <code>custom_call_targets</code> (≥1)</td>
+</tr>
+<tr>
+<td><strong>known trap</strong></td>
+<td>tuple shapes contain a <strong>space</strong> — <code>(s32[], f32[8]{0})</code> — and <code>\S+</code> dropped every <code>while</code>/<code>call</code>/<code>tuple</code>. Shape group is <code>.+?</code>. Stressed on 8 real programs (while, scan, cond, eigh, sort, grad, vmap, topk): 203 instructions, 0 unparsed shapes, 0 false positives.</td>
+</tr>
+<tr>
+<td><strong>and one I reintroduced</strong></td>
+<td>writing the fix, <code>re.findall</code> reports a non-participating group as <code>""</code>, not <code>None</code>, so <code>q if q is not None else u</code> blanked every unquoted value and all source resolution silently returned <code>&lt;no-frame&gt;</code>. Fixed to <code>finditer</code>; <code>test_metadata_keeps_unquoted_values</code> guards both the original bug and this variant.</td>
+</tr>
+</tbody>
+</table>
+<h3>3.2 HLO stack-frame index tables</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>parsers</strong></td>
+<td><code>hlo_frame_tables</code>, <code>hlo_frame_stack</code>, <code>hlo_site</code>, <code>_parent_offset</code></td>
+</tr>
+<tr>
+<td><strong>produced by</strong></td>
+<td><code>xla::HloModule::Print</code> (StackFrameIndexProto: FileNames / FunctionNames / FileLocations / StackFrames)</td>
+</tr>
+<tr>
+<td><strong>why not native</strong></td>
+<td><code>HloModule</code> exposes no accessor; they are only printed. <code>as_serialized_hlo_module_proto()</code> exists but <strong>no schema ships</strong> — see INVESTIGATIONS §A4.</td>
+</tr>
+<tr>
+<td><strong>importance</strong></td>
+<td>this is the <strong>only</strong> route to a source line at the optimized-HLO level.</td>
+</tr>
+<tr>
+<td><strong>if the format changes</strong></td>
+<td>empty tables stay a legal state (per-pass snapshots carry <code>stack_frame_id</code> but not the tables); a <code>StackFrames</code> section that is <em>present and parses to nothing</em> raises.</td>
+</tr>
+<tr>
+<td><strong>conformance</strong></td>
+<td><code>hlo_frame_tables</code> (≥8 frames), <code>hlo_frame_stack</code> (≥5 — <code>tanh</code> is 5 frames deep: leaf/residual/solve/top/<code>&lt;module&gt;</code>)</td>
+</tr>
+<tr>
+<td><strong>two traps, both load-bearing</strong></td>
+<td><strong>(a)</strong> the walk must be cycle-guarded and depth-capped (512): jaxlib 0.10.2 writes a root frame whose <code>parent_frame_id</code> equals its own id. <strong>(b)</strong> far worse, an earlier version <em>papered over</em> those self-loops with the cycle guard and described them as "jaxlib writes a root frame whose parent is itself". In fact <strong>jaxlib prints frame ids and parent ids in different index spaces</strong>, and reading <code>parent_frame_id</code> literally truncated every python stack to <strong>one frame</strong> — and the innermost line is still right, which is exactly why it looked fine. <code>_parent_offset</code> now <em>derives</em> the convention per module: whichever of {0,1} yields an acyclic forest with every parent in range; literal wins if both work; <code>ParseError</code> if neither. Live: derived offset 1 gives <code>[leaf:2, mid:3, top:4, &lt;module&gt;:12]</code>; the literal reading gives <code>[leaf:2]</code> only.</td>
+</tr>
+<tr>
+<td><strong>semantic check</strong></td>
+<td>frames 6 and 8 are the same source line reached via <code>residual()</code> and via <code>solve()</code> and <strong>must not share a caller</strong> — asserted, because a flat-table misreading gives them the same one.</td>
+</tr>
+</tbody>
+</table>
+<h3>3.3 StableHLO text — <strong>fallback only</strong></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>parsers</strong></td>
+<td><code>stablehlo_op_lines</code>, <code>stablehlo_loc_aliases</code>, <code>stablehlo_file_aliases</code></td>
+</tr>
+<tr>
+<td><strong>produced by</strong></td>
+<td>MLIR <code>AsmPrinter</code></td>
+</tr>
+<tr>
+<td><strong>status</strong></td>
+<td><strong>dead code on this environment.</strong> The primary route is the native <code>jaxlib.mlir.ir</code> walk (§1). jax lowers <em>through</em> <code>jaxlib.mlir.ir</code>, so if jax can lower, the bindings import.</td>
+</tr>
+<tr>
+<td><strong>if reached</strong></td>
+<td>emits a <code>RuntimeWarning</code> naming what will be missing (region-bearing ops). It is never reached silently.</td>
+</tr>
+<tr>
+<td><strong>extra guards it never had</strong></td>
+<td>operation count witnessed against SSA-assignment lines; and <strong>dangling aliases</strong> — every <code>loc(#locNN)</code> an operation cites must be defined in the module, or the name stack was silently lost.</td>
+</tr>
+<tr>
+<td><strong>conformance</strong></td>
+<td><code>stablehlo_op_lines</code> (≥10), <code>stablehlo_op_lines[named]</code> (≥10 — bug 1 returned <strong>1</strong> here), <code>stablehlo_loc_aliases</code> (≥15), <code>stablehlo_file_aliases</code> (≥10)</td>
+</tr>
+<tr>
+<td><strong>semantic checks</strong></td>
+<td>a returned name must not be a <strong>file path</strong> (bug 1's pattern took the first quoted string, which for an inline-lowered primitive is the file); and the name stack behind <code>loc(#locNN)</code> must survive.</td>
+</tr>
+</tbody>
+</table>
+<h3>3.4 XLA pass-timing log</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>parsers</strong></td>
+<td><code>pass_timing_lines</code>, <code>pass_pipeline_headers</code>, <code>pass_log_totals</code>, <code>pass_leaf_split</code></td>
+</tr>
+<tr>
+<td><strong>produced by</strong></td>
+<td><code>hlo_pass_pipeline.cc:176</code> (timings, and the <code>(cumulative:/max:/#called:)</code> group), <code>:181</code> (pass announcements) and <code>:303</code> (pipeline headers)</td>
+</tr>
+<tr>
+<td><strong>why not native</strong></td>
+<td>VLOG output has <strong>no object model at all</strong>, and no in-process route: <code>TF_CPP_VMODULE</code> is read by the C++ logging layer when the shared library loads, i.e. during <code>import jax</code>. Setting it afterwards produces exactly zero lines. Hence the subprocess in <code>pass_timings</code>.</td>
+</tr>
+<tr>
+<td><strong>if the format changes</strong></td>
+<td>an <strong>unknown unit now raises</strong> rather than warn-and-drop, in <em>both</em> the timing field and the totals group. That is bug 3's fix and it is deliberately loud: the slowest pass is the one most likely to use an unexpected unit.</td>
+</tr>
+<tr>
+<td><strong>conformance</strong></td>
+<td><code>pass_timing_lines</code> (≥4, including the <code>min</code> line bug 3 dropped <strong>and</strong> the space-containing pass name from bug 4), <code>pass_pipeline_headers</code> (≥2), <code>pass_log_totals</code> (≥3), <code>pass_leaf_split</code> (≥8)</td>
+</tr>
+<tr>
+<td><strong>semantic checks</strong></td>
+<td>the <code>min</code> line must be present, correctly <strong>scaled</strong>, and must still rank first; a pass whose name contains spaces must survive; headers must retain module attribution; XLA's own <code>#called</code>/<code>cumulative:</code>/<code>max:</code> must equal scopex's count/sum/maximum over the same verbatim log; <code>max: 1.19 min</code> must read as 71.4 s; the leaf/aggregate split must survive an <strong>interleaved two-thread</strong> log.</td>
+</tr>
+<tr>
+<td><strong>closed since</strong></td>
+<td>the double-count. See §3.4a.</td>
+</tr>
+</tbody>
+</table>
+<h4>3.4a XLA's own arithmetic, and the double-count</h4>
+<p>Every <code>:176</code> line carries a group this package ignored for its whole life:</p>
+<pre><code>HLO pass: dce time: 4 us (4 us) (cumulative: 3.49 ms, max: 236 us, #called: 383)
+                                 ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^^^^
+</code></pre>
+<p>Measured on a trivial CPU compile: <code>#called</code> runs 1..384 with no gaps across three modules,
+<code>cumulative</code> ends at 3.5 ms against a parsed sum of 3.496 ms, <code>max</code> ends at 236 us against a parsed
+maximum of 236 us. These are <strong>XLA's own running count, total and maximum over exactly the lines
+<code>pass_timing_lines</code> parses</strong> — an independent answer to the same question, and <code>pass_log_totals</code>
+reads them. <code>Coverage.fidelity</code> is the ratio. Across <strong>twenty</strong> arms — five orders of magnitude of coverage, two platforms, compiles from 0.1 s to 76 s, and a re-run in which the backend denominator itself moved 0.78–1.08x — it spans <code>[0.9978, 1.0015]</code>.</p>
+<p>The count check is the only guard in this package that is entirely <strong>unit-free</strong>. The historical bug
+was a three-entry unit table, and a guard built on the same table shares its blind spot; <code>639 != 640</code>
+does not. Reconstructed on <code>switch_ident_1024</code> (<code>tests/test_coverage_guard.py</code>), the broken parser
+loses 1 line of 299, <code>fidelity</code> reads <strong>0.0111</strong>, <code>max:</code> says one pass took 72.6 s while the largest
+parsed is 0.253 s, and coverage collapses 96.4% → 1.07% — while the ranking it returns still looks
+entirely healthy, topped by a real pass at 0.2587 s.</p>
+<p><strong>The double-count is closed.</strong> A nested pipeline announces itself at <code>:181</code>, opens at <code>:303</code>, and
+prints an aggregate <code>time:</code> line that is the sum of its children, so summing every line
+double-counts — measured 186% of the backend on <code>adconst_idx_2p22</code> and <code>dusfold_sum_200</code>.
+<code>pass_leaf_split</code> separates them <strong>by order, never by name</strong>: on GPU the order is inverted for the
+autotuner (pipeline opens <em>first</em>, then a real leaf pass of the same name), and a name rule deletes
+98.8% of a conv compile. <code>sum(leaves) + sum(aggregates) == sum(every line)</code> is asserted on every
+<code>pass_timings</code> call, which is what makes the split checkable rather than merely plausible.</p>
+<p><strong>The self-check can go silent, and that is now branchable.</strong> All three of <code>fidelity</code>,
+<code>lines_lost</code> and <code>biggest_pass_lost</code> depend on XLA continuing to print that group. If a future XLA
+stops, <code>xla_pass_count</code> is <code>None</code>, all three return <code>None</code>, and <strong><code>Coverage.broken</code> returns False</strong> —
+an unverified ranking that looks exactly like a verified one. <code>Coverage.checked</code> is False precisely
+then. Branch on it; the verdict string says "parse UNCHECKED" but prose cannot be branched on.</p>
+<p><strong>One live defect in that guard, found while pinning it and fixed.</strong> <code>broken</code> computed its fidelity
+threshold as <code>max(FIDELITY_FLOOR, 1.0 - (tolerance or 0)*2)</code>. With <code>tolerance</code> absent that is
+<code>max(0.90, 1.0)</code> = <strong>1.0</strong>, so any fidelity below exactly 1.0 read as PARSE BROKEN — and measured
+fidelity is never exactly 1.0. Every healthy compile would have cried wolf on a <code>Coverage</code> built
+without that key. <strong>A check that fires on healthy data gets ignored, and takes the real firing with
+it</strong>; that is the same failure class as one that stays silent. The slack is now
+<code>max(1 - FIDELITY_FLOOR, tolerance*2)</code> and <strong>symmetric</strong>, because totalling <em>more</em> seconds than XLA's
+own running total over the same lines is equally a defect and was not being looked at.</p>
+<p><strong>And the order is only an order within one thread.</strong> That identity is how the next defect was
+found: it refused to close on the <code>convT64_dilate16</code> fixture, leaving 19 pipelines open. XLA's GPU
+autotuner compiles candidates in parallel and glog interleaves <strong>21 threads</strong> into one stderr, so a
+stack machine reading top to bottom matches an announcement from one thread against a timing from
+another. The walk buckets by glog thread id first. XLA's <code>#called</code>/<code>cumulative</code> counters are
+unaffected — they stayed globally monotone across all 21 threads, which is exactly why the
+cross-check could catch this and is not itself suspect.</p>
+<h3>3.4b Dump-file mtimes against the same log — <code>pass_timeline</code></h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>parsers</strong></td>
+<td><code>glog_prefix</code>, <code>glog_lines</code> (both new; <code>timeline.py</code> previously duplicated the <code>:176</code>/<code>:181</code> patterns and now owns none)</td>
+</tr>
+<tr>
+<td><strong>produced by</strong></td>
+<td>glog's line prefix — <code>I0729 21:33:04.123456  12345 hlo_pass_pipeline.cc:176]</code> — carrying a <strong><code>CLOCK_REALTIME</code> microsecond timestamp, a thread id, and the source line</strong></td>
+</tr>
+<tr>
+<td><strong>why it matters</strong></td>
+<td><code>st_mtime</code> is on the <em>same clock</em>. XLA writes each per-pass snapshot <strong>inside</strong> the pass's scoped timer (<code>hlo_pass_pipeline.cc:138-225</code>), so <code>mtime(after_P)</code> must fall between that pass's <code>:181</code> START line and its <code>:176</code> END line. That is a falsifiable per-snapshot test of the <strong>alignment itself</strong>, not of a number derived from it.</td>
+</tr>
+<tr>
+<td><strong>evidence</strong></td>
+<td><strong>683/683 matched snapshots inside their own pass timer, 100.0%</strong>, across 12 CPU compiles and 5 programs — including a 4.7x-overloaded machine, where the containment held while the boundary offset p50 degraded 4x and <code>span_ratio</code> widened from 1.22±0.004 to 1.36–1.83. The agreement statistic is itself a contention detector.</td>
+</tr>
+<tr>
+<td><strong>and on GPU</strong></td>
+<td>one compile on an idle RTX 4090 Laptop: <strong>317/317 matched, 100.0000% inside, 0 violations, 21 glog threads, 0 unmatched pipeline closes</strong>, boundary offset p50 <strong>0.0041 ms</strong> / max 0.0138 ms, correlation 0.98, and the emitter/LLVM/codegen split <strong>correctly suppressed</strong> (10 interleaved kernel modules). This is the log shape the per-thread stacks were written for and it was previously untested. One program, not a sweep.</td>
+</tr>
+<tr>
+<td><strong>what that GPU run exposed</strong></td>
+<td>the main module's leaf-pass sum was <strong>0.0134 s against 4.4572 s for the whole log</strong> — on GPU, ~99.7% of logged pass seconds belong to autotuner <em>candidate sub-modules</em>. The same phenomenon puts <code>Coverage</code> over 1.0.</td>
+</tr>
+<tr>
+<td><strong>second, independent check</strong></td>
+<td>the module's leaf/aggregate split (recovered from start/end <strong>depth</strong>) is compared against <code>_parse.pass_leaf_split</code> (recovered from <strong>textual</strong> header matching). They disagreed by 2–3% on all 10 runs and caught a real bug: <code>after layout assignment</code> was classified a leaf because it ran zero passes, so "had no children" was the wrong criterion — "is itself a pipeline" is right. Exact agreement to 5 decimals after the fix.</td>
+</tr>
+<tr>
+<td><strong>the trap</strong></td>
+<td>keying on <strong>text</strong> rather than on the <strong>source line number</strong>. <code>:176</code> and <code>:181</code> differ only by a colon.</td>
+</tr>
+<tr>
+<td><strong>the other trap</strong></td>
+<td><code>_TID</code> matches <code>^\w\d{4} [\d:.]+\s+(\d+)</code>. If glog's prefix changes, every line buckets into one thread and the per-thread stacks regress. On a multi-threaded log <code>unmatched_pipelines</code> goes non-zero; <strong>on a single-threaded log the regression is invisible</strong> and only the hand-written interleaved conformance sample would notice.</td>
+</tr>
+<tr>
+<td><strong>undocumented XLA fact, found in source and confirmed</strong></td>
+<td>the dump guard is <code>pass_changed \|\| dump_regex != ".*"</code>. So <code>.+</code> dumps <strong>every</strong> matched pass while <code>.*</code> dumps only <strong>changed</strong> ones: 26 → 160 snapshots on one control. It reads backwards.</td>
+</tr>
+<tr>
+<td><strong>second artifact class</strong></td>
+<td><code>NNNN.&lt;pass&gt;.&lt;step&gt;.txt</code> from <code>DumpHloModuleDuringPassIfEnabled</code> has <strong>no <code>before_</code> component</strong> and its second field is a <em>pass</em>, not a pipeline. <code>copy-insertion</code> writes 3 per CPU compile. Treating them as pass boundaries invents three passes that never ran; folding them into the tail's error bound wrongly reported TOO SMALL TO TRUST on a tail resolvable to 1%.</td>
+</tr>
+</tbody>
+</table>
+<h3>3.5 Dump filename grammars</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>parsers</strong></td>
+<td><code>dump_snapshot_name</code>, <code>emitter_dump_name</code></td>
+</tr>
+<tr>
+<td><strong>produced by</strong></td>
+<td><code>xla/service/dump.cc</code>, the latter via the backend emitters</td>
+</tr>
+<tr>
+<td><strong>if the format changes</strong></td>
+<td><code>modules_in</code> <strong>raises</strong> if the directory contains <code>.before_</code> filenames and none parsed — an empty module list must never read as "this compile ran no passes".</td>
+</tr>
+<tr>
+<td><strong>conformance</strong></td>
+<td><code>dump_snapshot_name</code> (≥2), <code>emitter_dump_name</code> (≥7 of 8 sample names — the 8th is a per-pass HLO snapshot, which is <em>not</em> an emitter file and must be rejected)</td>
+</tr>
+<tr>
+<td><strong>the trap</strong></td>
+<td><strong>the kernel field can contain a dot and the module stem cannot.</strong> XLA appends <code>.&lt;n&gt;</code> when kernel names would collide. With a dot-free <code>kernel</code> group — the obvious reading, and the first version — 22 files parsed happily with <code>kernel="265"</code>, <code>kernel="48"</code>, <code>kernel="6"</code>. Not empty, not an error: the disambiguator where the kernel name should be.</td>
+</tr>
+<tr>
+<td><strong>overlap</strong></td>
+<td>the two grammars share their first two fields, so a semantic check asserts <code>emitter_dump_name</code> rejects a per-pass HLO snapshot. Without it a <em>pass</em> is reported as a <em>kernel</em>.</td>
+</tr>
+</tbody>
+</table>
+<h3>3.6 Emitter MLIR pass log</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>parsers</strong></td>
+<td><code>mlir_pass_dumps</code>, <code>mlir_op_lines</code>, <code>mlir_log_damage</code></td>
+</tr>
+<tr>
+<td><strong>produced by</strong></td>
+<td><code>mlir/lib/Pass/IRPrinting.cpp</code> (<code>PrintIRPass</code>), which XLA switches on for the emitter pipeline</td>
+</tr>
+<tr>
+<td><strong>conformance</strong></td>
+<td><code>mlir_pass_dumps</code> (≥3), <code>mlir_op_lines</code> (≥12), <code>mlir_log_damage</code> (≥1)</td>
+</tr>
+<tr>
+<td><strong>traps</strong></td>
+<td>a pass <strong>name</strong> can contain <code>::</code> and a pass <strong>spec</strong> can contain nested braces, so neither is <code>\w+</code> and neither is <code>[^{]*</code>. An attribute alias must not be counted as an operation.</td>
+</tr>
+<tr>
+<td><strong>damaged input is a category</strong></td>
+<td>XLA writes this log <strong>torn</strong> when emitters run concurrently. <code>mlir_log_damage</code> reports that explicitly, so a truncated header costs one dump rather than being silently absorbed — <em>damaged input and a parser blind spot must not look the same</em>.</td>
+</tr>
+</tbody>
+</table>
+<h3>3.7 Fusion decision log — text proto, not regex</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>parser</strong></td>
+<td><code>scopex.fusion.parse_textproto</code> (a complete proto3 text-format tokenizer, allowlisted out of the quarantine)</td>
+</tr>
+<tr>
+<td><strong>produced by</strong></td>
+<td><code>FusionProcessDumpProto</code>, GPU only</td>
+</tr>
+<tr>
+<td><strong>why it is safe</strong></td>
+<td>text-proto is <strong>self-describing</strong> — the field names are in the file — so it needs no schema, which is what makes it viable where the binary route is not.</td>
+</tr>
+<tr>
+<td><strong>evidence</strong></td>
+<td>455/455 real dumps parse, 1,280 steps. On the richest dump (112,665 bytes) the parsed <code>reason</code> and <code>producer_name</code> multisets are <strong>identical</strong> to the raw file (257 occurrences each).</td>
+</tr>
+<tr>
+<td><strong>the decisive property</strong></td>
+<td><code>fusion_steps</code> reads the oneof arm's field <strong>name off the file</strong>, so an unrecognised step kind arrives as a <strong>visible key</strong>. <code>test_an_unknown_step_kind_survives_instead_of_vanishing</code> proves a hypothetical 4th kind is counted rather than dropped — precisely the failure a 3-kind grep would ship.</td>
+</tr>
+<tr>
+<td><strong>if the format changes</strong></td>
+<td>malformed input raises <code>TextProtoError</code>. An empty dict would read as "this compile made no fusion decisions".</td>
+</tr>
+<tr>
+<td><strong>platform note</strong></td>
+<td>GPU-only. Its <strong>absence on CPU must not be read as "no fusion happened"</strong>, and <code>dump(fusion=True)</code> warns on non-GPU.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>4. The two self-checks, and the split between them</h2>
+<pre><code class="language-python">scopex.conformance()   # 28 parsers vs frozen samples. NO jax, no compile. Belongs in CI.
+scopex.selftest()      # a real marked compile, dumped. Run after any jax upgrade.
+</code></pre>
+<p>The split is the point:</p>
+<ul>
+<li><strong><code>conformance()</code></strong> replays every parser over a <strong>verbatim frozen capture</strong> of the text it was
+  written for. Those samples cannot change, so a failure means exactly one thing: <em>somebody edited
+  the parser</em>. It needs no jax, so it separates "the parser broke" from "the compiler moved".
+  It also runs <code>_semantic_checks()</code> — the checks a <em>count</em> cannot express, every one of which is a
+  bug this package actually shipped (the <code>min</code> line must rank first; two call paths to one source
+  line must not share a caller; a name must not be a file path; an emitter grammar must reject an HLO
+  snapshot).</li>
+<li><strong><code>selftest()</code></strong> compiles a small <strong>marked</strong> program, dumps it, and checks every level and every
+  artifact view comes back non-empty, that the levels still agree, and that the HLO frame tables
+  resolve to source lines the jaxpr also reports. A failure here with <code>conformance</code> green means the
+  <strong>compiler moved</strong>.</li>
+</ul>
+<p><code>strict=True</code> (the default) raises. That is deliberate: this package has three times shipped a
+parser that returned a plausible empty answer, and each time the answer was believed.</p>
+<p>Two constraints on <code>selftest</code>, both load-bearing:</p>
+<ul>
+<li>It must run <strong>before the first compile in the process</strong> — XLA reads its dump flags when the backend
+  is first initialised, and it raises rather than measure an empty directory.</li>
+<li>Its probe program is written to a <strong>file outside the package</strong> and imported. Both site resolvers
+  filter out frames inside jax <em>and</em> inside scopex, so a probe defined in <code>artifacts.py</code> would have
+  no user frame at all, and the cross-level site join — the one check that catches a frame table
+  resolving to the <strong>wrong</strong> line rather than to none — would compare two empty sets and pass.</li>
+</ul>
+<p>Current output on this environment: <code>conformance</code> ok, <strong>28 parsers</strong>; <code>selftest</code> ok, <code>site_join 1.0</code>,
+11 StableHLO units, 22 pass steps, 22 timeline entries, <code>parent_offset 1</code>. Suite: <strong>268 passed, 1
+skipped</strong>.</p>
+<p>A third check now guards the <em>shape of the package</em> rather than the parsers:
+<code>tests/test_ship_calls.py</code> pins the export list literally (50 names), pins that every unpromoted
+instrument stays importable from its own module and out of the top level, pins that
+<code>scopex.pass_timeline</code> <strong>is</strong> <code>scopex.timeline.pass_timeline</code> so the unvalidated implementation
+cannot come back beside it, and pins that a SHIP-MARKED instrument is branchable in the data.</p>
+<hr />
+<h2>5. What is still text, still open, or still uncovered</h2>
+<p>Honesty section. None of these is guarded into correctness; they are guarded into <strong>noticing</strong>.</p>
+<ul>
+<li>~~<strong><code>pass_timings</code> double-counts pipelines with their member passes.</strong>~~ <strong>CLOSED</strong> — see §3.4a.
+  <code>pass_leaf_split</code> separates the aggregate from its members by order-within-thread, <code>Coverage</code>
+  divides by the leaf sum, and the two halves are asserted to re-sum to XLA's own <code>cumulative:</code> on
+  every call. The naive figure is still reported as <code>Coverage.naive_coverage</code>, because it is what
+  every hand-rolled version of this computation produces and a reader with one needs to see why it
+  disagrees. Remaining honest limits: <code>coverage</code> <strong>has now been observed above 1.0</strong> —
+  <code>gemm_shapes_k16</code> read 1.0111 with fidelity 0.9996 and <code>split_ok</code> True, because the GPU autotuner
+  compiles 89 candidate sub-modules concurrently across 21 glog threads and concurrent seconds sum
+  past wall clock (<code>Coverage.over_unity</code> reports it; the real fix is a thread-aware denominator, not
+  a tolerance). And a <code>module=</code> filter narrows the numerator but <strong>not</strong> the denominator — <code>jax.monitoring</code> attaches no module name to
+  <code>backend_compile_duration</code>, so the backend seconds are always the whole child process.</li>
+<li>~~<strong>Nothing cross-checks <code>pass_timeline</code>.</strong>~~ <strong>CLOSED</strong> — see §3.4b. Snapshot mtimes are tested
+  for containment inside the pass timer the VLOG reports for that same pass, 683/683. The tail
+  carries an error bound taken from the worst observed offset rather than an adjective, and a
+  <code>.verdict</code> that reads UNVALIDATED when no log was supplied. Remaining limits: <strong>CPU only, one
+  machine, one jaxlib</strong> — untested on GPU, where the autotuner's 21-thread logs are the real test of
+  the per-thread stacks, and untested on any filesystem with coarse mtime granularity, where the tie
+  counter is the intended alarm and has never fired.</li>
+<li><strong><code>record</code> is still the unvalidated clock.</strong> <code>jax.monitoring</code>'s stage numbers have only wall clock
+  as a second opinion. Two of the three clocks are now checked; this is the third. The pass log was
+  the easy one — XLA happened to print its own arithmetic next to the numbers scopex was
+  re-deriving.</li>
+<li><strong><code>custom_call_target</code> is not on <code>HloInstruction</code></strong>, so the target string still comes from printed
+  form. It now runs only on a string already known to be a custom call, instead of matching the
+  literal <code>custom_call_target=</code> inside a <code>backend_config</code> JSON blob or an embedded pre-fusion module.</li>
+<li><strong>Operand arity, shape and rank are not fields on <code>Ins</code>.</strong> Two corpus cases have one of them as the
+  control variable; both recipes go around <code>walk_hlo</code> to <code>hlo_instructions</code> directly and say so.</li>
+<li><strong><code>FusedLoc</code> is handled defensively but is unexercised.</strong> Location node types observed across
+  <code>marked_framework</code>: <code>NameLoc</code> 1520, <code>FileLineColLoc</code> 1223, <code>CallSiteLoc</code> 997, <code>UnknownLoc</code> 86,
+  <strong><code>FusedLoc</code> 0</strong>. A StableHLO pass or a hand-written dump could produce one; the path exists and has
+  never run on real output.</li>
+<li><strong>The StableHLO name-peel depth is pinned to jax's <code>source_info_to_location</code> as of 0.10.2.</strong> If jax
+  adds a third <code>NameLoc</code> wrapper the peel goes stale. This is guarded by <em>tests</em> (no path may end in
+  <code>:</code>; no path may be a bare frame function name), not by the code being version-independent — and
+  <strong>both</strong> error directions produce plausible strings, which is why the guard is a pair of assertions
+  rather than a single one. Peel too few and an inline-lowered op reads as <code>scatter:</code> — a name stack
+  with no scopes, so every contract accessor returns empty. Peel too many and an op whose traceback is
+  a single frame collapses to <code>&lt;module&gt;</code> (26 of 311 ops on <code>marked_framework</code>).</li>
+<li><strong>XLA's own <code>slow_operation_alarm</code> output is discarded.</strong> XLA printed <em>"Constant folding an
+  instruction is taking &gt; 1s"</em> verbatim on stderr during one investigation — a compiler-authored
+  diagnosis, thrown away at the moment of capture. Wishlist item 8.</li>
+<li><strong><code>pass_growth</code>'s regex fallback still exists</strong> (0 of 2,811 snapshots needed it). A fallback that
+  silently mixed scales would fake a step in the curve, so <code>PassStep</code> records <code>how</code>
+  (<code>"native"</code>/<code>"regex"</code>) and <code>pass_growth</code> <strong>warns on a mixed curve</strong>.</li>
+<li><strong><code>backend_split</code> reads mtimes, which are wall clock.</strong> Not a parser, but the same discipline
+  applies: it reports <code>sound</code> and <code>coverage</code>, and the coverage band <em>revokes</em> soundness rather than
+  annotating it. See INVESTIGATIONS §A2 for why the interleave test is not redundant with coverage.</li>
+</ul>
+<hr />
+<h2>6. If you are adding a parser</h2>
+<ol>
+<li><strong>Try not to.</strong> Check for a native accessor first, and record the negative with evidence if there
+   is none — <code>dir()</code> output pasted into a block comment, so nobody re-probes. Two such records are in
+   <code>levels.py</code>.</li>
+<li>Put it in <code>_parse.py</code>. The quarantine test enforces this and will fail your build otherwise.</li>
+<li>Freeze a <strong>verbatim</strong> sample as a module constant, with a comment naming the component that
+   printed it (<code>xla::OpMetadata</code>, <code>hlo_pass_pipeline.cc:176</code>, <code>mlir/lib/Pass/IRPrinting.cpp</code>, …).</li>
+<li>Give it a <strong>witness</strong> that is cruder than the parser, and add it to <code>PARSERS</code> with an <code>at_least</code>
+   that would have failed on the bug you are worried about — <strong>not</strong> <code>at_least=1</code>.</li>
+<li>Ask the question that catches this package's whole bug family:
+   <strong>what input makes this parser return fewer results than it should, and does that input correlate
+   with the thing I am measuring?</strong> If it does, the parser is the wrong shape. Change the shape.</li>
+<li>Add a semantic check if correctness is not expressible as a count. Most of the real bugs here were
+   not.</li>
+</ol>
+<div class="footer">Part of the <a href="blueprint_scopex.html">scopex blueprint</a>.
+Every number measured on jax 0.10.2.</div>
+</main>
+</body></html>

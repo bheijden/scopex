@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Captured pass logs — scopex</title>
+<style>
+  :root{
+    --bg:#fbfaf7; --ink:#181b1f; --muted:#5c6470; --rule:#e4e0d7;
+    --accent:#0f766e; --accent-soft:#d7eee9; --accent-ink:#0b544e;
+    --warn:#b45309; --warn-soft:#fbe7cf; --warn-ink:#7c3a06;
+    --bad:#b42318; --bad-soft:#fbe3e0; --bad-ink:#7a1c14;
+    --lens:#5b4bb7; --lens-soft:#e7e3fb; --lens-ink:#3f3486;
+    --code-bg:#0e1116; --code-ink:#e6edf3;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --maxw:900px;
+  }
+  *{box-sizing:border-box} html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{display:grid;grid-template-columns:270px minmax(0,1fr);max-width:1240px;margin:0 auto}
+  nav.toc{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;padding:34px 22px 60px;border-right:1px solid var(--rule);font-size:13.5px}
+  nav.toc .kicker{font:600 11px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+  nav.toc h1{font-size:15px;margin:0 0 6px;line-height:1.3}
+  nav.toc .wip{font:600 10px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--warn-ink);background:var(--warn-soft);padding:3px 7px;border-radius:5px;display:inline-block;margin-bottom:16px}
+  nav.toc a{display:block;color:var(--muted);text-decoration:none;padding:4px 0 4px 12px;border-left:2px solid transparent}
+  nav.toc a:hover{color:var(--ink)}
+  main{padding:46px 52px 140px;min-width:0}
+  .doc{max-width:var(--maxw)}
+  .kicker{font:600 12px/1.4 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1.title{font-size:34px;line-height:1.15;margin:6px 0 10px;letter-spacing:-.01em}
+  .lede{font-size:18px;color:var(--muted);margin:0 0 14px;max-width:66ch}
+  .meta{font:12.5px/1.5 var(--mono);color:var(--muted);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:10px 0;margin:22px 0 34px}
+  h2{font-size:24px;margin:52px 0 8px;letter-spacing:-.01em;scroll-margin-top:20px}
+  h2 .num{font:600 14px/1 var(--mono);color:var(--accent);display:block;margin-bottom:8px}
+  h3{font-size:17.5px;margin:28px 0 6px}
+  h4{font-size:13.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:22px 0 4px}
+  p{margin:12px 0;color:#23282e} strong{font-weight:650}
+  code{font:13px/1.5 var(--mono);background:#efece4;padding:1.5px 5px;border-radius:4px;color:#3a3f46}
+  pre{background:var(--code-bg);color:var(--code-ink);padding:16px 18px;border-radius:10px;overflow-x:auto;margin:14px 0;font:12.5px/1.6 var(--mono)}
+  pre code{background:none;padding:0;color:inherit}
+  pre .c{color:#8b98a5} pre .k{color:#ff7b72} pre .s{color:#a5d6ff} pre .f{color:#d2a8ff} pre .g{color:#7ee787}
+  .box{border-left:3px solid;border-radius:0 8px 8px 0;padding:13px 18px;margin:18px 0;font-size:15px}
+  .box .lab{font:600 11px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:5px}
+  .why{background:var(--accent-soft);border-color:var(--accent)} .why .lab{color:var(--accent-ink)}
+  .keep{background:var(--accent-soft);border-color:var(--accent)} .keep .lab{color:var(--accent-ink)}
+  .gotcha{background:var(--warn-soft);border-color:var(--warn)} .gotcha .lab{color:var(--warn-ink)}
+  .anti{background:var(--bad-soft);border-color:var(--bad)} .anti .lab{color:var(--bad-ink)}
+  .lens{background:var(--lens-soft);border-color:var(--lens)} .lens .lab{color:var(--lens-ink)}
+  .directive{border:1px solid var(--warn);background:linear-gradient(180deg,#fdf5ea,#fbfaf7);border-radius:14px;padding:4px 30px 24px;margin:26px 0;box-shadow:0 3px 22px rgba(180,83,9,.07)}
+  .directive .tag{display:inline-block;font:700 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:#fff;background:var(--warn);padding:7px 12px;border-radius:0 0 7px 7px}
+  .thesis{font-size:17px;font-weight:600;color:var(--accent-ink);margin:16px 0;line-height:1.5;border-left:3px solid var(--accent);padding-left:16px}
+  table{border-collapse:collapse;width:100%;margin:16px 0;font-size:14px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+  th{font:600 11px/1.4 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  td code{font-size:12px}
+  ul,ol{margin:12px 0;padding-left:22px} li{margin:7px 0}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+  .cols h4{margin-top:0}
+  .col-bad h4{color:var(--bad-ink)} .col-good h4{color:var(--accent-ink)}
+  @media (max-width:1000px){.wrap{grid-template-columns:1fr} nav.toc{display:none} main{padding:30px 22px 100px} .cols{grid-template-columns:1fr}}
+  .footer{margin-top:70px;padding-top:18px;border-top:1px solid var(--rule);font-size:13px;color:var(--muted)}
+  .pill{display:inline-block;font:600 10.5px/1 var(--mono);padding:4px 8px;border-radius:20px;margin-right:6px}
+  .pill.keep{background:var(--accent-soft);color:var(--accent-ink)} .pill.new{background:var(--lens-soft);color:var(--lens-ink)} .pill.cut{background:var(--bad-soft);color:var(--bad-ink)}
+</style>
+<style>
+  main{padding:46px 52px 140px;max-width:1000px;margin:0 auto}
+  .backlink{font:600 12px/1.4 var(--mono);letter-spacing:.12em;text-transform:uppercase;
+             color:var(--accent);text-decoration:none;display:inline-block;margin-bottom:18px}
+  .aud{font-size:15px;color:var(--muted);border-left:3px solid var(--accent);padding:8px 0 8px 16px;
+        margin:14px 0 28px;background:var(--accent-soft);border-radius:0 8px 8px 0}
+  blockquote{border-left:3px solid var(--rule);margin:16px 0;padding:2px 0 2px 18px;color:var(--muted)}
+  h1{font-size:32px;line-height:1.15;margin:6px 0 10px;letter-spacing:-.01em}
+</style>
+<body>
+<main>
+<a class="backlink" href="../../docs/index.html">&larr; scopex docs</a>
+<h1>Captured pass logs</h1>
+<div class="aud"><strong>Audience: you are touching the coverage guard or its tests.</strong></div>
+<p>Raw stderr from <code>scopex.pass_timings</code>' own child process, plus the <code>jax.monitoring</code> numbers from
+<strong>the same compile</strong>, gzipped as JSON. They exist so <code>tests/test_coverage_guard.py</code> can demonstrate
+the coverage guard firing on real compiler output rather than on a hand-written line.</p>
+<table>
+<thead>
+<tr>
+<th>fixture</th>
+<th>arm</th>
+<th>platform</th>
+<th>backend</th>
+<th>pass lines</th>
+<th>note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>min_unit_gpu.json.gz</code></td>
+<td><code>switch_ident_1024</code> (jax#4453)</td>
+<td>CUDA</td>
+<td>75.71 s</td>
+<td>299</td>
+<td><code>copy-insertion</code> prints <strong><code>1.21 min</code></strong> — 1 line of 299, 95.5% of the compile</td>
+</tr>
+<tr>
+<td><code>convT64_dilate16_gpu.json.gz</code></td>
+<td><code>convT64_dilate16</code> (xla#5541 / jax#17464)</td>
+<td>CUDA</td>
+<td>50.89 s</td>
+<td>640</td>
+<td>autotune-bound, <code>autotuner</code> is 99.6% of backend; <strong>21 interleaved log threads</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Captured on jax/jaxlib 0.10.2, python 3.12, x64, RTX 4090 Laptop (sm_8.9), with <code>nvidia-smi</code>
+reporting no other compute process. Only lines containing <code>hlo_pass_pipeline.cc:</code> are kept — that is
+everything the parsers read, and dropping the rest cannot flatter the cross-check, because XLA's
+<code>#called</code> / <code>cumulative:</code> / <code>max:</code> counters live on the kept lines themselves.</p>
+<h2>Why two fixtures and not the one the brief asked for</h2>
+<p><code>convT64_dilate16</code> is the arm that produced this package's worst bug: the autotuner took 72.5 s,
+XLA printed <code>1.19 min</code>, the parser knew only <code>us</code>/<code>ms</code>/<code>s</code>, and <code>pass_timings</code> returned a plausible
+ranking topped by a pass worth 0.12 s.</p>
+<p>Re-measured here on an <strong>idle</strong> GPU, the same arm's autotuner takes 50.7 s and XLA prints <code>50.7 s</code>.
+XLA switches to <code>min</code> above 60 s, so on this machine, today, that arm does not reproduce the bug at
+all. The original reading was taken with ten foreign GPU processes at 100% utilisation.</p>
+<p>That is worth stating plainly: <strong>the same program, code and compiler produce a catastrophic silent
+failure on a loaded machine and none whatsoever on an idle one.</strong> A regression test pinned to
+<code>convT64_dilate16</code> would have passed on this box throughout the entire lifetime of the bug. So the
+min-unit fixture is <code>switch_ident_1024</code>, whose slowest pass clears 60 s with margin, and
+<code>convT64_dilate16</code> is kept as the positive control — a compile the HLO passes really do explain,
+where coverage reads 0.996 and the ranking is the answer.</p>
+<p><code>test_min_unit_fixture_actually_contains_a_min_unit_line</code> asserts the min-unit fixture still
+contains a <code>min</code> line, so a fixture regenerated on faster hardware fails loudly instead of quietly
+ceasing to test anything.</p>
+<h2>Regenerating</h2>
+<p>Both were produced by driving <code>scopex.flags._child_source</code> directly — the same child <code>pass_timings</code>
+runs, so the capture is byte-identical to what the instrument sees:</p>
+<pre><code class="language-python">import os, subprocess, sys, tempfile
+sys.path.insert(0, &quot;examples/recipes&quot;)
+import _cases
+from scopex import flags
+
+fd, tmp = tempfile.mkstemp(suffix=&quot;.py&quot;)
+os.write(fd, _cases.src(&quot;switch_ident_1024&quot;).encode()); os.close(fd)
+env = dict(os.environ, JAX_PLATFORMS=&quot;cuda&quot;, **flags.vmodule_env(&quot;hlo_pass_pipeline=1&quot;))
+p = subprocess.run([sys.executable, &quot;-c&quot;, flags._child_source(tmp)],
+                   capture_output=True, text=True, env=env, timeout=3600)
+log = p.stderr + p.stdout          # keep `hlo_pass_pipeline.cc:` lines; read backend_s from the
+                                   # line starting with flags._SENTINEL
+</code></pre>
+<p>Compile serially and on an otherwise idle device. Absolute seconds under contention are upper
+bounds; the <code>fidelity</code> cross-check is immune either way, since both of its numbers come from the
+same log.</p>
+<div class="footer">Part of the <a href="../../docs/blueprint_scopex.html">scopex blueprint</a>.
+Every number measured on jax 0.10.2.</div>
+</main>
+</body></html>

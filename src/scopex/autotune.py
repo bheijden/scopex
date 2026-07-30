@@ -6,7 +6,7 @@ looks nothing like that. ``GpuConvAlgorithmPicker`` and the fusion autotuners BE
 kernels on real buffers at compile time, so the compile is slow because the *machine ran code*, not
 because the compiler thought hard. The instruction count, the pass count, the opcode histogram and
 the PTX are all identical between a fast and a slow arm -- verified to that depth in
-``docs/INVESTIGATIONS.md`` D1 -- and none of them move.
+``docs/INVESTIGATIONS.html`` D1 -- and none of them move.
 
 WHAT ``pass_timings`` ALONE CANNOT TELL YOU, AND WHY THAT MATTERS. The autotuner is registered as an
 HLO pass, so its seconds land inside a pass timer and :class:`scopex.Coverage` reads ~100%.
