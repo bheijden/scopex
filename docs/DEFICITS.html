@@ -636,6 +636,64 @@ this work as evidence that the three-clock comparison is done.</strong></p>
   move. Evidence the design held: <code>fidelity</code> stayed in [0.9987, 1.0015] across all arms while
   <code>convT64_dilate16</code>'s backend seconds moved 50.55 / 52.22 / 51.86 / 50.62 s across four compiles.</li>
 </ul>
+
+<hr class="rule">
+<h2 id="quarantine">Quarantine — stated, never established</h2>
+<div class="box gotcha">
+  <span class="lab">Read this section differently from every other section</span>
+  Nothing here is used as the basis for advice anywhere in these docs. These are claims that were
+  <strong>stated and not established</strong> — measured once, inferred from source without an
+  experiment, or contradicted by an instrument that itself failed. They are kept because deleting a
+  suspicion is how it gets rediscovered and believed. <strong>If you find one of these repeated as
+  fact elsewhere, that is a bug.</strong>
+</div>
+<div class="box gotcha">
+    <span class="lab">Read this section differently from every other section</span>
+    Nothing here is used as the basis for advice anywhere above. These are claims that were <strong>stated and not established</strong> — measured once, inferred from source without an experiment, or contradicted by an instrument that itself failed. <strong>If you find one repeated as fact elsewhere, that is a bug.</strong> The long-tail of minor unresolved trivia has been cut; what remains is what would either mislead you or is worth an afternoon to settle.
+  </div>
+
+  <h3>Would mislead if forgotten</h3>
+  <ul>
+    <li><strong>Constant hoisting did not reproduce here.</strong> <a href="https://docs.jax.dev/en/latest/internals/constants.html">The official doc</a> says constants are hoisted to arguments and therefore survive value changes without recompiling. An 80 KB non-splat closed-over f64 array was embedded verbatim in the lowered StableHLO with <code>jax_use_simplified_jaxpr_constants</code> <em>both</em> False (161 KB module) and True (321 KB — <em>wrong direction</em>), and <code>main()</code> kept one argument in both cases. <code>jax_embedded_constants_max_bytes=32</code> never fired.</li>
+    <li><strong>Whether <code>jax.grad</code> through <code>lax.fori_loop</code> with a TRACED bound is numerically correct.</strong> A probe measured <code>grad</code> returning <em>without raising</em> — but <code>_while_transpose_error</code> exists precisely to reject this, and a hand-written <code>lax.while_loop</code> DID raise under <code>grad</code> in a sibling self-test. The finite-difference check <strong>hung and was killed by its 600 s timeout</strong>. <strong>Treat a non-raising gradient here as suspect until checked.</strong></li>
+    <li><strong>The MECHANISM of the CPU K=32 <code>optimization_barrier</code> explosion</strong> (3,353 → 249,781 optimized instructions, 30× compile, 287× warm). The effect is reproducible across three runs; the optimized HLO was never dumped to identify which pass duplicated the graph. Equally open: <em>why</em> the barrier fails to split CPU fusions at K=1..16.</li>
+    <li><strong>The entire compile-time column of the 15-arm jax-config sweep is unresolved.</strong> The box was at load 17.6 with three sibling agents compiling; a byte-identical NULL control pair spanned <strong>0.785–1.342 (±34%)</strong> and every arm's band sits inside it. Only the structural result survives — <strong>optimized HLO byte-identical for all 15 arms.</strong></li>
+    <li><strong>Whether jaxlib pip wheels generally use <code>libnvptxcompiler</code></strong>. Measurement contradicts it flatly for <code>jax[cuda13]</code> 0.10.2 on this box, but other jaxlib variants (cuda12, ROCm, conda, source builds) were never checked, so the negative may be wheel-specific.</li>
+  </ul>
+
+  <h3>Mechanisms inferred but not proven</h3>
+  <ul>
+    <li>That the 3.09 s in priority-fusion on a 25-instruction rank-8 diamond is consumed by <code>SymbolicTileAnalysis</code>. The code path makes it the only plausible candidate; the pass was never sampled with a profiler. <em>What IS measured:</em> 99.5% of leaf pass time is priority-fusion, on one merge and one cost-model evaluation.</li>
+    <li>That <code>triton-softmax-rewriter</code> spends 5.55 s on a pure <code>x*x + c</code> chain because <code>SoftmaxRewriterTriton</code> matches diamonds rooted at an elementwise BINARY op (so unary <code>tanh</code> roots escape the scan). <strong>The 5.55 s is measured; the explanation was never confirmed by disabling the pass.</strong></li>
+    <li>That <code>kmax ≈ 92 × (instructions per instance)</code> follows from <code>MaxOperandsAndOutputsPerFusion() == 96</code>. The correlation is tight across 24 constructs; the operand count was never varied directly.</li>
+    <li>That the emitter non-determinism is caused by machine LOAD. <em>Measured fact:</em> the same module chose <code>__triton</code> in 5 of 8 runs and <code>kInput</code> in 3, independent of flags, and <code>autotune_level=0</code> locked it. The correlation with a 16-core sweep was not a controlled experiment.</li>
+  </ul>
+
+  <h3>Arithmetic over measured pieces, not end-to-end measurements</h3>
+  <ul>
+    <li>That routing a real model through <code>jax.export</code> cuts the WARM loop by ~24%. Arithmetic over separately-measured pieces; the end-to-end version needs pytree registration that was verified to work but never run on a real model.</li>
+    <li>That an in-process <code>libnvptxcompiler</code> would recover the ~2.5–4.1 s of ptxas process-launch overhead. Both components are measured; the library does not exist in this wheel.</li>
+    <li>That wrapping eager problem construction in a single <code>jax.jit</code> recovers the 20.1 s / 25.4 s of eager-dispatch compile. The cost is measured and its mechanism source-confirmed; <strong>the fix was never applied or measured.</strong></li>
+  </ul>
+
+  <h3>Scope limits — measured here, never tested elsewhere</h3>
+  <ul>
+    <li><strong>Multi-GPU anything.</strong> One GPU is present; every multi-device number is CPU-emulated. <em>(What IS measured on emulated devices: 8 devices with an unsharded jit costs 1.028× — nothing; attaching <code>NamedSharding</code> costs 3.304× and <code>shard_map</code> 3.185×.)</em></li>
+    <li><strong>Whether the tracing rates transfer off this box</strong> (~0.10 ms/eqn synthetic, 0.37–0.72 ms/eqn real). Pure single-threaded CPython, so it <em>should</em> scale with single-core speed — that is inference, not measurement.</li>
+    <li><strong>The maintainer-stated constant-folding cutoff of 45×10⁶ elements</strong> (<a href="https://github.com/jax-ml/jax/issues/21300">jax&nbsp;#21300</a>). Documented, plausible, not measured. A paired compile at 44.9e6 vs 45.1e6 elements would settle it cheaply.</li>
+    <li><strong>Whether the shared-memory and &gt;8-unnested-reduction fusion budgets can EVER fire in a JAX program.</strong> Both strings are in the binary; five probe families failed to trigger either. <strong>Absence of a trigger is not proof of unreachability.</strong></li>
+  </ul>
+
+  <h3>Worth an afternoon</h3>
+  <ul>
+    <li><strong><code>jax_include_full_tracebacks_in_locations=False</code> is the most promising untested candidate</strong> — cache-key-free, directly shrinks the MLIR the compiler carries, ratios [0.927, 0.901, 1.026]. <strong>Two of three below the null's median is not evidence.</strong> Needs a quiet box and ≥5 reps.</li>
+    <li><strong>Six planned op-census arms were written but never run</strong>, of which two could overturn §5's framing: <em>compositionality</em> (does a construct's slope survive interleaving with a background op?) and <em>real jaxpr histograms vs an additive prediction</em>.</li>
+    <li><strong>Flags that parse but were never measured against a null:</strong> <code>--xla_gpu_experimental_disable_binary_libraries</code> (should be a large win in the GEMM regime) · <code>--xla_gpu_dump_autotune_results_to</code> / <code>_load_autotune_results_from</code> (the <em>reproducible</em> autotune-cache route) · <code>--xla_gpu_collect_cost_model_stats</code> (a direct window into priority-fusion's own estimates) · the <code>xla_cpu_*</code> ISA and scheduler family · <code>jax_scan3</code> / <code>jax_remat3</code> / <code>jax_custom_vjp3</code>.</li>
+    <li><strong>Whether the path-in-cache-key behaviour is intentional upstream.</strong> No JAX issue naming this effect was found. <strong>Worth filing.</strong></li>
+  </ul>
+
+  <hr class="rule">
+
 <div class="footer">Part of the <a href="blueprint_scopex.html">scopex blueprint</a>.
 Every number measured on jax 0.10.2.</div>
 </main>

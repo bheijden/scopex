@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Method — scopex</title>
+<style>
+  :root{
+    --bg:#fbfaf7; --ink:#181b1f; --muted:#5c6470; --rule:#e4e0d7;
+    --accent:#0f766e; --accent-soft:#d7eee9; --accent-ink:#0b544e;
+    --warn:#b45309; --warn-soft:#fbe7cf; --warn-ink:#7c3a06;
+    --bad:#b42318; --bad-soft:#fbe3e0; --bad-ink:#7a1c14;
+    --lens:#5b4bb7; --lens-soft:#e7e3fb; --lens-ink:#3f3486;
+    --code-bg:#0e1116; --code-ink:#e6edf3;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --maxw:900px;
+  }
+  *{box-sizing:border-box} html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{display:grid;grid-template-columns:270px minmax(0,1fr);max-width:1240px;margin:0 auto}
+  nav.toc{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;padding:34px 22px 60px;border-right:1px solid var(--rule);font-size:13.5px}
+  nav.toc .kicker{font:600 11px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+  nav.toc h1{font-size:15px;margin:0 0 6px;line-height:1.3}
+  nav.toc .wip{font:600 10px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--warn-ink);background:var(--warn-soft);padding:3px 7px;border-radius:5px;display:inline-block;margin-bottom:16px}
+  nav.toc a{display:block;color:var(--muted);text-decoration:none;padding:4px 0 4px 12px;border-left:2px solid transparent}
+  nav.toc a:hover{color:var(--ink)}
+  main{padding:46px 52px 140px;min-width:0}
+  .doc{max-width:var(--maxw)}
+  .kicker{font:600 12px/1.4 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1.title{font-size:34px;line-height:1.15;margin:6px 0 10px;letter-spacing:-.01em}
+  .lede{font-size:18px;color:var(--muted);margin:0 0 14px;max-width:66ch}
+  .meta{font:12.5px/1.5 var(--mono);color:var(--muted);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:10px 0;margin:22px 0 34px}
+  h2{font-size:24px;margin:52px 0 8px;letter-spacing:-.01em;scroll-margin-top:20px}
+  h2 .num{font:600 14px/1 var(--mono);color:var(--accent);display:block;margin-bottom:8px}
+  h3{font-size:17.5px;margin:28px 0 6px}
+  h4{font-size:13.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:22px 0 4px}
+  p{margin:12px 0;color:#23282e} strong{font-weight:650}
+  code{font:13px/1.5 var(--mono);background:#efece4;padding:1.5px 5px;border-radius:4px;color:#3a3f46}
+  pre{background:var(--code-bg);color:var(--code-ink);padding:16px 18px;border-radius:10px;overflow-x:auto;margin:14px 0;font:12.5px/1.6 var(--mono)}
+  pre code{background:none;padding:0;color:inherit}
+  pre .c{color:#8b98a5} pre .k{color:#ff7b72} pre .s{color:#a5d6ff} pre .f{color:#d2a8ff} pre .g{color:#7ee787}
+  .box{border-left:3px solid;border-radius:0 8px 8px 0;padding:13px 18px;margin:18px 0;font-size:15px}
+  .box .lab{font:600 11px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:5px}
+  .why{background:var(--accent-soft);border-color:var(--accent)} .why .lab{color:var(--accent-ink)}
+  .keep{background:var(--accent-soft);border-color:var(--accent)} .keep .lab{color:var(--accent-ink)}
+  .gotcha{background:var(--warn-soft);border-color:var(--warn)} .gotcha .lab{color:var(--warn-ink)}
+  .anti{background:var(--bad-soft);border-color:var(--bad)} .anti .lab{color:var(--bad-ink)}
+  .lens{background:var(--lens-soft);border-color:var(--lens)} .lens .lab{color:var(--lens-ink)}
+  .directive{border:1px solid var(--warn);background:linear-gradient(180deg,#fdf5ea,#fbfaf7);border-radius:14px;padding:4px 30px 24px;margin:26px 0;box-shadow:0 3px 22px rgba(180,83,9,.07)}
+  .directive .tag{display:inline-block;font:700 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:#fff;background:var(--warn);padding:7px 12px;border-radius:0 0 7px 7px}
+  .thesis{font-size:17px;font-weight:600;color:var(--accent-ink);margin:16px 0;line-height:1.5;border-left:3px solid var(--accent);padding-left:16px}
+  table{border-collapse:collapse;width:100%;margin:16px 0;font-size:14px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+  th{font:600 11px/1.4 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  td code{font-size:12px}
+  ul,ol{margin:12px 0;padding-left:22px} li{margin:7px 0}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+  .cols h4{margin-top:0}
+  .col-bad h4{color:var(--bad-ink)} .col-good h4{color:var(--accent-ink)}
+  @media (max-width:1000px){.wrap{grid-template-columns:1fr} nav.toc{display:none} main{padding:30px 22px 100px} .cols{grid-template-columns:1fr}}
+  .footer{margin-top:70px;padding-top:18px;border-top:1px solid var(--rule);font-size:13px;color:var(--muted)}
+  .pill{display:inline-block;font:600 10.5px/1 var(--mono);padding:4px 8px;border-radius:20px;margin-right:6px}
+  .pill.keep{background:var(--accent-soft);color:var(--accent-ink)} .pill.new{background:var(--lens-soft);color:var(--lens-ink)} .pill.cut{background:var(--bad-soft);color:var(--bad-ink)}
+  /* evidence marks: s = read at the source, x = refuted with the killing measurement, q = not corroborated */
+  .pill.s{background:var(--accent-soft);color:var(--accent-ink)} .pill.x{background:var(--bad-soft);color:var(--bad-ink)} .pill.q{background:var(--warn-soft);color:var(--warn-ink)}
+  .scroll{overflow-x:auto;margin:18px 0} .scroll table{margin:0}
+  table.dense{font-size:13px} table.dense th,table.dense td{padding:7px 10px} table.dense td code{font-size:12px}
+  .rule{border:0;border-top:1px solid var(--rule);margin:46px 0}
+</style>
+<style>
+  main{padding:46px 52px 140px;max-width:1060px;margin:0 auto}
+  .backlink{font:600 12px/1.4 var(--mono);letter-spacing:.12em;text-transform:uppercase;
+             color:var(--accent);text-decoration:none;display:inline-block;margin-bottom:18px}
+</style>
+<body><main>
+<a class="backlink" href="index.html">&larr; scopex docs</a>
+
+<div class="kicker">scopex</div>
+<h1 class="title">Method</h1>
+<p class="lede">How to run a compile-time comparison that cannot lie to you — which regime you are
+in, how to measure without fooling yourself, and the eight ways this project fooled itself anyway.
+The instrument is the easy part; this is the hard part.</p>
+
+<div class="meta">
+  Grounded in <strong>126 measured arms across 8 real solvers</strong>, a 6-arm adversarial
+  re-measurement, and a <strong>sealed-prediction hold-out of 432 timed compiles</strong> on 3
+  programs never previously touched.<br>
+  <strong>Read §3 before you believe any result, including one of your own.</strong>
+</div>
+
+<div class="box gotcha">
+  <span class="lab">The single most useful thing on this page</span>
+  <strong>The best-calibrated prediction of any compile-time intervention is "it will do nothing."</strong>
+  That prediction scored <strong>27/33 out of sample</strong> and beat every rule built from program
+  structure. Semantics-preserving source rewrites went <strong>0 for 14</strong> as a class
+  (geometric mean 1.019), and <strong>0 of 18</strong> such arms on three hold-out programs produced
+  a shippable win.<br><br>
+  Meanwhile the reproducibility floor is <strong>3.9–52% depending on the program</strong>. So the
+  default posture is not "which knob?" but "can this measurement even resolve what I am claiming?"
+</div>
+
+<h2 id="regimes"><span class="num">§1</span>Which regime — the one fork that held</h2>
+<p>This is the one structural fork in this whole body of work that held. It was measured on structurally unrelated programs, and it <em>inverted a prior claim of ours</em> rather than confirming one — which is why it survived where the cost laws did not.</p>
+
+  <div class="scroll"><table>
+    <tr><th></th><th>PASS-BOUND</th><th>AUTOTUNE-BOUND</th></tr>
+    <tr><td><strong>who</strong></td><td>f64 scientific code, long elementwise chains, iterative solvers, no big dots</td><td>anything with <code>dot</code>/matmul the GEMM rewriter accepts — MLPs, transformers, and also a single 64×64 f64 matmul</td></tr>
+    <tr><td><strong>classifier</strong><br><code>leaf-pass-sum ÷ RunHloPasses</code></td><td class="num">0.81–0.85 <em>(reconstructs to 0.98 once the autotuner gap is added)</em></td><td class="num"><strong>0.007</strong> on a 6-layer MLP</td></tr>
+    <tr><td><strong><code>priority-fusion</code> share</strong></td><td class="num">57–72% of all leaf pass time</td><td class="num"><strong>0.21%</strong> — 42.66 ms of a 20.366 s compile</td></tr>
+    <tr><td><strong>tell in the stats report</strong></td><td><code>autotuner</code> is a small row</td><td><code>autotuner</code> is 88% of the report's total; <code>gemm_fusion_dot</code> ran the pass pipeline <strong>225 times</strong></td></tr>
+    <tr><td><strong>what owns it</strong></td><td>the HLO pass pipeline, and inside it one pass</td><td>compiling and tuning candidate GEMM kernels for <em>other</em> modules</td></tr>
+    <tr><td><strong>size is not the tell</strong></td><td>solver A: 10,064 instructions, ~9 s</td><td>MLP: <strong>212 instructions, 16.3 s</strong> — 47× fewer instructions, longer compile</td></tr>
+  </table></div>
+
+  <h3>The classifier, three ways, cheapest first</h3>
+  <ol>
+    <li><strong>The emitter detector — 5 seconds, no timing at all.</strong>
+<pre><code>t = jax.jit(fn).lower(*a).compile().as_text()
+t.count(<span class="c-s">'triton_softmax'</span>); t.count(<span class="c-s">'gemm_fusion_dot'</span>); t.count(<span class="c-s">'__cublas$'</span>)</code></pre>
+    A <strong>zero</strong> count makes the matching Triton/GEMM flag a <em>provable</em> no-op — confirmed by a byte-identical optimized module on solver B. Presence is necessary, not sufficient: a transformer with 10 <code>triton_softmax</code> fusions got zero benefit from disabling that rewriter.</li>
+    <li><strong><code>--xla_gpu_print_compilation_stats=true</code> — one run.</strong> If <code>autotuner</code> is near the top, you are autotune-bound. On a synthetic 60-deep chain it read <code>autotuner, 1, 470.647</code> of a 533.696 ms total (88%), and adding <code>--xla_gpu_autotune_level=0</code> dropped the total 268.256 → <strong>28.214 ms (9.5×)</strong>. Needs <code>TF_CPP_MIN_LOG_LEVEL=0</code>. See §3 for its three traps.</li>
+    <li><strong><code>1 − (leaf-pass-sum ÷ RunHloPasses)</code> ≈ the autotuner's share</strong>, from one <code>hlo_pass_pipeline=1</code> log, module-filtered.</li>
+  </ol>
+
+  <h3>The dials invert with the regime</h3>
+  <div class="scroll"><table class="dense">
+    <tr><th>flag</th><th class="num">solver A (pass-bound, paired, 3 reps)</th><th class="num">MLP (autotune-bound, 2 sweeps)</th></tr>
+    <tr><td><code>--xla_gpu_enable_triton_gemm=false</code></td><td class="num">0.970 <em>(unresolved)</em></td><td class="num"><strong>0.024 — 41× faster</strong></td></tr>
+    <tr><td><code>--xla_gpu_gemm_rewrite_size_threshold=1e8</code></td><td class="num">1.128 <em>(unresolved)</em></td><td class="num"><strong>0.036 — 28×</strong></td></tr>
+    <tr><td>warm autotuner cache dir</td><td class="num">1.112 <em>(nothing to cache)</em></td><td class="num"><strong>0.066 — 15×</strong></td></tr>
+    <tr><td><code>--xla_gpu_autotune_level=0</code></td><td class="num">1.052 <em>(unresolved)</em></td><td class="num"><strong>0.144 — 7×</strong></td></tr>
+    <tr><td><code>--xla_gpu_triton_gemm_any=false</code></td><td class="num">1.089 <em>(unresolved)</em></td><td class="num"><strong>0.205 — 5×</strong></td></tr>
+    <tr><td><code>--xla_gpu_exhaustive_tiling_search=true</code></td><td class="num">0.980 <em>(unresolved)</em></td><td class="num"><strong>TIMEOUT &gt;420 s (&gt;25× SLOWER)</strong></td></tr>
+    <tr><td><code>--xla_gpu_force_compilation_parallelism=1</code></td><td class="num"><strong>2.876 SLOWER</strong></td><td class="num"><strong>5.133 SLOWER</strong></td></tr>
+  </table></div>
+
+  <p>Same story in the other direction. <code>--xla_disable_hlo_passes=triton-softmax-rewriter</code> measured 0.68–0.75× on solver A <em>only</em>, was a provable no-op on solver B (byte-identical module) and on a transformer, and was a <strong>regression</strong> on a rank-3 physics chain (1.117 / 0.972 / 1.195 against a null of 1.242 / 1.245 / 1.112). <code>--xla_disable_hlo_passes=priority-fusion</code> is 0.67–0.77× on real code and <strong>1.6–2.5× WORSE</strong> on a synthetic — the sign flips.</p>
+
+  <div class="box why">
+    <span class="lab">Why the pass-bound regime has no flag win — the mechanism</span>
+    Killing the expensive pass makes it <em>slower</em>. <code>priority-fusion</code> is 57% of HLO-pass leaf time on solver A; disabling it costs <strong>1.164×</strong> more total compile (3 pairs 1.16/1.13/1.17), because the unfused module has 4.3× more computations to code-generate — the panel goes 10025/520/527 → <strong>13161/2241/3011</strong>. <code>--xla_fuel=priority-fusion=0</code> reproduces this independently at 1.216× (panel 13002/2236/2932). And <code>--xla_disable_hlo_passes=algsimp</code> is <strong>2.508× SLOWER</strong> with panel 36189/681/1227 — the module grows 3.6× because nothing folds it.<br><br>
+    <strong>Compile time is not the pass budget; it is the pass budget plus what the pass's output costs downstream.</strong>
+  </div>
+
+  <h3>The full pass-bound A/B, for the record</h3>
+  <p>solver&nbsp;B, 7 rounds interleaved in one process with a rotating arm order, round 0 discarded, median of per-round ratios, with a null arm riding along:</p>
+  <div class="scroll"><table class="dense">
+    <tr><th>arm</th><th class="num">median ratio</th><th>per-round ratios</th><th>panel</th></tr>
+    <tr><td>base</td><td class="num">1.000</td><td>—</td><td>instr 4271, kmax 493</td></tr>
+    <tr><td><strong>NULL: <code>rematerialization</code></strong></td><td class="num"><strong>1.100</strong></td><td>1.355 1.035 0.958 1.164 1.214 0.987</td><td><strong>SAME module ← this is the noise floor</strong></td></tr>
+    <tr><td><code>simplification-2</code></td><td class="num">1.052</td><td>1.282 0.898 1.081 1.170 0.901 1.022</td><td>SAME module</td></tr>
+    <tr><td><code>reshape-mover</code></td><td class="num">1.105</td><td>1.245 0.975 1.175 1.417 0.925 1.035</td><td>changed (4326 instr)</td></tr>
+    <tr><td><code>dce</code></td><td class="num">1.126</td><td>1.238 0.991 1.107 1.145 1.043 1.283</td><td>changed</td></tr>
+    <tr><td><strong><code>algsimp</code></strong></td><td class="num"><strong>1.721</strong></td><td>1.783 1.660 1.830 1.876 1.277 1.073</td><td><strong>4271 → 8089 instr, kmax 493 → 767</strong></td></tr>
+    <tr><td><code>simplification</code></td><td class="num">—</td><td colspan="2"><strong>COMPILE FAILED</strong> — <code>RET_CHECK matmul_indexing_utils.cc:114 non_contracting_dims.size() == 1</code></td></tr>
+    <tr><td><code>cse</code></td><td class="num">—</td><td colspan="2"><strong>COMPILE FAILED</strong> — <code>INVALID_ARGUMENT: Reshape input and output shapes must be the same, got 2 -&gt; 2x2</code></td></tr>
+    <tr><td><code>dot-strength-reduction</code></td><td class="num">—</td><td colspan="2"><strong>COMPILE FAILED</strong> — same RET_CHECK</td></tr>
+  </table></div>
+  <p><strong>Read the null arm first.</strong> It is 1.100 with a per-round spread of 0.958–1.355 — a ±35% floor on a contended box. Against that, three arms are indistinguishable from noise, three do not compile, and the only one that clears the floor clears it in the <em>wrong direction</em>.</p>
+  <p class="thesis">Conclusion for the pass-bound regime: there is no <code>--xla_disable_hlo_passes</code> win. Spend the effort on the graph you hand XLA, not on the pipeline that processes it.</p>
+
+  <hr class="rule">
+
+<hr class="rule">
+<h2 id="measure"><span class="num">§2</span>Measuring without fooling yourself</h2>
+<p>This section is the largest surviving output of the whole project. Every item was established, then re-tested, then survived. Violating any of them produces confident nonsense — §7 is the evidence.</p>
+
+  <h3>1 · The reproducibility floor is model-dependent and LARGE</h3>
+  <p>Six compiles of a <strong>byte-identical</strong> module, fresh subprocess each, idle box, identical structural panel every time:</p>
+  <div class="scroll"><table class="dense">
+    <tr><th>model</th><th class="num">opt instr</th><th class="num">median</th><th class="num">spread</th><th class="num">max/min</th></tr>
+    <tr><td>solver C</td><td class="num">2,266</td><td class="num">2.64 s</td><td class="num"><strong>52.0%</strong></td><td class="num">1.660</td></tr>
+    <tr><td>solver B</td><td class="num">4,722</td><td class="num">4.13 s</td><td class="num"><strong>30.2%</strong></td><td class="num">1.327</td></tr>
+    <tr><td>solver A</td><td class="num">10,064</td><td class="num">6.20 s</td><td class="num"><strong>3.9%</strong></td><td class="num">1.040</td></tr>
+  </table></div>
+  <p>Resolution <em>improves</em> with program size, because the noise is per-process fixed cost (CUDA context, library load, cold page cache) of ~0.3–1.4 s. <strong>Anything under ~3 s of compile is effectively unmeasurable cross-process.</strong> Independently, a 12-round complete Latin square with 144 observations and a linear model removing round and position still had five byte-identical arms spanning <strong>1.09–1.15×</strong>. Read anything between 0.87 and 1.15 as <em>no result</em>.</p>
+  <p><strong>Three qualifications, all measured.</strong> (a) The floor is <em>not</em> a fixed property of the model — six byte-identical solver A compiles gave 22.7% spread in one session and 14.8% an hour later on the same idle box. <strong>Measure the floor in the same session as the arms.</strong> (b) <strong>The size rule does not hold on CPU</strong>: spread went 25.4 → 26.3 → <strong>37.0%</strong> over the same three models as they grew. Budget a <em>wider</em> floor on CPU, not a narrower one. (c) <strong>In-process repeats are much tighter when the box is quiet</strong> — three byte-identical compiles in one process gave 15.468 / 15.820 / 15.579 s, a 2.3% peak-to-peak, because the per-process fixed cost is paid once. That advantage <em>evaporates</em> under load: at load average 17.6 the same design gave <code>base</code> = 14.58 / 36.11 / 9.11 s and a byte-identical <code>base2</code> = 34.09 / 8.24 / 31.14 s.</p>
+
+  <h3>2 · Discard round 0</h3>
+  <p>solver C ran <strong>3.45 → 2.98 → 2.28 → 2.46 → 2.64 → 2.08</strong>. The 126-arm corpus measured the same thing as a position-0 penalty of <strong>1.03–1.51×</strong> across six programs. A design that puts <code>base</code> first in every sweep systematically pays that penalty and flatters every other arm.</p>
+
+  <h3>3 · Report the MEDIAN of per-round ratios, with the round count</h3>
+  <p><strong><code>min</code> is a function of the round count, not of the arm.</strong> On a byte-identical module, min-of-first-k walks <strong>0.969 → 0.886 → 0.778</strong> as k goes 2 → 3 → 10. On a 12-round Latin square a <strong>NULL arm reached 0.4347</strong>. Every result this project ever reported as a min is optimistic by an amount that grows with how long the campaign ran.</p>
+
+  <h3>4 · Carry ≥2 NULL arms, and reference the null centroid — not <code>base</code></h3>
+  <p><code>base</code> and a provably-inert null compile a <strong>byte-identical module</strong> and still differ by up to <strong>14%</strong>, in a <em>program-dependent direction</em>: solver A +12.6%, solver D +9.0%, solver E +13.6%, solver B −0.8%, solver C −4.7%, lsmr −8.5%, solver H −7.2%. And band width is systematically underestimated <strong>1.2–1.8×</strong> at 3–9 null observations — it is a function of that count, not of the box (1.08×@3 obs → 1.25×@15 → <strong>1.89×@42</strong> on solver C). Restricted-permutation bands are anticonservative: one computed on four of five byte-identical arms put the fifth <em>outside</em> it.</p>
+  <p><strong>Two good null arms:</strong> <code>--xla_disable_hlo_passes=rematerialization</code> (rc 0, byte-identical module on every program tested) and a deliberate typo like <code>priority_fusion</code>. On CPU, <code>--xla_gpu_autotune_level=0</code> is provably inert and is the correct null.</p>
+
+  <h3>5 · Size the round count from the model's own noise</h3>
+  <div class="scroll"><table class="dense">
+    <tr><th>model</th><th class="num">sd of log per-round ratio</th><th class="num">rounds to resolve 0.90×</th><th class="num">rounds to resolve 0.95×</th></tr>
+    <tr><td>solver A</td><td class="num">0.076</td><td class="num">~4</td><td class="num">17</td></tr>
+    <tr><td>solver C</td><td class="num">0.082</td><td class="num">4</td><td class="num">17</td></tr>
+    <tr><td>solver B</td><td class="num">0.166</td><td class="num"><strong>27</strong></td><td class="num"><strong>111</strong></td></tr>
+    <tr><td>solver G</td><td class="num">0.243</td><td class="num"><strong>34</strong></td><td class="num"><strong>141</strong></td></tr>
+  </table></div>
+  <p><strong>A 3-round campaign on solver B resolves nothing above ~0.70×.</strong> Publishing a 0.93 from three rounds on that model is publishing noise.</p>
+
+  <h3>6 · Interleave and rotate — without reversal</h3>
+  <p>Rotate-then-reverse puts the same arm first twice and biases it slow. Without order-alternation at all, one verifier reproduced a prior design on solver B and got a "win" of 0.576 / 0.734 / 1.081 — while the null arm in the <em>same rounds</em> gave 0.623 / 0.793 / 1.110.</p>
+  <p><strong>Prefer in-process interleaving via <code>compiler_options</code>.</strong> It removes the 0.3–1.4 s per-process fixed cost from the comparison and lets arms alternate round by round:</p>
+<pre><code>lo = jax.jit(body).lower(x)                    <span class="c-c"># trace+lower once per round</span>
+c  = lo.compile(compiler_options={<span class="c-s">"xla_disable_hlo_passes"</span>: arm} <span class="c-k">if</span> arm <span class="c-k">else</span> <span class="c-k">None</span>)
+<span class="c-c"># wrap EVERY arm in try/except -- a RET_CHECK kills the whole process otherwise</span></code></pre>
+  <p><strong>But <code>Lowered.compile()</code> on the same object does not recompile</strong> — solver A round 0 = 16.74 s, rounds 1 and 2 = <strong>0.0001 s</strong>. To force N genuine compiles in one process you need a fresh function object each time (a factory returning a new <code>def</code>). Similarly <code>_cached_lowering_to_hlo</code> is a <code>weakref_lru_cache</code> keyed on the <code>ClosedJaxpr</code>, so <strong>two independently-traced <code>Traced</code> objects of the same function share one lowered module</strong> — any A/B that lowers the same jaxpr twice measures nothing the second time.</p>
+
+  <h3>7 · Give the process ≥8 cores</h3>
+  <div class="scroll"><table class="dense">
+    <tr><th class="num">cores</th><th class="num">solver A (idle box)</th><th class="num">solver B CPU backend</th><th class="num">solver B GPU backend</th></tr>
+    <tr><td class="num">1</td><td class="num">—</td><td class="num"><strong>17.06 s</strong></td><td class="num">20.70 s</td></tr>
+    <tr><td class="num">3</td><td class="num"><strong>10.34 s</strong></td><td class="num">—</td><td class="num">—</td></tr>
+    <tr><td class="num">4</td><td class="num">—</td><td class="num">6.62 s</td><td class="num">10.33 s</td></tr>
+    <tr><td class="num">6</td><td class="num">7.45 s</td><td class="num">—</td><td class="num">—</td></tr>
+    <tr><td class="num">8</td><td class="num">—</td><td class="num">4.79 s</td><td class="num">8.49 s</td></tr>
+    <tr><td class="num">16</td><td class="num"><strong>6.59 s</strong></td><td class="num">4.33 s</td><td class="num">6.73 s</td></tr>
+    <tr><td class="num">20</td><td class="num">—</td><td class="num"><strong>3.82 s</strong></td><td class="num">7.33 s</td></tr>
+  </table></div>
+  <p><strong>Pinning to 3 cores is 1.57× SLOWER than 16</strong> — it throttles XLA's compile thread pool. 1 → 20 cores is <strong>4.47× on CPU and 2.82× on GPU</strong>. The CI corollary: a 1-core container compiles this program in 17 s instead of 3.8 s, and no flag gets it back. Corroborated from outside by <a href="https://github.com/jax-ml/jax/issues/33364">jax&nbsp;#33364</a> (1/8/16 threads → 2338.6 / 570.2 / 420.0 s, monotone).</p>
+
+  <h3>8 · Print a structural panel beside every timing</h3>
+  <p>Covered in §3. The one addition here: <strong>always pin <code>--xla_gpu_autotune_level=0</code> when using the panel as a gate</strong>, because two flags that cannot touch HLO (<code>--xla_gpu_generate_debug_info</code>, <code>--xla_gpu_disable_gpuasm_optimizations</code>) nevertheless <em>move</em> it — and adding <code>autotune_level=0</code> collapses them back to the baseline panel exactly, proving the difference was autotuner-mediated. A genuine structural change survives that; an artefact does not.</p>
+
+  <h3>9 · Parity is <code>max|Δ| / max|A|</code> with the bit-exact count beside it</h3>
+  <p>A sum-over-outputs check reported <strong>7.16e-16</strong> while only <strong>54 of 224 outputs were bit-exact and 81 differed by &gt;1e-6 relative</strong>. Check <strong>value · grad · vmap(grad) · HVP</strong>, and make the gate backend-agnostic. The reason all four are needed: at an implicit-root tier the residual never runs in the forward program, so a wrong derivative leaves the primal <strong>bit-identical</strong> (1.2e-16 across eleven rows) while gradient error tracks the disagreement with log-log slope exactly 1.0000. A one-character typo in a declared JVP gave <strong>VALUE PASS 0.0 and GRAD FAIL 9.57e-1</strong>.</p>
+
+  <h3>10 · One subprocess per model, and assert the environment</h3>
+  <p>Sibling <code>_defs.py</code> files collide in <code>sys.modules</code>: four "different" models returned <strong>identical HLO</strong> (4818 instructions). Minimum assertions for any harness:</p>
+<pre><code><span class="c-k">assert</span> <span class="c-k">not</span> jax.config.jax_compilation_cache_dir       <span class="c-c"># or one arm loads another's executable</span>
+<span class="c-k">assert</span> jax.devices()[<span class="c-d">0</span>].platform == <span class="c-s">"gpu"</span>            <span class="c-c"># CUDA_VISIBLE_DEVICES fails SILENTLY</span>
+<span class="c-k">assert</span> <span class="c-k">not</span> os.environ.get(<span class="c-s">"CUDA_LAUNCH_BLOCKING"</span>)      <span class="c-c"># 2.40x on warm runtime, 1.0x on compile</span>
+<span class="c-k">print</span>(os.getloadavg())                              <span class="c-c"># record it; a ratio at load 17 is not a result</span></code></pre>
+
+  <h3>11 · Prefer CPU-seconds on a shared box, and know when they invert</h3>
+  <p>Four consecutive compiles of the same module under contention: <strong>wall spread 2.17×</strong>, XLA self-CPU 1.17×, ptxas child-CPU 1.15×. But CPU-seconds hide parallelism changes and <em>invert</em> for parallelism dials (<code>force_compilation_parallelism=1</code> reads 0.63× CPU and 1.52× wall on the same run). Report both; lead with CPU under load.</p>
+
+  <div class="box why">
+    <span class="lab">The checklist, in priority order</span>
+    <ol>
+      <li><strong>Put a NULL arm in every run</strong> — byte-identical to base. If your arm's band overlaps the null's, you measured nothing.</li>
+      <li><strong>Print the structural panel</strong> beside every timing, under <code>autotune_level=0</code>. Deterministic and load-immune.</li>
+      <li><strong>Assert the persistent cache is off</strong>, the backend is what you think, and <code>CUDA_LAUNCH_BLOCKING</code> is unset.</li>
+      <li><strong>Filter <code>jax.monitoring</code> by <code>fun_name</code></strong> and give your probe a distinctive name.</li>
+      <li><strong>Discard round 0; median of per-round ratios; quote the round count and the null-observation count.</strong> A ratio without those three is uninterpretable.</li>
+      <li><strong>Record <code>uptime</code></strong> before and after.</li>
+    </ol>
+  </div>
+
+  <hr class="rule">
+
+<hr class="rule">
+<h2 id="modes"><span class="num">§3</span>The failure modes</h2>
+<p>Roughly 60 confident claims died here, most of them ours. What survives is the <em>failure modes</em>, because the modes recur and you will hit them in your own program. Each carries one or two killing measurements — the full row-by-row ledger has been cut; the lesson never needed it.</p>
+
+  <div class="box why">
+    <span class="lab">The corpus result that frames everything below</span>
+    126 measured arms across 8 real solvers, a 6-arm adversarial re-measurement, and a <strong>sealed-prediction hold-out of 432 timed compiles on 3 models never previously touched</strong>.<br><br>
+    <strong>Nothing computable from the program predicts compile time out of sample.</strong> The best structural predictor in the corpus — <code>kmax</code>, Spearman <strong>+0.558</strong>, n=42 — failed on the hold-out and <strong>changed sign</strong>: −0.214 / −0.190 / +0.595. Instruction count is <strong>−0.011</strong> on the decisive rows: exactly zero. Against the correct null ("every arm lands at this campaign's mean") the best structural predictor buys <strong>~5.8%</strong> of skill, and on several campaigns the skill is <em>negative</em>.<br><br>
+    <strong>By class:</strong> 0/20 NULL · <strong>0/14 REWRITE</strong> (semantics-preserving source changes, geometric mean 1.019) · 7/41 SPLIT (all seven on one program) · 15/24 REMOVE (ablations that cannot ship) · 4/8 TRAJECT · 3/4 EMITTER (2 of the 3 later refuted). <strong>0 of 18 semantics-preserving arms on 3 hold-out models produced a shippable win.</strong>
+  </div>
+
+  <h3>Mode A · The ceiling mistaken for a lever</h3>
+  <p><em>An ablation says what REMOVAL is worth. A restructure delivers a fraction of it. Attribution ranks; it does not price.</em></p>
+  <ul>
+    <li>"this ablation is worth 63%, so restructuring is worth ~63%" — restructuring delivered <strong>10–17%</strong> on the same program.</li>
+    <li>The <strong>most-blamed single line</strong> in the program (604 instructions, 8.74%, top-10 in 5 of 17 models) was worth <strong>ZERO</strong>: 0.937 / 0.939 / 0.952 against a null of 0.912 / 0.993 / 0.967, with instructions <em>growing</em>. On a second model it never beat base and grew instructions <strong>+14.9%</strong>.</li>
+  </ul>
+  <p class="thesis">State an ablation as <em>"at most this much is here"</em>. Any candidate whose only evidence is an attribution is <strong>unpriced</strong>, not "worth N%".</p>
+
+  <h3>Mode B · The deterministic proxy that anti-correlates</h3>
+  <p><em>Structure is deterministic and seconds are not, which makes structure seductive. It does not follow that it is causal.</em></p>
+  <div class="scroll"><table class="dense">
+    <tr><th>proxy</th><th>the killing measurement</th></tr>
+    <tr><td>any instruction count</td><td><strong>ρ = −0.011</strong> on the 28-row common support; <strong>+0.010 with permutation p = 0.966</strong>. Hold-out elasticities +0.10, +0.33, <strong>−0.82</strong>.</td></tr>
+    <tr><td><code>kmax</code> across models</td><td>+0.558 in-sample → <strong>−0.214 / −0.190 / +0.595</strong> out of sample. It changes sign.</td></tr>
+    <tr><td>"hunt minor-axis reduce diamonds"</td><td><strong>ANTI-correlated.</strong> The arm that removed the Triton reduce emitter bought <strong>0.94× = nothing</strong>; the arm that left it untouched bought <strong>0.62× = everything</strong>.</td></tr>
+    <tr><td>"removed instruction mass prices a removal"</td><td>Elasticity <strong>−1.28 … +22.2</strong> across 24 rows. One arm removes 19% of the optimized instructions and compiles <strong>1.192× SLOWER</strong>.</td></tr>
+    <tr><td>StableHLO lines / jaxpr equations / PTX / SASS</td><td>3075 jaxpr equations → 0.101 s vs <strong>3072 equations → 4.342 s</strong>. Rank 2 vs rank 12: <strong>identical 484 PTX instructions, 83× compile</strong>.</td></tr>
+    <tr><td>fusion count / kernel count</td><td>Spearman <strong>0.25</strong>, worst of eleven proxies — and fusion count is not kernel count: 129 fusions → <strong>3</strong> PTX entry points.</td></tr>
+  </table></div>
+  <p><strong>The rows that break every structural model</strong>, kept because they are the whole argument: one arm at rel_instr <strong>1.002</strong> and rel_kmax <strong>1.000</strong> measures <strong>1.888× slower</strong>; another at rel_kmax <strong>1.000</strong> measures <strong>0.635</strong>; two arms removing near-identical mass (0.856 vs 0.853) land on <em>opposite sides of 1.0</em>. <strong>The two biggest effects in the entire hold-out are one-line lowering-policy changes with structurally identical panels.</strong></p>
+  <p class="thesis">Rank by source blame; confirm by ablation. Never price by structure.</p>
+
+  <h3>Mode C · The statistic that improves with your campaign</h3>
+  <div class="scroll"><table class="dense">
+    <tr><th>the practice</th><th>the number that killed it</th></tr>
+    <tr><td><code>min</code> of per-round ratios</td><td>Walks <strong>0.969 → 0.886 → 0.778</strong> with round count on a byte-identical module; a NULL arm reached <strong>0.4347</strong> on a 12-round Latin square.</td></tr>
+    <tr><td>ratio-to-<code>base</code></td><td><code>base</code> and an inert null compile a byte-identical module and differ by up to <strong>14%</strong>, sign program-dependent (+13.6% … −8.5%).</td></tr>
+    <tr><td>one null arm</td><td>Band width underestimated <strong>1.2–1.8×</strong>, and it is a function of the null-observation count (1.08×@3 → <strong>1.89×@42</strong>).</td></tr>
+    <tr><td>fixed-order sweep, <code>base</code> first</td><td>A typo arm matching no pass, byte-identical panel, measured <strong>0.694×</strong> — a fake 1.44× speedup, purely from <code>base</code> paying every sweep's cold start.</td></tr>
+    <tr><td>single-shot timings</td><td>Identical programs measured <strong>6.06 s and 16.47 s</strong> in two processes. Three of this project's first three claims were single shots.</td></tr>
+  </table></div>
+
+  <h3>Mode D · The instrument that bills the wrong thing</h3>
+  <p>All of these are now fixed inside <code>scopex</code> — they are here so you recognise the shape when you write your own parser.</p>
+  <div class="scroll"><table class="dense">
+    <tr><th>the claim</th><th>what actually happened</th></tr>
+    <tr><td>"<code>sanitize-constant-names</code> dominates compile (54% / 81%)"</td><td><strong>A parser bug by a factor of 1036×</strong> — 29.765 s attributed vs <strong>0.029 s</strong> true. Timestamp-differencing bills every pass for its successor and lets the last entry absorb the entire backend. <strong>XLA prints each pass's own <code>time:</code> field — delete the differencing.</strong></td></tr>
+    <tr><td>a regex accepting only <code>s|ms</code></td><td>XLA prints <code>1.01 min</code> for long stages, so the regex <strong>silently drops the largest number in the log</strong>. One run reported <code>dRunBackend = −0.05 s</code> on a compile whose wall delta was <strong>60.6 s</strong>.</td></tr>
+    <tr><td>"leaf-sum ÷ RunHloPasses far from 0.9 means your filter is wrong"</td><td><strong>INVERTED.</strong> 0.007 on an MLP with a provably correct filter. A low ratio is the <em>finding</em>.</td></tr>
+    <tr><td>a fusion-count regex <code>'= \S+ fusion\('</code></td><td>Silently drops every multi-output fusion — the LHS tuple contains spaces. Arms reported 1 fusion when they had 8 or 32.</td></tr>
+    <tr><td>a <code>startswith('fused_computation')</code> filter</td><td>XLA's <code>rename_fusions</code> names bodies <code>fused_add_divide</code>. Found <strong>2 of 336</strong>, silently returning <code>kmax≈0</code>.</td></tr>
+    <tr><td><code>compiled.as_text().count('opt-barrier(')</code></td><td>Always <strong>0</strong> — <code>OptimizationBarrierExpander</code> erases them post-scheduling. Count in <code>lowered.compiler_ir('hlo')</code>.</td></tr>
+    <tr><td>"ptxas is a subprocess you can time with a <code>$PATH</code> shim"</td><td>The shim records 0 invocations and 0.000 s while the compile takes 10.84 s — JAX overrides <code>xla_gpu_cuda_data_dir</code> and the wheel's ptxas is search candidate #1.</td></tr>
+    <tr><td>the algebraic simplifier rewrites your benchmark</td><td>A chain <code>y = y/z[i]</code> becomes <strong>one</strong> divide by the product (<code>divide=1, multiply=1023</code> at n=1024). And <code>y * 0.0</code> as an ablation stub is <strong>not folded</strong> for floats.</td></tr>
+    <tr><td>sibling <code>_defs.py</code> collision in <code>sys.modules</code></td><td>Four "different" models produced <strong>identical HLO</strong> (4818 instructions).</td></tr>
+  </table></div>
+
+  <h3>Mode E · The arm that never took, or took something else</h3>
+  <div class="scroll"><table class="dense">
+    <tr><th>the arm</th><th>the measurement</th></tr>
+    <tr><td>semantics-preserving source REWRITEs, <em>as a class</em></td><td><strong>0/14 clear</strong>, geometric mean 1.019, p = 0.0102.</td></tr>
+    <tr><td>rewriting <code>x.at[i].set()</code> scatters</td><td>The <code>scatter_expander</code> expansion is <strong>entirely reaped by the simplification fixpoint before fusion runs</strong>. A complete rewrite took the module −7.6% and kmax 551→468 — and measured <strong>1.058 / 1.105 / 1.052: a REGRESSION</strong>. Confirmed on four models.</td></tr>
+    <tr><td>inner <code>jax.jit</code> / <code>named_call</code> / <code>checkpoint</code> as a boundary</td><td>Module comes out <strong>byte-identical</strong> for all three — <code>call-inliner</code> is pass #2 of ~499. <code>jax.checkpoint</code> on real code is a <em>regression</em> (1.071×, kmax 551 → <strong>629</strong>).</td></tr>
+    <tr><td><code>--xla_disable_hlo_passes=dce</code></td><td><strong>1.79–2.66× WORSE</strong> with a byte-identical final module — every later pass then walks the ~190 k-instruction fusion litter.</td></tr>
+    <tr><td>"regions that shatter into many small kernels are the target"</td><td>Worth <strong>≤0</strong>. At fixed instruction count, 18 fusions of 281 ops → 65 fusions of 77 ops <em>cuts</em> compile 7.07 → 3.75 s. <strong>Many small kernels is XLA's CHEAP regime.</strong></td></tr>
+    <tr><td>bare reshape to collapse batch dims</td><td><strong>4.14× SLOWER than doing nothing</strong> — a reshape is a bitcast XLA sinks straight back into the fusion.</td></tr>
+    <tr><td>"the 96-operand cap protects you"</td><td>It is a <strong>WIDTH</strong> cap. A 2048-op fusion has <strong>9 operands</strong> and costs 27 s. The budget that actually binds fusion SIZE is <code>kMaxIRSize = 10000</code>.</td></tr>
+    <tr><td>"splitting one jit into several"</td><td><strong>~40% worse cold</strong>, loses cross-boundary fusion.</td></tr>
+    <tr><td>hand-rolled <code>vmap(linearize(cell))</code> to dedup emissions</td><td><strong>1.54× worse.</strong> XLA's CSE already merges same-point primals.</td></tr>
+  </table></div>
+
+  <h3>Mode F · The regime fallacy — carrying a result across programs, backends, dtypes, shapes or ranks</h3>
+  <p>This is the mode that produced the most retractions, and the one this project keeps re-learning. <strong>Five results in this document are device-dependent</strong>; assume yours is too until you have run both.</p>
+  <div class="scroll"><table class="dense">
+    <tr><th>the claim</th><th>where it broke</th></tr>
+    <tr><td>every fitted cost law (<code>Σn^1.6</code>, the quadratic, the linear)</td><td>Cross-program error <strong>25.4×</strong>. And at a byte-identical module — 512 ops, one <code>kLoop</code> fusion, every proxy equal — <strong>array shape alone moves compile 2.2–2.6×</strong>. <strong>There is no third law.</strong></td></tr>
+    <tr><td>"priority-fusion is 80–95% of cold compile"</td><td><strong>0.21%</strong> on an MLP. True only in the pass-bound regime, where it is 57–72%.</td></tr>
+    <tr><td>"<code>lax.optimization_barrier</code> splitting is a general lever"</td><td><strong>GPU-specific.</strong> The intervention that takes GPU compile to 0.497× is a measured <strong>null on CPU</strong> for K=2..16, and at K=32 it is a <strong>30.2× compile regression with a 287× warm regression and a 74× instruction blow-up</strong> (3,353 → 249,781). Three runs, tight. On GPU that same K=32 arm is the <em>best</em> point in the sweep.</td></tr>
+    <tr><td>"the seam ladder's 0.60× is a method"</td><td>Real on one program (0.602 / 0.607 / 0.601, null band [0.796, 1.090]). <strong>It does not transfer.</strong> Ported into a second model it <em>took</em> structurally and measured <strong>0.993 over 10 rounds</strong>. Three hold-out models: <strong>12 seam arms, 0 wins</strong>, two regressions at 1.325 and 1.364.</td></tr>
+    <tr><td>"<code>--xla_disable_hlo_passes=X</code> is a dial"</td><td>Program-dependent in both magnitude and sign. <code>triton-softmax-rewriter</code>: 0.68–0.75× on one model, a provable no-op on two others, a <em>regression</em> on a fourth. <code>simplification</code> and <code>dot-strength-reduction</code>: rc 0 on a synthetic, <strong>RET_CHECK on both real models</strong>.</td></tr>
+    <tr><td>"<code>lax.scan</code> is 27.7× cheaper than Python unrolling"</td><td>That is S=128. At 2–3 the solver iterations it is 0.68–0.72×, and at exactly <strong>1 it is 1.14× WORSE</strong>.</td></tr>
+    <tr><td>"the reproducibility floor improves with program size"</td><td>True on GPU (52.0 → 30.2 → 3.9%); <strong>NOT on CPU</strong> (25.4 → 26.3 → 37.0% over the same three models).</td></tr>
+    <tr><td>"block count / flowsheet size / problem size N drives compile"</td><td>The 9-block flowsheet is the <em>cheapest</em> model measured. Identical HLO at 4× problem size on two models.</td></tr>
+  </table></div>
+
+  <h3>Mode G · The cache that isn't yours</h3>
+  <div class="scroll"><table class="dense">
+    <tr><th>the claim</th><th>the measurement</th></tr>
+    <tr><td>"unique Warp modules are 12× cheaper to COMPILE"</td><td><strong>Entirely the CUDA driver's <code>~/.nv/ComputeCache</code></strong>, worth <strong>334×</strong> (9.09 s cache-disabled · 7.01 s first load · <strong>0.021 s</strong> second). <strong>This claim had reproduced three times before the cache was found.</strong></td></tr>
+    <tr><td>"a persistent JAX cache directory can be moved or shared"</td><td>Byte-identical tree copied to a new path → <strong>0 hits, full recompile</strong>. The autotune cache dir is baked in as an absolute path.</td></tr>
+    <tr><td>"there is no sub-executable incrementality in XLA"</td><td>False for the per-fusion <strong>autotune</strong> cache: <strong>0.08×</strong> on an edit recompile, and already the default.</td></tr>
+    <tr><td>"<code>CUDA_CACHE_DISABLE=1</code> removes a confound from JAX benchmarks"</td><td>There is no confound — six arms with a private <code>CUDA_CACHE_PATH</code> produced <strong>0 files, 0 bytes</strong>, while a warp-lang positive control produced 3 files.</td></tr>
+  </table></div>
+
+  <h3>Mode H · AD, FFI and bridge claims that were mis-stated</h3>
+  <div class="scroll"><table class="dense">
+    <tr><th>the claim</th><th>the correction</th></tr>
+    <tr><td>"<code>grad ≈ 2×</code>, <code>hessian ≈ 3×</code>"</td><td>True in <em>instructions</em> (1.74× / 3.18×), false in <em>seconds</em> (1.21–1.31× / 1.89–2.56×) — AD <strong>fragmented</strong> the graph (fusions 199 → 342 → 573), so the extra instructions never climbed the cost curve.</td></tr>
+    <tr><td>"reverse mode is the expensive one"</td><td>On a well-fusing primal, forward mode is: <code>jvp</code> compiled <strong>1.48× SLOWER than <code>grad</code></strong> with 13% <em>fewer</em> instructions, because forward-mode tangents land <em>inside</em> existing fusions.</td></tr>
+    <tr><td>"<code>custom_jvp</code>/<code>custom_vjp</code> make an opaque call vmap-safe"</td><td>Neither supplies a batching rule; <code>vmap</code> raises on the underlying primitive. <code>custom_vmap</code> handles exactly <strong>ONE</strong> level.</td></tr>
+    <tr><td>"an FFI call is opaque to DCE"</td><td><strong>FALSE as stated:</strong> with <code>has_side_effect=False</code> a whole dead <code>ffi_call</code> is removed by JAX <em>before lowering</em>.</td></tr>
+    <tr><td>"the FFI runtime boundary is ~66–140 µs/call"</td><td>It is a <strong>CLIFF</strong>: 63–92 µs/call <em>below</em> <code>--xla_gpu_graph_min_graph_size</code> (default 5) and <strong>5–11 µs/call above it</strong>. Any FFI-overhead number that does not state its regime is unusable.</td></tr>
+    <tr><td>"Pallas is an alternative on this stack"</td><td>Every <code>pallas_call</code> raises <code>Cannot lower pallas_call on platform: gpu</code>; only <code>interpret=True</code> works.</td></tr>
+  </table></div>
+
+  <h3>The seven named traps</h3>
+  <p>Every entry above is an instance of one of these. When you feel one, stop.</p>
+  <ol>
+    <li><strong>The Ceiling Mistaken for a Lever.</strong> <em>Tell:</em> your only evidence is a stub, an <code>op_name</code> apportionment, or a source-attribution share. <em>Discipline:</em> attribution ranks candidates for ablation; ablation states an upper bound; only a restructure priced against a null arm states a win.</li>
+    <li><strong>The Deterministic Proxy That Anti-Correlates.</strong> <em>Tell:</em> the proxy moved a lot and the clock did not (−37% instructions → 0.613×, −1% → 0.635×), or the proxy moved the "right" way and the clock went the wrong way. <em>Discipline:</em> never price by structure.</li>
+    <li><strong>The Statistic That Improves With Your Campaign.</strong> <em>Tell:</em> your headline number gets better as you add rounds; you have one null arm; your reference is <code>base</code>; you rotate-then-reverse. <em>Discipline:</em> median of per-round ratios, ≥2 nulls in the same rounds, null centroid as reference, rotate without reversal, and quote all three counts.</li>
+    <li><strong>The Instrument That Bills the Wrong Thing.</strong> <em>Tell:</em> an implausible pass wins; your total exceeds the wall clock; a count comes out exactly 0, or comes out <em>identical</em> when it cannot legitimately be. <em>Discipline:</em> <code>scopex.record</code> first; filter every log-derived total to your module; prefer the maintainer-provided route over a parser you wrote.</li>
+    <li><strong>The Arm That Never Took, Or Took Something Else.</strong> <em>Tell:</em> byte-identical structural panels with different seconds. Four ways it happens: the stub patched an object the builder does not use; two "independent" ablations are secretly one (stub a consumer, DCE removes its producer); the stub changed shapes or dtypes too; or the flag name was silently ignored. <em>Discipline:</em> print the panel beside every timing.</li>
+    <li><strong>The Regime Fallacy.</strong> <em>Tell:</em> your evidence is one program or a synthetic; the flag's sign flips; your law's coefficients were fitted at one array shape; you are comparing a CPU number to a GPU number. <em>Discipline:</em> classify first; never carry a pass-disabling result between programs; remember the corpus verdict — the best-calibrated prediction is <em>"nothing will happen."</em></li>
+    <li><strong>The Cache That Isn't Yours.</strong> Four are in play: JAX's in-memory jit cache, JAX's persistent executable cache (admission threshold 1.0 s), Warp's on-disk module cache, and the CUDA driver's PTX→SASS JIT at <code>~/.nv/ComputeCache</code> — <strong>worth 334×, global, ~1 GiB, evicting</strong>. <em>Tell:</em> a "cold" number that improves on the second run of a <em>fresh process</em>; a result that reproduces three times and is still wrong.</li>
+  </ol>
+
+  <h3>Still contested — both sides printed, neither resolved</h3>
+  <div class="scroll"><table class="dense">
+    <tr><th>question</th><th>state</th></tr>
+    <tr><td>operand count as a cost axis</td><td>One campaign: 2 → 90 operands costs <strong>1.86×</strong> at a pinned body size. A verifier: <strong>0.88×</strong>, whole sweep 0.88–1.33× with no trend. <strong>Both agree on the action</strong> — do not restructure to reduce how many arrays a kernel reads.</td></tr>
+    <tr><td>priority-fusion's own seconds on the same program</td><td>On structurally identical solver A: <strong>19.20 / 17.54 / 15.90 / 9.564 / 7.295 / 5.645 s</strong> across sessions — a <strong>2.6–3.4× spread</strong>. Three instruments reading nominally the same pass reported 17.5 / 25.8 / 28.3 s. <strong>Read shares, never seconds, from this pass.</strong></td></tr>
+    <tr><td>where the superlinear term lives</td><td>For <em>cheap-op</em> kernels <code>RunBackend</code> is 5.6% and priority-fusion 84.7–88%. For <em>transcendental-dense</em> kernels ptxas is <strong>39–68%</strong>. Both regimes exist; SASS-per-HLO-op decides which. Never resolved into one statement.</td></tr>
+  </table></div>
+
+  <h3>Single observations — real, but measured once</h3>
+  <p>The project's largest <em>positive</em> results all live here, by the strict rule that one program is one observation. <strong>None of them should be promoted without a second program.</strong></p>
+  <ul>
+    <li><strong>The seam ladder at 0.602 / 0.607 / 0.601</strong> on solver A — and <strong>0 wins on three hold-out models</strong>. Growing a second model to solver A scale does <em>not</em> make splitting pay, because its priority-fusion share <em>falls</em>. The corpus contains exactly one program above pf share 0.29.</li>
+    <li><strong>Fusion scopes at 0.644–0.670× cold, 0.956–1.006× warm.</strong> The scoped arm has <strong>27% MORE instructions and compiles 34% FASTER</strong>. Depends on monkeypatching a <em>private</em> jax symbol.</li>
+    <li><strong>A 20-pass disable set at 0.40–0.74× cold, 1.39× warm.</strong> It works by making priority-fusion <strong>4.3× cheaper at a structurally identical module</strong> — the win is in the pass's own cost-model work, not its output. <strong>Never bisected.</strong></li>
+    <li><strong>Merge TRAJECTORY.</strong> A bit-identical optimized module with <em>exactly the same 1240 accepted merges</em> compiling <strong>0.648×</strong>. It does not transfer — the same trick elsewhere was <strong>1.161× WORSE</strong>. <strong>Treat this as a confound first and a lever second:</strong> any A/B that changes emission order can move compile 1.5× at a byte-identical module.</li>
+    <li><strong>CPU vs GPU:</strong> GPU 189 passes vs CPU 93; CPU's optimized module <strong>1.56–1.88× LARGER</strong>; CPU compiled the same programs 1.30× and 1.63× faster end to end. <strong>Two programs.</strong></li>
+  </ul>
+
+  <hr class="rule">
+
+<div class="footer">Part of the <a href="blueprint_scopex.html">scopex blueprint</a>.
+The stages these numbers come from are in <a href="PIPELINE.html">Pipeline</a>; the flags are in
+<a href="FLAGS.html">Flags</a>; what is still unverified is in <a href="DEFICITS.html">Deficits</a>.</div>
+</main></body></html>

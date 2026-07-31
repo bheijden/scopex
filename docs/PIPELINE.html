@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pipeline — scopex</title>
+<style>
+  :root{
+    --bg:#fbfaf7; --ink:#181b1f; --muted:#5c6470; --rule:#e4e0d7;
+    --accent:#0f766e; --accent-soft:#d7eee9; --accent-ink:#0b544e;
+    --warn:#b45309; --warn-soft:#fbe7cf; --warn-ink:#7c3a06;
+    --bad:#b42318; --bad-soft:#fbe3e0; --bad-ink:#7a1c14;
+    --lens:#5b4bb7; --lens-soft:#e7e3fb; --lens-ink:#3f3486;
+    --code-bg:#0e1116; --code-ink:#e6edf3;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --maxw:900px;
+  }
+  *{box-sizing:border-box} html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{display:grid;grid-template-columns:270px minmax(0,1fr);max-width:1240px;margin:0 auto}
+  nav.toc{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;padding:34px 22px 60px;border-right:1px solid var(--rule);font-size:13.5px}
+  nav.toc .kicker{font:600 11px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+  nav.toc h1{font-size:15px;margin:0 0 6px;line-height:1.3}
+  nav.toc .wip{font:600 10px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--warn-ink);background:var(--warn-soft);padding:3px 7px;border-radius:5px;display:inline-block;margin-bottom:16px}
+  nav.toc a{display:block;color:var(--muted);text-decoration:none;padding:4px 0 4px 12px;border-left:2px solid transparent}
+  nav.toc a:hover{color:var(--ink)}
+  main{padding:46px 52px 140px;min-width:0}
+  .doc{max-width:var(--maxw)}
+  .kicker{font:600 12px/1.4 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1.title{font-size:34px;line-height:1.15;margin:6px 0 10px;letter-spacing:-.01em}
+  .lede{font-size:18px;color:var(--muted);margin:0 0 14px;max-width:66ch}
+  .meta{font:12.5px/1.5 var(--mono);color:var(--muted);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:10px 0;margin:22px 0 34px}
+  h2{font-size:24px;margin:52px 0 8px;letter-spacing:-.01em;scroll-margin-top:20px}
+  h2 .num{font:600 14px/1 var(--mono);color:var(--accent);display:block;margin-bottom:8px}
+  h3{font-size:17.5px;margin:28px 0 6px}
+  h4{font-size:13.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:22px 0 4px}
+  p{margin:12px 0;color:#23282e} strong{font-weight:650}
+  code{font:13px/1.5 var(--mono);background:#efece4;padding:1.5px 5px;border-radius:4px;color:#3a3f46}
+  pre{background:var(--code-bg);color:var(--code-ink);padding:16px 18px;border-radius:10px;overflow-x:auto;margin:14px 0;font:12.5px/1.6 var(--mono)}
+  pre code{background:none;padding:0;color:inherit}
+  pre .c{color:#8b98a5} pre .k{color:#ff7b72} pre .s{color:#a5d6ff} pre .f{color:#d2a8ff} pre .g{color:#7ee787}
+  .box{border-left:3px solid;border-radius:0 8px 8px 0;padding:13px 18px;margin:18px 0;font-size:15px}
+  .box .lab{font:600 11px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:5px}
+  .why{background:var(--accent-soft);border-color:var(--accent)} .why .lab{color:var(--accent-ink)}
+  .keep{background:var(--accent-soft);border-color:var(--accent)} .keep .lab{color:var(--accent-ink)}
+  .gotcha{background:var(--warn-soft);border-color:var(--warn)} .gotcha .lab{color:var(--warn-ink)}
+  .anti{background:var(--bad-soft);border-color:var(--bad)} .anti .lab{color:var(--bad-ink)}
+  .lens{background:var(--lens-soft);border-color:var(--lens)} .lens .lab{color:var(--lens-ink)}
+  .directive{border:1px solid var(--warn);background:linear-gradient(180deg,#fdf5ea,#fbfaf7);border-radius:14px;padding:4px 30px 24px;margin:26px 0;box-shadow:0 3px 22px rgba(180,83,9,.07)}
+  .directive .tag{display:inline-block;font:700 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:#fff;background:var(--warn);padding:7px 12px;border-radius:0 0 7px 7px}
+  .thesis{font-size:17px;font-weight:600;color:var(--accent-ink);margin:16px 0;line-height:1.5;border-left:3px solid var(--accent);padding-left:16px}
+  table{border-collapse:collapse;width:100%;margin:16px 0;font-size:14px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+  th{font:600 11px/1.4 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  td code{font-size:12px}
+  ul,ol{margin:12px 0;padding-left:22px} li{margin:7px 0}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+  .cols h4{margin-top:0}
+  .col-bad h4{color:var(--bad-ink)} .col-good h4{color:var(--accent-ink)}
+  @media (max-width:1000px){.wrap{grid-template-columns:1fr} nav.toc{display:none} main{padding:30px 22px 100px} .cols{grid-template-columns:1fr}}
+  .footer{margin-top:70px;padding-top:18px;border-top:1px solid var(--rule);font-size:13px;color:var(--muted)}
+  .pill{display:inline-block;font:600 10.5px/1 var(--mono);padding:4px 8px;border-radius:20px;margin-right:6px}
+  .pill.keep{background:var(--accent-soft);color:var(--accent-ink)} .pill.new{background:var(--lens-soft);color:var(--lens-ink)} .pill.cut{background:var(--bad-soft);color:var(--bad-ink)}
+  /* evidence marks: s = read at the source, x = refuted with the killing measurement, q = not corroborated */
+  .pill.s{background:var(--accent-soft);color:var(--accent-ink)} .pill.x{background:var(--bad-soft);color:var(--bad-ink)} .pill.q{background:var(--warn-soft);color:var(--warn-ink)}
+  .scroll{overflow-x:auto;margin:18px 0} .scroll table{margin:0}
+  table.dense{font-size:13px} table.dense th,table.dense td{padding:7px 10px} table.dense td code{font-size:12px}
+  .rule{border:0;border-top:1px solid var(--rule);margin:46px 0}
+</style>
+<style>
+  main{padding:46px 52px 140px;max-width:1060px;margin:0 auto}
+  .backlink{font:600 12px/1.4 var(--mono);letter-spacing:.12em;text-transform:uppercase;
+             color:var(--accent);text-decoration:none;display:inline-block;margin-bottom:18px}
+</style>
+<body><main>
+<a class="backlink" href="index.html">&larr; scopex docs</a>
+
+<div class="kicker">scopex</div>
+<h1 class="title">The pipeline</h1>
+<p class="lede">What each stage of JAX&nbsp;→&nbsp;StableHLO&nbsp;→&nbsp;HLO&nbsp;→&nbsp;PTX actually
+does, what it costs, which instrument can see it, and where the GPU and CPU backends diverge. This
+is the map <code>scopex</code> instruments; every stage below names the call that observes it.</p>
+
+<div class="meta">
+  Measured on jax / jaxlib <strong>0.10.2</strong>, <code>jax[cuda13]</code>, sm_89, CUDA 13.0, 20 cores.
+  <strong>"Compile time" is not one thing</strong> — it decomposes differently on different programs,
+  and if you do not know which box below owns your seconds, no flag can help you.
+</div>
+
+<div class="box why">
+  <span class="lab">Re-derived with current scopex, on synthetics, on both backends</span>
+  Everything below was first measured with hand-rolled parsers, three of which later shipped
+  demonstrably broken. These four rows were re-run against XLA's own parsers on programs that ship
+  with scopex, so they can be reproduced rather than trusted:
+  <div class="scroll"><table class="dense">
+    <tr><th>program</th><th>backend</th><th class="num">fidelity</th><th class="num">coverage</th><th>top pass</th></tr>
+    <tr><td rowspan="2">rank-blowup synthetic</td><td>CPU</td><td class="num">0.9993</td><td class="num">0.046</td><td><code>layout-assignment</code> @ 27%</td></tr>
+    <tr><td>GPU</td><td class="num">1.0007</td><td class="num">0.720</td><td><strong><code>autotuner</code> @ 95%</strong></td></tr>
+    <tr><td rowspan="2">tree-reduce, 10k leaves</td><td>CPU</td><td class="num">1.0005</td><td class="num">0.298</td><td><code>fusion</code> @ 94%</td></tr>
+    <tr><td>GPU</td><td class="num">0.9995</td><td class="num">0.755</td><td><code>priority-fusion</code> @ 64%</td></tr>
+  </table></div>
+  <strong>Read what this shows.</strong> <em>Fidelity</em> is ~1.000 in all four — the parse is
+  right every time. <em>Coverage</em> spans <strong>0.046 to 0.755, a 16× range</strong>, on correct
+  parses. Any rule of the form "coverage should land near 0.9, else your filter is wrong" would
+  have condemned three of these four as broken and hidden the one finding that matters: on GPU the
+  rank-blowup program is <strong>autotune-bound at 95%</strong>, which no amount of pass-level
+  attention would have fixed.<br><br>
+  <strong>And the same program has a different owner on each backend.</strong> CPU has no
+  <code>priority-fusion</code> at all — it runs a pass literally named <code>fusion</code> — and
+  GPU ran <strong>317–377 pass snapshots against CPU's 20–45</strong> on identical programs.
+  Reproduce with <code>scopex.pass_timings(src)</code> and read <code>coverage</code> before
+  <code>passes</code>.
+</div>
+
+<div class="box lens">
+  <span class="lab">The programs behind the numbers</span>
+  Every figure here is attached to the program it was measured on, because none of them transfer as
+  absolute seconds. Six real f64 solvers recur, named by their structural identity:
+  <div class="scroll"><table class="dense">
+    <tr><th>label</th><th class="num">optimized instructions</th><th>character</th></tr>
+    <tr><td><strong>solver A</strong></td><td class="num">10,064</td><td>large, elementwise-heavy, pass-bound</td></tr>
+    <tr><td><strong>solver B</strong></td><td class="num">4,722</td><td>mid-size, pass-bound</td></tr>
+    <tr><td><strong>solver C</strong></td><td class="num">2,266</td><td>small; its noise floor is the worst of the three</td></tr>
+    <tr><td><strong>solvers D–F</strong></td><td class="num">varies</td><td>corroborating programs of the same family</td></tr>
+  </table></div>
+  Plus labelled synthetics, and an MLP / transformer where the <em>autotune-bound</em> regime is
+  needed. <strong>Absolute seconds are properties of one box</strong>; ratios measured back-to-back
+  transfer far better, and structural counts transfer best of all. Prefer them in that order.
+</div>
+
+<p>This is the centrepiece and it comes first, because every later section is an index into it. The claim to internalise is that <strong>"compile time" is not one thing</strong>: on the three real solvers measured here it decomposes very differently, and on a GEMM-heavy program it decomposes differently again. If you do not know which box below owns your seconds, no knob in §4 can help you.</p>
+
+  <h3 id="s1-map">1.0 · The map, with the instrument that observes each stage</h3>
+
+<pre class="diag"><code>  YOUR PYTHON PROCESS                                             WHAT SEES IT
+  ═══════════════════════════════════════════════════════════════════════════════════════
+  import jax; build the problem
+  │
+  ├─► EAGER CONSTRUCTION  ......... 43–78% of a cold run          jax.monitoring, phase-tagged
+  │     every jnp op OUTSIDE a jit goes through                   (any jit(add) / jit(mul) /
+  │     dispatch.apply_primitive → api.jit(prim_fun)               jit(dot_general) event is
+  │     = one full trace+lower+XLA-COMPILE of a 1-op module        eager dispatch, not you)
+  │     solver A 155 modules / 20.1 s · solver B 225 / 25.4 s
+  │
+  ▼
+  TRACING  ....................... 7–15% of a cold run            /jax/core/compile/
+  │   Python body runs once; Primitive.bind appends equations       jaxpr_trace_duration
+  │   LINEAR in emitted equations (~0.10 ms/eqn synthetic,        jaxpr_util.source_locations
+  │   0.37–0.72 ms/eqn on real code) but NOT PRICED by them       JAX_DUMP_IR_MODES=eqn_count_pprof
+  │   three caches sit in front of it; only the third             jax_explain_cache_misses
+  │   (pe.trace_to_jaxpr) re-runs your Python                     jax_no_tracing=True
+  ▼
+  JAXPR  ......................... 1 top-level eqn on real code   jaxpr_util.count_eqns
+  │   everything is inside eqn.params; recurse or see nothing     scopex.walk        
+  ▼
+  LOWERING  ...................... 4–9% cold · 11–20% on a HIT    /jax/core/compile/
+  │   jaxpr → StableHLO (+ chlo ops, still unexpanded)              jaxpr_to_mlir_module_duration
+  │   ~0.1 ms/eqn, SUB-linear (local exponent 0.58–0.84)          Lowered.as_text()  (0.09–0.20 s)
+  │   CANNOT be cached away: the key is computed FROM its output  Traced.lower() splits it from trace
+  │
+  ╔═══════════════════════════════════════════════════════════════════════════════════════╗
+  ║  PERSISTENT CACHE KEY TAKEN HERE                              logging.getLogger(       ║
+  ║  strip-debuginfo → MLIR bytecode → sha256, + 7 more parts      'jax._src.cache_key')   ║
+  ║  everything downstream of this line is what a cache HIT skips  .setLevel(DEBUG)        ║
+  ╚═══════════════════════════════════════════════════════════════════════════════════════╝
+  │
+  ▼
+  StableHLO → HLO  ............... chlo expands 40–105× HERE      compiler_ir('hlo') — but it
+  │   chlo.zeta = 1 key op → 211 pre-opt HLO instructions           COSTS 0.4–1.4 s and is not
+  │   i.e. AFTER the key is taken. A 1-op cache key can be a         memoised. Never in a loop.
+  │   200-instruction module.
+  ▼
+  ┌─ RunHloPasses ─ 53–59% of backend_compile on real f64 ────┐   TF_CPP_MIN_LOG_LEVEL=0
+  │  30 top-level pipelines · 187 pass names · 244 pairs      │   TF_CPP_VMODULE=
+  │  IDENTICAL structure on two very different programs       │     hlo_pass_pipeline=1,
+  │                                                           │     gpu_compiler=1
+  │  ├ optimization ......... 7–20%  (simplification fixpoint,│
+  │  │                                ≤25 iters; last iter    │   --xla_gpu_print_
+  │  │                                always removes ZERO)    │     compilation_stats
+  │  ├ layout / normalization  ~5%                            │
+  │  ├ FUSION .............. 62–76%                           │   &lt;module&gt;.priority_fusion
+  │  │   └ priority-fusion = 57–72% of ALL leaf pass time     │     _dump.txt  ← THE dump
+  │  │     cost = (candidates) × (cost-model work each)       │   TF_CPP_VMODULE=
+  │  │     both factors vary 8,300× between real compiles     │     priority_fusion=2
+  │  ├ autotuner ........... 13–17% of RunHloPasses and       │   scopex.pass_timings /
+  │  │                       INVISIBLE to any leaf-pass sum   │     --xla_gpu_autotune_level=0
+  │  └ pre-scheduling-copy-insertion ~3–5%                    │
+  └───────────────────────────────────────────────────────────┘
+  │
+  ▼
+  ┌─ RunBackend ─ 29–31% of backend_compile ──────────────────┐   gpu_compiler.cc:2817
+  │  buffer assignment → thunks                               │
+  │  ONE LLVM module PER KERNEL (+1 for constants)            │   *.ir-no-opt.ll / .ir-with-opt.ll
+  │    solver C 71 = 70+1 · solver A 167 = 166+1                │   (from --xla_dump_to alone)
+  │  LLVM -O3 → PTX ......... 1 unit of cost                  │   "CompileToPtx" (nvptx_compiler=3)
+  │  ptxas SUBPROCESS ×N .... 2.4× that                       │   "PtxToCubin" / "PTX-&gt;CUBIN" TraceMe
+  │    ~96–167 execve per compile, 6–12 concurrent            │   /proc/self/stat cutime+cstime
+  │    ~24.6 ms of each ~30 ms invocation is process STARTUP  │   strace -f -e trace=execve
+  │  kernel dedup 90→70 (rc) / 243→166 (eth), 100% at codegen │   grep -c '.visible .entry' *.ptx
+  └───────────────────────────────────────────────────────────┘
+  │
+  ▼
+  cuModuleLoadFatBinary ─ a pure sm_89 cubin, NO PTX inside       cuobjdump -ptx  → empty
+  │   ⇒ the CUDA driver JIT cache (~/.nv/ComputeCache) is          0 files written in 3 h of
+  │     NEVER touched by XLA. That 334× effect is Warp's.          compiling; 0 cuLinkAddData
+  ▼
+  LAUNCH                                                          jax.profiler /device:GPU:0
+                                                                  (20 events vs 75,098 on host)
+</code></pre>
+
+  <div class="box why">
+    <span class="lab">The three numbers that anchor everything</span>
+    On solver&nbsp;A (the problem-construction call, 10,064 optimized instructions), one logged cold compile:
+    <strong>jax <code>backend_compile</code> 15.279 s = RunHloPasses 9.009 s (59.0%) + RunBackend 4.407 s (28.8%) + JAX/PJRT residual 1.863 s (12.2%)</strong>.
+    On solver&nbsp;B: 6.067 s = 3.262 (53.8%) + 1.848 (30.5%) + 0.957 (15.8%).
+    Inside RunHloPasses, <code>priority-fusion</code> alone is 4435 ms of solver A's 7726 ms leaf-pass total (57.4%) and 1930 ms of solver B's 2673 ms (72.2%).
+    <span class="pill">measured here</span>
+    <p class="ev">Module-filtered from <code>TF_CPP_VMODULE=hlo_pass_pipeline=1</code>; reproduce with <code>scopex.pass_timings(src)</code>.</p>
+  </div>
+
+  <h3 id="s1-eager">1.1 · Eager problem construction — the biggest single line item</h3>
+
+  <p><strong>What happens.</strong> Every <code>jnp</code> operation executed <em>outside</em> a <code>jit</code> goes through <code>dispatch.apply_primitive</code> → <code>dispatch.xla_primitive_callable</code>, which is literally <code>api.jit(prim_fun)</code>, memoised per <code>(primitive, params)</code>. So each distinct <code>(primitive, shape, dtype)</code> your construction code touches eagerly costs one full <strong>trace + lower + XLA compile of a one-instruction module</strong>.</p>
+
+  <p><strong>What it costs.</strong> Phase-tagged stage split, tagging every <code>jax.monitoring</code> duration event with the phase it fired in, so the accounting is measurement and not inference from two wall clocks:</p>
+
+  <div class="scroll"><table class="dense">
+    <tr><th>phase</th><th class="num">wall</th><th class="num">trace</th><th class="num">lower</th><th class="num">compile</th><th class="num">#modules</th></tr>
+    <tr><td colspan="6"><strong>solver A</strong></td></tr>
+    <tr><td>import</td><td class="num">1.04</td><td class="num">0.00</td><td class="num">0.06</td><td class="num">0.05</td><td class="num">2</td></tr>
+    <tr><td><strong>build</strong> (eager Python)</td><td class="num"><strong>27.33</strong></td><td class="num">1.80</td><td class="num">2.51</td><td class="num"><strong>20.14</strong></td><td class="num"><strong>155</strong></td></tr>
+    <tr><td>trace</td><td class="num">5.29</td><td class="num">5.29</td><td class="num">0.00</td><td class="num">0.00</td><td class="num">0</td></tr>
+    <tr><td>lower</td><td class="num">0.82</td><td class="num">0.00</td><td class="num">0.78</td><td class="num">0.00</td><td class="num">0</td></tr>
+    <tr><td>compile</td><td class="num">14.19</td><td class="num">0.00</td><td class="num">0.00</td><td class="num">14.19</td><td class="num">1</td></tr>
+    <tr><td colspan="6"><strong>solver B</strong> — build 36.83 s wall, <strong>25.36 s of XLA compile across 225 modules</strong>, against 8.37 s to compile the actual solver</td></tr>
+    <tr><td colspan="6"><strong>solver D</strong> — build 8.49 s wall, 2.93 s compile across 43 modules; jit compile 11.22 s</td></tr>
+  </table></div>
+
+  <div class="scroll"><table>
+    <tr><th>model</th><th class="num">tracing / wall</th><th class="num">eager Python / wall</th><th class="num">eager-dispatch compile ÷ jit compile</th></tr>
+    <tr><td>solver A</td><td class="num">14.6 %</td><td class="num">58.3 %</td><td class="num"><strong>1.42×</strong></td></tr>
+    <tr><td>solver B</td><td class="num">6.9 %</td><td class="num">77.7 %</td><td class="num"><strong>3.03×</strong></td></tr>
+    <tr><td>solver D</td><td class="num">9.9 %</td><td class="num">42.8 %</td><td class="num">0.29×</td></tr>
+  </table></div>
+
+  <p><strong>What you can see.</strong> <code>jax.monitoring</code> names them for you. Any <code>jit(add)</code>, <code>jit(mul)</code>, <code>jit(dot_general)</code>, <code>jit(broadcast_in_dim)</code> event is eager dispatch, not your program. solver B's 225 modules cover only 57 distinct primitive names.</p>
+
+  <p><strong>What knob exists.</strong> None in the compiler. The fix is to keep problem construction off the device — host arithmetic in <code>numpy</code>/<code>math</code>, or wrap the whole construction in one <code>jax.jit</code>. The second-order fix is <code>jax_persistent_cache_min_compile_time_secs = 0</code>: at the default of <strong>1.0 s</strong> these sub-second modules are <em>never written to the persistent cache</em> and are re-paid on every process start, forever, while the cache directory still fills with autotune textprotos so it looks like it is working.</p>
+
+  <div class="box gotcha">
+    <span class="lab">This is why a "cold compile" number is usually not measuring compilation</span>
+    Before touching any XLA flag, run the phase split. If <code>build</code> dominates, the compiler is not your problem. Note also that a persistent-cache HIT accelerates this phase too — solver A's eager build fell 16.14 s → 5.70 s and solver B's 22.15 s → 10.14 s on a warm cache, because those seconds are 146 and 175 <em>other</em> jit modules compiling. Do not attribute them to Python.
+    <span class="pill">measured here</span>
+    <p class="ev">3 models, phase-scoped (<code>scopex.record</code> per phase); corroborated by an independent less-loaded run at 1.30× on solver A. Source: jax/_src/dispatch.py:98-107 (<code>xla_primitive_callable = api.jit(prim_fun)</code>), :59-61 and :180-214 (the three monitoring events)</p>
+  </div>
+
+  <h3 id="s1-trace">1.2 · Tracing — Python runs, the jaxpr grows</h3>
+
+  <p><strong>What happens.</strong> <code>Primitive.bind</code> reads <code>trace_ctx.trace</code>; inside a jit that is the <code>DynamicJaxprTrace</code>, whose <code>process_primitive</code> appends an equation. Your Python body executes exactly once per trace. Roughly <strong>2.3 binds per emitted equation</strong> on real code (solver B 7,537 binds → 3,292 equations; solver D 7,648 → 3,278) — the excess is transform layers (batching, AD) that bind and forward.</p>
+
+  <p><strong>What it costs.</strong> 7–15% of a cold run. Linear in emitted equations: a synthetic sweep from 1,280 to 20,480 equations gives a local exponent of <strong>1.04</strong> at 98–109 µs/equation. Real code costs 3.4–7× more Python per equation:</p>
+
+  <div class="scroll"><table class="dense">
+    <tr><th>model</th><th class="num">recursive eqns</th><th class="num">trace s</th><th class="num">µs/eqn</th></tr>
+    <tr><td>solver E</td><td class="num">672</td><td class="num">0.315</td><td class="num">468</td></tr>
+    <tr><td>solver F</td><td class="num">1833</td><td class="num">0.765</td><td class="num">417</td></tr>
+    <tr><td>solver C</td><td class="num">2234</td><td class="num">1.009</td><td class="num">452</td></tr>
+    <tr><td>solver D</td><td class="num">3278</td><td class="num">2.345</td><td class="num"><strong>715</strong></td></tr>
+    <tr><td>solver B</td><td class="num">3292</td><td class="num">1.291</td><td class="num"><strong>392</strong></td></tr>
+    <tr><td>solver A</td><td class="num">7773</td><td class="num">2.910</td><td class="num">374</td></tr>
+  </table></div>
+
+  <p>Equation count ranks these correctly (Pearson r = 0.902, Spearman ρ = 0.943) and <strong>prices none of them</strong>. A least-squares fit on three models gives <code>T = 0.192 s + 348.5 µs·n</code>; held out it errs <strong>+35.4% / +8.6% / −43.1%</strong>. The killer pair is in the table: solver D 3,278 equations → 2.345 s against solver B 3,292 equations → 1.291 s, <strong>1.82× apart at a 0.4% difference in equation count</strong>. <code>core.bind</code> call count fails identically (7,537 vs 7,648 binds, 1.81× the time).</p>
+
+  <p><strong>What you can see.</strong> cProfile is the instrument that explains the 1.82×, and the jaxpr is not: 78% of trace self-time is in <code>jax/_src</code> in both programs and the model's own code is <strong>0.6%</strong>. The difference lives in <em>which</em> internals — solver D spends 2.148 s cumulative in <code>batching.process_primitive</code> and 1.484 s in <code>pjit._pjit_batcher</code> (vmap layers re-tracing inner pjits); solver B spends 0.834 s in <code>core.eval_jaxpr</code> (inlining). Same equation count is not the same amount of Python. Note cProfile inflates tracing by a constant <strong>1.68×</strong> on this box (measured on two programs independently) — ratios survive, absolute seconds do not.</p>
+
+  <h4>The three caches in front of tracing, and which one costs what</h4>
+  <p>Read in this order. Only the third re-runs your Python.</p>
+  <ol>
+    <li><strong>C++ <code>PjitFunction</code> cache</strong> (<code>pjit.py:248-292</code>). Key is <code>JitGlobalCppCacheKeys</code> plus the per-call argument signature. A hit never enters Python. Global when the jit declares no explicit attributes.</li>
+    <li><strong><code>pjit._infer_params_cached</code></strong> (<code>pjit.py:594</code>), a <code>weakref_lru_cache</code>. <code>PjitInfo.__hash__ = id(self)</code> and <code>__eq__</code> is identity, so <strong>a freshly built <code>jax.jit(f)</code> wrapper always misses this one</strong>.</li>
+    <li><strong><code>pe.trace_to_jaxpr</code></strong> (<code>partial_eval.py:2268</code>), keyed on <code>(fun, in_avals, debug_info, qdd-context)</code> + <code>config.trace_context()</code>. Missing this is the only thing that re-runs your Python.</li>
+  </ol>
+
+  <p>The distinction is measurable and enormous. 25 timed calls of an 8-deep chain on <code>f64[1024]</code>:</p>
+  <div class="scroll"><table class="dense">
+    <tr><th>form</th><th class="num">µs/call</th><th class="num">body traces</th><th class="num">vs hoisted</th></tr>
+    <tr><td><code>jf = jax.jit(partial(g,c))</code> hoisted; <code>jf(x)</code></td><td class="num">156.5</td><td class="num">1</td><td class="num">1.00×</td></tr>
+    <tr><td><code>jax.jit(part)(x)</code> — fresh WRAPPER, same partial</td><td class="num">901.7</td><td class="num"><strong>0</strong></td><td class="num"><strong>5.76×</strong></td></tr>
+    <tr><td><code>jax.jit(partial(g,c))(x)</code> — fresh partial each call</td><td class="num">363,681</td><td class="num">27</td><td class="num"><strong>2324×</strong></td></tr>
+    <tr><td><code>jax.jit(lambda v: g(v,c))(x)</code> — fresh lambda each call</td><td class="num">341,486</td><td class="num">27</td><td class="num"><strong>2182×</strong></td></tr>
+  </table></div>
+  <p>A fresh wrapper around the <em>same</em> function object costs 5.76× purely from missing caches (1) and (2) — with <strong>zero retraces</strong>. The operative rule is object lifetime: <strong>hoist the callable</strong>. <code>functools.partial</code> does not save you (<code>partial(g,c=1.0) == partial(g,c=1.0)</code> is <code>False</code> and their hashes differ) and is marginally worse than a lambda, contradicting the phrasing in the official slow-tracing doc.</p>
+
+  <h4>The retrace battery — exactly what invalidates the tracing cache</h4>
+  <p>Counted by counting executions of the jitted body. Isolation matters: the tracing cache is keyed on the <em>raw callable</em>, so every probe needs a freshly <code>exec</code>'d function or misses silently turn into hits.</p>
+  <div class="scroll"><table class="dense">
+    <tr><th>probe</th><th class="num">traces</th><th>probe</th><th class="num">traces</th></tr>
+    <tr><td>same array twice</td><td class="num">1</td><td>dict key order <code>a,b</code> then <code>b,a</code></td><td class="num">1</td></tr>
+    <tr><td>different VALUES, same aval</td><td class="num">1</td><td>list <code>[x]</code> then tuple <code>(x,)</code></td><td class="num">2</td></tr>
+    <tr><td>different SHAPE (8 → 16)</td><td class="num">2</td><td>positional then keyword</td><td class="num">2</td></tr>
+    <tr><td>different DTYPE (f64 → f32)</td><td class="num">2</td><td><code>None</code> as a leaf then omitted</td><td class="num">2</td></tr>
+    <tr><td><code>np.ndarray</code> then <code>jnp.ndarray</code>, same aval</td><td class="num">1</td><td><code>2.0</code> then <code>3.0</code> (both py float)</td><td class="num">1</td></tr>
+    <tr><td><code>2</code> (py int) then <code>2.0</code> (py float)</td><td class="num">2</td><td><code>2.0</code> then <code>jnp.float64(2.0)</code></td><td class="num">2</td></tr>
+    <tr><td>fresh <code>jax.jit</code> wrapper ×3, same fn object</td><td class="num">1</td><td>re-def'd function each time</td><td class="num">3</td></tr>
+    <tr><td><code>default_matmul_precision('highest')</code></td><td class="num">2</td><td><code>debug_nans(True)</code></td><td class="num">1</td></tr>
+    <tr><td><code>numpy_rank_promotion('warn')</code></td><td class="num">2</td><td><code>named_scope('hello')</code></td><td class="num">1</td></tr>
+    <tr><td><code>default_device(devices()[0])</code></td><td class="num">2</td><td><code>check_tracer_leaks(True)</code></td><td class="num">1</td></tr>
+  </table></div>
+  <p><code>config.trace_context()</code> has <strong>46 named slots</strong> in this build — that is the complete list of configuration that can force a retrace, and <strong><code>XLA_FLAGS</code> is not among them</strong>. No XLA flag can cause a retrace (it does change the <em>compilation</em> cache key — a different cache). <strong>Donation and device do NOT retrace either</strong>: <code>jit(f)</code> then <code>jit(f, donate_argnums=(0,))</code> is 1 body trace, as are changing <code>donate_argnums</code>, <code>device=gpu</code>→<code>cpu</code>, <code>keep_unused=True</code>, <code>inline=True</code>. They live in caches (1) and (2); the jaxpr is reused and only lowering + compilation redo.</p>
+
+  <p><strong>The weak-type rule in one line.</strong> <code>core.pytype_aval_mappings[float]</code> returns a shared <code>ShapedArray((), f64, weak_type=True)</code>, while <code>shaped_abstractify</code> on anything with a <code>.dtype</code> takes <code>weak_type=getattr(x,'weak_type',False)</code>, and <code>ShapedArray.__hash__</code> includes it. So <code>f(2.0)</code> and <code>f(jnp.float64(2.0))</code> are two different programs. Python <code>bool</code> is <em>not</em> weak.</p>
+
+  <h4>The one tracing lever that is large, safe, and free downstream</h4>
+  <p><strong><code>@jax.jit</code> any inner helper called K times.</strong> <a href="https://github.com/jax-ml/jax/issues/7155">jax&nbsp;#7155</a> reports an inner <code>@jax.jit</code> being re-traced once per call site; that is <strong>fixed in 0.10.2</strong>. An outer jit calling a 40-op inner helper K=64 times:</p>
+  <div class="scroll"><table class="dense">
+    <tr><th>K</th><th>inner <code>@jit</code></th><th class="num">body traces</th><th class="num">trace s</th><th class="num">lower s</th><th class="num">compile s</th><th class="num">opt instr</th><th class="num">kmax</th></tr>
+    <tr><td>64</td><td>True</td><td class="num"><strong>1</strong></td><td class="num">0.069</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>
+    <tr><td>64</td><td>False</td><td class="num">64</td><td class="num">3.449</td><td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>
+    <tr><td>32</td><td>True</td><td class="num">1</td><td class="num">0.076</td><td class="num">0.058</td><td class="num">143.479</td><td class="num">6417</td><td class="num">4547</td></tr>
+    <tr><td>32</td><td>False</td><td class="num">32</td><td class="num">1.396</td><td class="num">0.506</td><td class="num">143.838</td><td class="num">6417</td><td class="num">4547</td></tr>
+  </table></div>
+  <p><strong>Trace 0.054×, lower 0.114×, compile 0.998×, and the optimized module is byte-identical.</strong> XLA re-inlines, so nothing is traded away. Mechanism: <code>trace_to_jaxpr</code> is keyed on the callable so the body is traced once and the outer jaxpr holds K <code>jit</code> equations pointing at one shared sub-jaxpr; <code>_pjit_lowering</code> memoises on <code>mod_ctx.cached_primitive_lowerings</code> with the jaxpr object in the key, so one MLIR <code>func.func</code> is emitted and called K times. <strong>Honest scope:</strong> this fixes trace and lower — dev-loop latency, <code>eval_shape</code> sweeps — not a compile-bound program (total was 0.970×/0.985×). It also invalidates the persistent compilation cache, so apply it once, not per edit.</p>
+
+  <h4>Never unroll — 117×, and it is mechanical, not stylistic</h4>
+  <p>Same math four ways, median of 5 fresh traces:</p>
+  <div class="scroll"><table class="dense">
+    <tr><th>K</th><th class="num">python <code>for</code></th><th class="num">scan</th><th class="num">fori</th><th class="num">while</th><th class="num">python eqns</th><th class="num">rolled eqns</th></tr>
+    <tr><td>16</td><td class="num">16.40 ms</td><td class="num">6.19</td><td class="num">8.54</td><td class="num">7.61</td><td class="num">80</td><td class="num">6 / 7 / 8</td></tr>
+    <tr><td>256</td><td class="num">156.20 ms</td><td class="num">6.36</td><td class="num">7.54</td><td class="num">8.98</td><td class="num">1280</td><td class="num">6 / 7 / 8</td></tr>
+    <tr><td>2048</td><td class="num"><strong>1472.91 ms</strong></td><td class="num">12.58</td><td class="num">16.37</td><td class="num">16.84</td><td class="num">10240</td><td class="num">6 / 7 / 8</td></tr>
+  </table></div>
+  <p>Rolled tracing is <strong>flat in K</strong> (6.2–16.8 ms over a 128× range) because the body is traced once and the trip count is a parameter. A Python <code>for</code> is invisible to the tracer — there is nothing to record but its unrolled effect. At K=2048 that is <strong>117× on trace and 21.8× on lower</strong>. <code>lax.scan(..., unroll=k)</code> is <em>free at trace time</em> (recursive equations stay at 6 for every unroll from 1 to 256) and costs 2.08× on lowering at unroll=256 — so it buys runtime without touching the trace budget.</p>
+  <p><code>fori_loop</code>'s fork is a correctness fork: concrete bounds specialize to <code>scan</code> (reverse-differentiable), a traced bound lowers to <code>while</code>, and <code>_while_transpose_error</code> exists to reject reverse-mode through it. All six the framework models already use <code>lax.while_loop</code>/<code>lax.scan</code> for their Newton drivers, which is why 2,234–7,773 equations describe solvers running hundreds of iterations. <strong>There is no unrolling win left on these programs.</strong></p>
+
+  <h3 id="s1-jaxpr">1.3 · The jaxpr — and why it does not price anything</h3>
+
+  <p><strong>On all six real models, <code>jax.jit(probe).trace(gs).jaxpr</code> has exactly ONE top-level equation</strong> (a <code>custom_jvp_call</code>). Everything is in <code>eqn.params</code>. Sub-jaxprs live under different keys per primitive: <code>pjit</code>/<code>scan</code> under <code>params['jaxpr']</code>; <code>while</code> under <code>['cond_jaxpr']</code>/<code>['body_jaxpr']</code>; <code>cond</code> under <code>['branches']</code> (a tuple); <code>remat</code> under <code>params['jaxpr']</code> as a <strong>bare <code>Jaxpr</code></strong>, not a <code>ClosedJaxpr</code>; <code>custom_jvp/vjp_call</code> under <code>['call_jaxpr']</code> — <em>primal only</em>, because the rules are un-traced <code>lu.WrappedFun</code> thunks. Trace <code>jax.grad(f)</code> if you want them.</p>
+
+  <p><strong>Do not write a walker.</strong> <code>jax._src.jaxpr_util</code> already ships <code>count_eqns</code>, <code>primitives</code>, <code>primitives_by_shape</code>, <code>primitives_by_source</code>, <code>source_locations</code>, <code>jaxpr_to_html</code>, <code>pprof_equation_profile</code>. Verified: <code>count_eqns(j, revisit_inner_jaxprs=True)</code> returns exactly 7,773 on solver A, agreeing with an independent walker to the equation. <code>revisit=False</code> gives 6,861 — <strong>912 equations (12%) come from sub-jaxprs reached more than once</strong>. Pick deliberately.</p>
+
+  <p>Solver A's shape: 242 sub-jaxprs, max nesting depth 6, equations by depth <code>{0:1, 1:677, 2:5092, 3:1351, 4:440, 5:146, 6:66}</code>, and one path holds 63% of everything (<code>custom_jvp_call:call_jaxpr → while:body_jaxpr</code>, 4,898 equations). <code>source_locations</code> gives you the Python line that emitted them:</p>
+<pre><code>1240  16.0%  &lt;blank -- AD/batching machinery, no user line&gt;
+ 256   3.3%  examples/v2/solver A/properties.py:272:24  (cp_ig)
+ 240   3.1%  examples/v2/solver A/properties.py:292:31  (h_ig)
+ 197   2.5%  src/the framework/v2/framework.py:1626:58                    (_index_leaf)
+ 180   2.3%  examples/v2/solver A/properties.py:312:19  (hvap)</code></pre>
+
+  <h4>What the jaxpr does NOT tell you</h4>
+  <p>Three counts side by side — jaxpr equations (recursive) → pre-optimization StableHLO ops → optimized HLO instructions:</p>
+  <div class="scroll"><table class="dense">
+    <tr><th>program</th><th class="num">jaxpr</th><th class="num">stablehlo</th><th class="num">optimized</th></tr>
+    <tr><td>baseline <code>y = sin(x).sum()</code></td><td class="num">2</td><td class="num">3</td><td class="num">11</td></tr>
+    <tr><td>40× <code>v = v*1.0 + 0.0</code> then sin.sum()</td><td class="num">82</td><td class="num">243</td><td class="num"><strong>11</strong></td></tr>
+    <tr><td>40× <code>v = (v+1.0)-1.0</code> then sin.sum()</td><td class="num">82</td><td class="num">243</td><td class="num"><strong>11</strong></td></tr>
+    <tr><td>one live chain + two dead chains</td><td class="num">9</td><td class="num">6</td><td class="num">14</td></tr>
+    <tr><td>unused ARGUMENT, <code>keep_unused=False</code> (default)</td><td class="num">2</td><td class="num">3</td><td class="num">11</td></tr>
+    <tr><td>unused ARGUMENT, <code>keep_unused=True</code></td><td class="num">2</td><td class="num">3</td><td class="num">12</td></tr>
+    <tr><td>200-step scalar recurrence, staged</td><td class="num">602</td><td class="num">1005</td><td class="num"><strong>11</strong></td></tr>
+  </table></div>
+  <p><strong>Erased ≠ free.</strong> Those two 82-equation algebraic-identity chains both collapse to the same 11 optimized instructions as the 2-equation baseline, and they cost 340.8 ms and 406.6 ms of trace+lower+compile against the baseline's 224.7 ms. The 602-equation staged recurrence costs 913.5 ms at K=800 versus 299.3 ms for the same arithmetic done in host <code>math</code>. <strong>The jaxpr equation count is the right instrument for TRACING cost and a bad one for compile cost.</strong></p>
+
+  <p>Two further facts from the same probe. <strong>Two DCEs run at different times</strong> — JAX's own fires at the pjit boundary before lowering (9 jaxpr equations → 6 StableHLO), XLA's fires after. And <strong>closed-over constants are captured once and never invalidate anything</strong>: changing a closed-over value between calls gives 1 trace and the jit silently returns the stale answer (<code>box['c']=1000.0</code> → jit still returns 2016.0 where eager Python returns 2016000.0). That is the documented purity requirement with a number attached.</p>
+
+  <div class="box gotcha">
+    <span class="lab">Refuted here — <code>jax.ensure_compile_time_eval</code> is a 1.5–3.0× REGRESSION on this GPU</span>
+    In 0.10.2 it is literally <code>with config.eager_constant_folding(True): yield</code>, which makes <code>DynamicJaxprTrace</code> execute foldable ops <em>eagerly on the device</em> rather than folding them at compile time. It does exactly what it advertises structurally (<strong>1202 equations → 2</strong>) and charges <strong>171 µs of eager GPU dispatch per folded op</strong> to do it. Hoist to host <code>math</code>/<code>numpy</code> instead — measured <strong>0.21×</strong>. <span class="pill x">refuted</span>
+  </div>
+
+
+  <h3 id="s1-lower">1.4 · Lowering — small, sub-linear, and impossible to cache away</h3>
+
+  <p><strong>What happens.</strong> jaxpr → StableHLO MLIR. Each equation's lowering is memoised in a per-module dict keyed on <code>LoweringCacheKey(primitive, eqn_ctx, avals_in, effects, params, platforms)</code>, but <code>_get_lowering_rules</code> returns <code>inline=True</code> for most ops, so the cache saves the rule invocation and not the op emission — which is why the spread between the best and worst synthetic family is only ~2×.</p>
+
+  <p><strong>What it costs.</strong> Isolated with <code>jax.jit(f).trace(*a)</code> → <code>Traced.lower()</code>, cross-checked against <code>jax.monitoring</code>. 4 rounds, round 0 discarded, medians, persistent cache off:</p>
+  <div class="scroll"><table class="dense">
+    <tr><th>model</th><th class="num">jaxpr eqns</th><th class="num">shlo ops</th><th class="num">key bytes</th><th class="num">trace</th><th class="num">lower</th><th class="num">compile</th><th class="num">lower share</th><th class="num">µs/eqn</th></tr>
+    <tr><td>solver C</td><td class="num">2,176</td><td class="num">3,347</td><td class="num">40,112</td><td class="num">0.931</td><td class="num"><strong>0.318</strong></td><td class="num">2.371</td><td class="num">8.8%</td><td class="num">146</td></tr>
+    <tr><td>solver B</td><td class="num">3,189</td><td class="num">4,637</td><td class="num">50,686</td><td class="num">1.040</td><td class="num"><strong>0.304</strong></td><td class="num">5.591</td><td class="num">4.4%</td><td class="num">95</td></tr>
+    <tr><td>solver A</td><td class="num">6,859</td><td class="num">10,778</td><td class="num">112,222</td><td class="num">2.882</td><td class="num"><strong>0.715</strong></td><td class="num">11.441</td><td class="num">4.8%</td><td class="num">104</td></tr>
+  </table></div>
+  <p>Monitoring/wall agreement on the lower stage is 0.955–0.958 on all three (trace and compile agree to 0.999; the missing ~4.4% is <code>MeshComputation</code> construction outside the timed region). Per-round spread: solver C 51%, solver B 25%, solver A 4% — <strong>only solver A's number is tight.</strong> A synthetic sweep gives local exponents of 0.58–0.84 in equations: lowering is <em>sub</em>-linear and has <strong>no cliff</strong>, unlike the pass pipeline. Budget it as ~0.1 ms per jaxpr equation on this box and stop modelling it.</p>
+
+  <h4>Lowering runs on EVERY persistent-cache hit</h4>
+  <p>The mechanism is one line: <code>compile_or_get_cached</code> takes an already-lowered <code>ir.Module</code>, derives the key from it, and only then does <code>_cache_read</code>. <strong>You cannot look the key up without producing the lowered StableHLO.</strong> One fresh subprocess per row:</p>
+  <div class="scroll"><table class="dense">
+    <tr><th>model</th><th>run</th><th class="num">eager build</th><th class="num">trace</th><th class="num">LOWER</th><th class="num">compile / read</th><th class="num">wall</th><th class="num">lower % of t+l+c</th></tr>
+    <tr><td>solver C</td><td>cold</td><td class="num">3.17</td><td class="num">1.15</td><td class="num"><strong>0.302</strong></td><td class="num">2.947</td><td class="num">8.56</td><td class="num">6.9%</td></tr>
+    <tr><td>solver C</td><td>hit ×3</td><td class="num">2.09</td><td class="num">0.99–1.17</td><td class="num"><strong>0.329–0.333</strong></td><td class="num">0.31–0.34</td><td class="num">4.81–5.11</td><td class="num"><strong>18.1–19.9%</strong></td></tr>
+    <tr><td>solver B</td><td>cold</td><td class="num">22.15</td><td class="num">0.78</td><td class="num"><strong>0.265</strong></td><td class="num">5.356</td><td class="num">30.08</td><td class="num">4.1%</td></tr>
+    <tr><td>solver B</td><td>hit ×2</td><td class="num">10.1–10.3</td><td class="num">0.94–1.08</td><td class="num"><strong>0.322–0.323</strong></td><td class="num">0.53–0.62</td><td class="num">13.76–14.13</td><td class="num"><strong>15.9–18.1%</strong></td></tr>
+    <tr><td>solver A</td><td>cold</td><td class="num">16.14</td><td class="num">2.23</td><td class="num"><strong>0.544</strong></td><td class="num">10.762</td><td class="num">30.81</td><td class="num">4.0%</td></tr>
+    <tr><td>solver A</td><td>hit ×3</td><td class="num">5.70–6.37</td><td class="num">2.36–3.48</td><td class="num"><strong>0.612–0.749</strong></td><td class="num">1.21–1.28</td><td class="num">11.17–12.62</td><td class="num"><strong>11.4–15.8%</strong></td></tr>
+  </table></div>
+  <p><strong>Lowering does not get cheaper on a hit — it gets three to four times more important</strong>, from 4–9% of the compile pipeline to 11–20%, because everything downstream vanished. Computing the key itself is negligible (0.019 / 0.028 / 0.068 s = ~6.5% of lowering, of which strip-debuginfo is 5.3%). There is nothing to optimise there.</p>
+
+  <div class="box dead">
+    <span class="lab">Refuted web claim</span>
+    deepwiki (<code>jax-ml/jax</code>) answered: <em>"Lowering does not run on every cache hit; if a persistent cache hit occurs, the cached executable is retrieved directly, bypassing the lowering and compilation stages."</em> That is wrong for the persistent cache in 0.10.2, per the table above and <code>jax/_src/compiler.py:387-445</code>. It is right for the <em>in-memory</em> <code>_cpp_pjit</code> cache — a different cache, keyed on the Python callable, which is exactly what a cold subprocess does not have.
+  </div>
+
+  <h4>THE LEVER at this stage: <code>jax.export</code> removes trace AND lowering, 14–20×</h4>
+  <p>The JAX docs state it plainly: <em>"Only the tracing and the lowering are saved."</em> Prior work here verified the first half of the shape-polymorphism claim, found it false, and threw <code>jax.export</code> out entirely. The second half is worth 14–20× on real code. Alternated arms in one process, <code>jax.clear_caches()</code> + <code>gc.collect()</code> between every arm, round 0 discarded:</p>
+  <div class="scroll"><table class="dense">
+    <tr><th>model</th><th class="num">direct trace</th><th class="num">direct lower</th><th class="num">direct t+l</th><th class="num">export trace</th><th class="num">export lower</th><th class="num">export t+l</th><th class="num">speedup</th></tr>
+    <tr><td>solver C</td><td class="num">1.466</td><td class="num">0.513</td><td class="num"><strong>1.978</strong></td><td class="num">0.005</td><td class="num">0.137</td><td class="num"><strong>0.142</strong></td><td class="num"><strong>13.98×</strong></td></tr>
+    <tr><td>solver B</td><td class="num">2.192</td><td class="num">0.655</td><td class="num"><strong>2.847</strong></td><td class="num">0.005</td><td class="num">0.190</td><td class="num"><strong>0.195</strong></td><td class="num"><strong>14.57×</strong></td></tr>
+    <tr><td>solver A</td><td class="num">5.555</td><td class="num">1.532</td><td class="num"><strong>7.087</strong></td><td class="num">0.006</td><td class="num">0.380</td><td class="num"><strong>0.386</strong></td><td class="num"><strong>18.35×</strong></td></tr>
+  </table></div>
+  <p>And it is free at every other stage — the XLA side is <strong>structurally identical</strong>: post-opt instructions 2266/2266, 4722/4722, 10064/10064; computations 139/139, 225/225, 524/524; kmax 227/227, 411/411, 527/527. Numerical parity <code>max|direct − viaExport|</code> = <strong>0.000e+00</strong> over every float leaf on all three.</p>
+<pre><code><span class="c-k">from</span> jax <span class="c-k">import</span> export
+sds  = jax.tree.map(<span class="c-k">lambda</span> a: jax.ShapeDtypeStruct(a.shape, a.dtype), args)
+exp  = export.export(jax.jit(solve))(*sds)     <span class="c-c"># pay the trace ONCE</span>
+fast = jax.jit(<span class="c-k">lambda</span> *a: exp.call(*a))       <span class="c-c"># every later lowering is ~0.1-0.4 s</span></code></pre>
+  <p><strong>The friction and its fix.</strong> <code>Exported.serialize()</code> raises on any unregistered pytree node and all three v2 models hit it. Registering the types works: a fresh process then replays from a 5,836-byte blob with <code>deserialize 0.003 · trace 0.005 · lower 0.032 · compile 0.044 (cache hit) · run 0.003</code>, output identical to the last bit.</p>
+  <p><strong>Caveats, both measured.</strong> The exported route produces a <em>different</em> cache key (the module carries an inlined <code>call_exported_*</code> private func), so you populate a second entry rather than reusing the first. And <code>export()</code> itself costs one full trace. This is build-once-replay-many, not a free lunch.</p>
+
+
+  <h3 id="s1-key">1.5 · The cache key — eight components, and only one ever moves</h3>
+
+  <p>Read off the real key path (patched <code>compiler._get_cache_key</code>, <code>jax._src.cache_key</code> logger at DEBUG):</p>
+<pre><code>1. computation          4e54e9af69fa16a1
+2. jax_lib version      40d13e87ba3f9c11
+3. backend version      bec7be7a5ae0f390
+4. XLA flags            e3b0c44298fc1c14   <span class="c-c">&lt;- sha256(""), i.e. empty</span>
+5. compile_options      221000c253d0412b
+6. accelerator_config   f126851848843d11
+7. compression          0ea55c28f8014d88   <span class="c-c">&lt;- sha256("zstandard")</span>
+8. custom_hook          e3b0c44298fc1c14
+FULL KEY = jit__lambda-6899181a71829faa...   <span class="c-c"># module sym_name + '-' + 64 hex</span></code></pre>
+  <p>Component 1 is <code>strip-debuginfo</code> → MLIR bytecode → sha256. That strip is doing real work: raw→stripped is <strong>111,742→40,112 B (−64%)</strong> on solver C, 119,615→50,686 (−58%) on solver B, 264,560→112,222 (−58%) on solver A. The exclusion list has exactly <strong>24 entries</strong> — the 15 <code>--xla_dump_*</code> flags, <code>--xla_force_host_platform_device_count</code>, four <code>--xla_tpu_sdc_checker_*</code>, <code>--xla_gpu_cuda_data_dir</code>, <code>--xla_gpu_experimental_autotune_cache_mode</code> — plus a mirrored list zeroing 18 debug fields in the serialized <code>CompileOptions</code>. <strong>Across every arm tested, exactly one component ever moved: <code>computation</code>.</strong></p>
+
+  <h4>The edit taxonomy — what is free and what is a miss</h4>
+  <p><strong>FREE (component-1 digest byte-identical, 18 of 18):</strong> comment or blank line · docstring · rename a local · reformat across line breaks · add <code>jax.named_scope</code> · rename an inner helper · a literal folded by <em>Python</em> (<code>K = 1.0 + 1.0</code>) · dead code · <code>jnp.sum(v)</code> for <code>v.sum()</code> · module-scope <code>print()</code> · a Python <code>if</code> picking the same branch · type annotations and asserts on statics · add-then-remove an op · <code>for</code>-loop → <code>functools.reduce</code> · a module constant moved inside the function · <strong>different numeric input VALUES</strong> · editing a function never called · <code>jax.checkpoint</code> on a never-differentiated function. Plus <code>jax.named_call</code>.</p>
+  <p><strong>MISS (every one):</strong> reorder two independent statements · commute <code>x*2.0</code> → <code>2.0*x</code> · <code>1.0</code> → <code>1.0000001</code> · <code>x*2.0</code> → <code>x+x</code> · add a <code>lax.optimization_barrier</code> · <strong>adding a literal XLA folds away</strong> (<code>+ jnp.float32(0.0)</code>) · shape <code>(4,4)</code>→<code>(4,5)</code> · <code>@jax.jit</code> on an inner helper · <code>jax.debug.print</code> inside the trace · renaming the <em>jitted</em> function.</p>
+  <p>The counter-intuitive one is worth stating separately: <strong>a literal that XLA constant-folds away is not free — it is a guaranteed cache MISS</strong>, because it survives to the StableHLO the key is taken from and is folded afterwards. Two programs with byte-identical <em>optimized</em> HLO can have different keys. No HLO-level proxy can predict cache invalidation.</p>
+
+  <h4>Four corrections to the received cache story, all measured here</h4>
+  <ol>
+    <li><strong><code>_remove_callbacks</code> is DORMANT in a normal run.</strong> The prior report said JAX strips the <code>backend_config</code> of a <code>stablehlo.custom_call</code> whose target ends with <code>"callback"</code>. True of the function, but the function is not reached: <code>cache_key.py:190-191</code> returns the module untouched when <code>ignore_callbacks == NO</code>, and <code>compiler.py:588-592</code> passes <code>NO</code> unless <code>jax_remove_custom_partitioning_ptr_from_cache_key</code> (default <strong>False</strong>) is set — and even then it passes <code>CUSTOM_PARTITIONING</code>, which only strips <code>CustomSPMDPartitioning</code>. The <code>endswith("callback")</code> branch needs <code>IgnoreCallbacks.ALL</code>, reachable only from a multi-process FDO path. <strong>In a default single-process run nothing is ever stripped from any custom call's <code>backend_config</code>.</strong> Restate the FFI rule as: everything in the custom call is hashed verbatim, always.</li>
+    <li><strong><code>jax.debug.print</code> does not make the key process-dependent — it makes the entry unwritable.</strong> Two fresh subprocesses of the same debug-print program produced the <em>same</em> full key. What kills it is the write refusal at <code>compiler.py:807-812</code>: <em>"Not writing persistent cache entry for '…' because it uses host callbacks."</em> That jit misses on every run, forever, and the refusal is silent at default log level. The grep-for-<code>jax.debug.print</code> advice stands; the reason is different. This is <strong>undocumented</strong> on the official persistent-cache page, which lists only the <code>custom_partitioning</code> caveat.</li>
+    <li><strong><code>jax_compilation_cache_max_size</code> without <code>filelock</code> kills the cache LOUDLY, not silently.</strong> <code>lru_cache.py:71-73</code> raises, <code>compiler.py:782</code> catches it and emits a <code>UserWarning</code> on <em>every cache read</em>. And because <code>_cache_initialized = True</code> is set before the constructor runs, <code>_cache</code> stays <code>None</code> for the life of the process. Measured with <code>max_size</code>: 0 hits, 0 misses, 0 entries, both runs. Without: 3 misses / 4 entries, then 3 hits. <code>filelock</code> is not installed here. <code>max_size=0</code> does <em>not</em> "disable caching" as its own help text claims — it hits the filelock error first.</li>
+    <li><strong>The key claims <code>"zstandard"</code> while this box writes zlib.</strong> Component 7 is a hard-coded default that no caller overrides, while <code>compress_executable</code> picks at <em>runtime</em>: zstd → zstandard → <strong>zlib</strong>. Neither zstd module is installed here; verified against the bytes of a cache entry (first 4 bytes <code>789ced98</code>, <code>zlib.decompress</code> succeeds 3,281 → 4,820 B, zstd magic absent). Two machines differing only in whether <code>zstandard</code> is installed compute the <em>same</em> key for <em>incompatibly compressed</em> payloads. If you share a cache dir across a fleet, pin the compressor.</li>
+  </ol>
+
+  <div class="box dead">
+    <span class="lab">The cache is NOT portable across directory paths under default settings</span>
+    Warm a cache in A, <code>shutil.copytree(A, B)</code>, point JAX at B, count <code>cache_hits</code>:
+    <div class="scroll"><table class="dense">
+      <tr><th><code>enable_xla_caches</code></th><th>run</th><th class="num">hits</th><th class="num">writes</th><th class="num">backend compile</th></tr>
+      <tr><td rowspan="3"><code>xla_gpu_per_fusion_autotune_cache_dir</code> <em>(THE DEFAULT)</em></td><td>cold in A</td><td class="num">0</td><td class="num">2</td><td class="num">1.972 s</td></tr>
+      <tr><td>warm in A</td><td class="num">2</td><td class="num">0</td><td class="num">0.043 s</td></tr>
+      <tr><td><strong>same tree, path B</strong></td><td class="num"><strong>0</strong></td><td class="num">2</td><td class="num"><strong>2.854 s</strong></td></tr>
+      <tr><td rowspan="3"><code>'none'</code></td><td>cold in A</td><td class="num">0</td><td class="num">2</td><td class="num">3.753 s</td></tr>
+      <tr><td>warm in A</td><td class="num">2</td><td class="num">0</td><td class="num">0.040 s</td></tr>
+      <tr><td><strong>same tree, path B</strong></td><td class="num"><strong>2</strong></td><td class="num">0</td><td class="num"><strong>0.042 s</strong></td></tr>
+    </table></div>
+    <strong>Mechanism:</strong> <code>compiler.py:278-281</code> sets <code>debug_options.xla_gpu_per_fusion_autotune_cache_dir</code> to an <em>absolute path</em> under your cache dir, and that field is <strong>not</strong> on <code>cache_key.py:248</code>'s exclusion list, so it is serialized into <code>CompileOptions</code> and baked into every key. Hash-level confirmation: default → dir changes key <code>True</code>; <code>'all'</code> → <code>True</code>; <code>'none'</code> → <code>False</code>.<br><br>
+    <strong>Who this bites:</strong> CI restoring a cache into a differently-named workspace; containers with different mounts; <code>~/.cache/jax</code> on machines with different <code>$HOME</code>; anyone who renames the directory. The symptom is a 100% miss rate with a fully populated-looking cache. <strong>Fix:</strong> set <code>jax_persistent_cache_enable_xla_caches='none'</code> and give up the autotune cache in exchange for portability. Note that changing this setting at all invalidates every existing entry.
+    <span class="pill">measured here</span>
+  </div>
+
+  <h3 id="s1-hlo">1.6 · StableHLO → HLO — where <code>chlo</code> explodes, after the key</h3>
+
+  <p>Both a web source and the common mental model say JAX legalizes CHLO to StableHLO before handing the module to XLA. <strong>Measured false here.</strong> <code>jax.jit(jax.lax.lgamma).lower(x).as_text()</code> is, in full, a five-line module whose body is <code>%0 = chlo.lgamma %arg0</code>. The <code>chlo</code> op survives verbatim into <code>compiler_ir('stablehlo')</code>, therefore into cache-key component 1, and XLA expands it during the StableHLO→HLO conversion — <strong>strictly after the key is taken</strong>:</p>
+  <div class="scroll"><table class="dense">
+    <tr><th>jax op</th><th class="num">StableHLO ops</th><th class="num">key bytes</th><th class="num">pre-opt HLO</th><th class="num">post-opt HLO</th></tr>
+    <tr><td><code>chlo.zeta</code></td><td class="num">1</td><td class="num">313</td><td class="num"><strong>211</strong></td><td class="num">202</td></tr>
+    <tr><td><code>chlo.digamma</code></td><td class="num">1</td><td class="num">315</td><td class="num"><strong>121</strong></td><td class="num">127</td></tr>
+    <tr><td><code>chlo.lgamma</code></td><td class="num">1</td><td class="num">314</td><td class="num"><strong>104</strong></td><td class="num">109</td></tr>
+    <tr><td><code>chlo.erf_inv</code></td><td class="num">1</td><td class="num">315</td><td class="num">86</td><td class="num">88</td></tr>
+    <tr><td><code>chlo.next_after</code></td><td class="num">1</td><td class="num">319</td><td class="num">37</td><td class="num">27</td></tr>
+    <tr><td><code>chlo.sinh</code> / <code>atanh</code> / <code>asin</code></td><td class="num">1</td><td class="num">312–313</td><td class="num">20 / 15 / 10</td><td class="num">4 / 4 / 5</td></tr>
+    <tr><td>baseline <code>add</code>, <code>exp</code></td><td class="num">1</td><td class="num">327–386</td><td class="num">1–2</td><td class="num">4–6</td></tr>
+  </table></div>
+  <p>Which primitives take this route: <code>lgamma, digamma, polygamma, zeta, igamma, erf_inv, asin, acos, atan, sinh, cosh, asinh, acosh, atanh, nextafter, square, mulhi, top_k, ragged_dot</code>.</p>
+  <p><strong>Two consequences you must not get wrong.</strong> (1) A StableHLO op count is not a program-size proxy where chlo appears — the pre-opt-HLO / StableHLO-op ratio on the real models ran <strong>0.72× → 1.03× → 0.82×</strong>, not even monotone. Rank arms on <code>runtime_executable().hlo_modules()</code>, not on <code>as_text()</code>. (2) <code>chlo</code> is a compile-cost amplifier hidden behind a one-line diff: swapping <code>jnp.arcsinh(x)</code> for a hand-written <code>log(x + sqrt(x*x+1))</code> changes 1 key op into ~5 while changing the post-key HLO by ~10 instructions <em>in the other direction</em>.</p>
+  <p>For the record: dialects with importable Python bindings in this jaxlib are <code>arith builtin cf chlo func llvm math memref mhlo mpmd nvgpu nvvm scf sdy sparse_tensor stablehlo vector</code>. <strong><code>vhlo</code> has no Python binding</strong> — it exists only as the serialized wire format of <code>jax.export</code> (<code>StableHLO_v1.15.0</code>, calling convention 10). In lowered output, <code>mhlo</code> appears <em>only as module attributes</em>, never as an operation. <strong><code>mhlo</code> operations are dead in this build; <code>chlo</code> operations are not.</strong></p>
+
+  <div class="box lens">
+    <span class="lab">The four IR views are four different artefacts — and one of them costs a compile</span>
+    <div class="scroll"><table class="dense">
+      <tr><th>view</th><th class="num">solver C</th><th class="num">solver B</th><th class="num">solver A</th></tr>
+      <tr><td><code>as_text()</code> bytes</td><td class="num">298,855</td><td class="num">403,077</td><td class="num">939,062</td></tr>
+      <tr><td><code>as_text(debug_info=True)</code> bytes</td><td class="num">694,213 <em>(2.32×)</em></td><td class="num">911,561</td><td class="num">2,123,914</td></tr>
+      <tr><td>bytecode + strip-debuginfo = <strong>the key</strong></td><td class="num"><strong>40,112</strong></td><td class="num"><strong>50,686</strong></td><td class="num"><strong>112,222</strong></td></tr>
+      <tr><td>seconds: <code>as_text()</code></td><td class="num">0.118</td><td class="num">0.089</td><td class="num">0.199</td></tr>
+      <tr><td>seconds: <code>compiler_ir('hlo')</code></td><td class="num"><strong>0.432</strong></td><td class="num"><strong>0.686</strong></td><td class="num"><strong>1.407</strong></td></tr>
+    </table></div>
+    <code>as_text()</code> is byte-identical to <code>as_text('stablehlo')</code>. <code>compiler_ir()</code> <em>is</em> <code>compiler_ir('stablehlo')</code> and returns the same <code>ir.Module</code> object every call. But <code>compiler_ir('hlo')</code> is <strong>not memoised</strong> and is not an accessor — it runs the whole StableHLO→HLO conversion every call, costing twice the entire lowering stage on solver A. <strong>Never put it in a measurement loop.</strong> And <code>as_text()</code> text is 7.5–8.4× larger than the key's bytecode, so if you are diffing modules to reason about cache invalidation, diff <code>cache_key._canonicalize_ir(...)</code>, not text.<br><br>
+    This also resolves an open discrepancy: the in-process before-opt line count ≠ the dumped file's (9412 vs 13128) because <code>mlir.dump_module_to_file</code> calls <code>module_to_string</code> with no explicit flag, falling through to <code>jax_include_debug_info_in_dumps</code> (default <strong>True</strong>), while <code>as_text()</code> hard-passes <code>debug_info=False</code>. The <code>JAX_DUMP_IR_TO</code> file is <strong>sha-identical to <code>as_text(debug_info=True)</code></strong> on all three models.
+    <span class="pill">measured here</span>
+  </div>
+
+  <h3 id="s1-passes">1.7 · The XLA HLO pass pipeline — 30 pipelines, 187 passes, and it is FIXED</h3>
+
+  <p><strong>What happens.</strong> <code>GpuCompiler::RunHloPasses</code> runs the HLO pass pipeline and hands back an optimized <code>HloModule</code>; <code>GpuCompiler::RunBackend</code> turns that into an executable. Both emit a self-timing log line, so you never difference timestamps.</p>
+
+  <p><strong>Do not trust any published pass list.</strong> Dump the one your binary runs. In this build it is <strong>30 top-level pipelines, 12 nested pipelines, 187 distinct pass names, 244 distinct (pipeline, pass) pairs</strong> — and that structure is <em>byte-identical</em> across two very different real programs. The only thing that changes between them is invocation counts (444 stated pass lines on solver A, 351 on solver B), and that difference is entirely fixpoint iterations.</p>
+
+<pre><code>TF_CPP_MIN_LOG_LEVEL=0 \
+TF_CPP_VMODULE=hlo_pass_pipeline=1,gpu_compiler=1,nvptx_compiler=1,compile_module_to_llvm_ir=1 \
+  python prog.py 2&gt; passes.log</code></pre>
+
+  <p>Line numbers <strong>in this build</strong> (they differ from XLA <code>main</code> — do not copy a blog's grep): pipeline entered <code>hlo_pass_pipeline.cc:303</code>; pass begins <code>:181</code>; pass ends with its own duration <code>:176</code>; flag echo <code>:245</code>; both-flags CHECK <code>:254</code>. Stage timers: <code>gpu_compiler.cc:2152</code> (RunHloPasses), <code>:2817</code> (RunBackend), <code>compile_module_to_llvm_ir.cc:256</code>, <code>nvptx_compiler.cc:520</code> (CompileToPtx), <code>:571</code> (PtxToCubin).</p>
+
+  <p>The order, and the boundary: <code>RunHloPasses</code> ends after <code>pre-scheduling-copy-insertion</code>. Exactly <strong>four</strong> pipelines are on the RunBackend side (<code>pre-scheduling-passes</code>, <code>scheduled-gpu-module</code>, <code>post-scheduler-xla-transforms</code>, <code>post-scheduling-passes</code>) and they are cheap: 0.091 s of solver A's 4.407 s RunBackend (2.1%), 0.025 s of solver B's 1.848 s. <strong>Everything you can attack with a pass flag is on the RunHloPasses side.</strong></p>
+
+  <div class="scroll"><table class="dense">
+    <tr><th>top-level pipeline</th><th class="num">solver A ms</th><th class="num">%</th><th class="num">solver B ms</th><th class="num">%</th></tr>
+    <tr><td><strong>fusion</strong></td><td class="num">4860.05</td><td class="num"><strong>62.1%</strong></td><td class="num">2028.42</td><td class="num"><strong>75.5%</strong></td></tr>
+    <tr><td><strong>optimization</strong></td><td class="num">1558.85</td><td class="num"><strong>19.9%</strong></td><td class="num">186.91</td><td class="num"><strong>7.0%</strong></td></tr>
+    <tr><td>pre-scheduling-copy-insertion</td><td class="num">370.23</td><td class="num">4.7%</td><td class="num">71.30</td><td class="num">2.7%</td></tr>
+    <tr><td>hlo normalization</td><td class="num">285.22</td><td class="num">3.6%</td><td class="num">74.52</td><td class="num">2.8%</td></tr>
+    <tr><td>post-layout_assignment</td><td class="num">159.13</td><td class="num">2.0%</td><td class="num">116.20</td><td class="num">4.3%</td></tr>
+    <tr><td>conv_canonicalization</td><td class="num">125.42</td><td class="num">1.6%</td><td class="num">81.94</td><td class="num">3.0%</td></tr>
+    <tr><td>layout assignment</td><td class="num">111.64</td><td class="num">1.4%</td><td class="num">38.88</td><td class="num">1.4%</td></tr>
+    <tr><td>(21 others, each &lt;71 ms)</td><td class="num">—</td><td class="num">2.3%</td><td class="num">—</td><td class="num">1.3%</td></tr>
+  </table></div>
+
+  <p>The <code>fusion</code> pipeline contains only 8 passes — <code>variadic-op-splitter, sort-iota-fusion, priority-fusion, cse, dce, multi_output_fusion, cse, dce</code> — and <strong><code>priority-fusion</code> alone is 4435.01 ms / 1929.71 ms, i.e. 57.4% / 72.2% of all leaf pass time.</strong></p>
+
+  <h4>Nesting — 12 pipelines report as "passes", and naive summing invents time</h4>
+  <p>A nested <code>HloPassPipeline</code> is added to its parent as an ordinary pass, so it prints its own <code>HLO pass: &lt;name&gt; time:</code> line — a number that <em>already contains all of its children</em>.</p>
+  <div class="scroll"><table class="dense">
+    <tr><th></th><th class="num">solver A</th><th class="num">solver B</th></tr>
+    <tr><td>stated pass lines</td><td class="num">444</td><td class="num">351</td></tr>
+    <tr><td>of which are PIPELINES</td><td class="num">12</td><td class="num">12</td></tr>
+    <tr><td>naive sum of every stated ms</td><td class="num">9.148 s</td><td class="num">2.910 s</td></tr>
+    <tr><td>LEAF-only sum</td><td class="num">7.726 s</td><td class="num">2.673 s</td></tr>
+    <tr><td>double-count factor</td><td class="num"><strong>1.184×</strong></td><td class="num"><strong>1.089×</strong></td></tr>
+    <tr><td>naive ÷ RunHloPasses</td><td class="num"><strong>1.015</strong> ← impossible</td><td class="num">0.892</td></tr>
+  </table></div>
+  <p>On solver A the naive sum <em>exceeds the phase it lives in</em>. Almost all the error is one node: <code>simplification</code> states 1161.40 ms of which 1094.77 ms (94.3%) is its children. <strong>Two of the 12 nested names are also LEAF pass names</strong> — <code>fusion-wrapper</code> is a pipeline under <code>post-scheduling-passes</code> <em>and</em> a leaf pass inside <code>autotuner</code>; <code>sanitize-constant-names</code> is a pipeline containing a pass of the same name. <code>--xla_disable_hlo_passes</code> matches by string, so naming either kills all of them at once.</p>
+
+  <h4>Fixpoints: how <code>HloPassFix</code> looks, and what its tail costs</h4>
+  <p><code>HloPassFix&lt;T&gt;</code> re-runs <code>T</code> until nothing changes or <code>kDefaultIterationLimit = 25</code>. When <code>T</code> is a pipeline you get one <code>HLO pass</code> bracket containing N <code>Running HLO pass pipeline</code> announcements; N is the iteration count. Solver A's <code>simplification</code> runs <strong>10</strong> iterations (solver B: 5). Joining the log to a <code>--xla_dump_hlo_pass_re=.*</code> trajectory prices them:</p>
+  <div class="scroll"><table class="dense">
+    <tr><th class="num">iter</th><th class="num">ms</th><th class="num">instr in → out</th><th class="num">Δ</th><th class="num">ms per instruction removed</th></tr>
+    <tr><td class="num">0</td><td class="num">494.1</td><td class="num">9919 → 7284</td><td class="num">−2635</td><td class="num">0.19</td></tr>
+    <tr><td class="num">1</td><td class="num">124.2</td><td class="num">7284 → 5865</td><td class="num">−1419</td><td class="num">0.09</td></tr>
+    <tr><td class="num">2</td><td class="num">72.9</td><td class="num">5865 → 5652</td><td class="num">−213</td><td class="num">0.34</td></tr>
+    <tr><td class="num">3</td><td class="num">54.6</td><td class="num">5652 → 5591</td><td class="num">−61</td><td class="num">0.90</td></tr>
+    <tr><td class="num">4</td><td class="num">52.8</td><td class="num">5591 → 5559</td><td class="num">−32</td><td class="num">1.65</td></tr>
+    <tr><td class="num">5</td><td class="num">63.3</td><td class="num">5559 → 5543</td><td class="num">−16</td><td class="num">3.96</td></tr>
+    <tr><td class="num">6</td><td class="num">69.3</td><td class="num">5543 → 5534</td><td class="num">−9</td><td class="num"><strong>7.70</strong></td></tr>
+    <tr><td class="num">7–8</td><td class="num">133.6</td><td class="num">5534 → 5491</td><td class="num">−43</td><td class="num">3.1</td></tr>
+    <tr><td class="num">9</td><td class="num">96.5</td><td class="num">5491 → 5491</td><td class="num"><strong>0</strong></td><td class="num">—</td></tr>
+  </table></div>
+  <p>Marginal cost degrades <strong>40×</strong>. The last half is <strong>31.2% of the fixpoint for 1.5% of the shrink</strong> on solver A, and 31.1% for 4.3% on solver B — two models, the same 31%. And the final iteration always removes exactly zero: <code>HloPassFix</code> must pay one full no-op pass to prove convergence (96.5 ms = 1.1% of RunHloPasses).</p>
+  <p><strong>You cannot bound it.</strong> An exhaustive sweep of the plugin's flag table for <code>^xla_.*(iteration|fix|pass)</code> returns four fixpoint-related flags and none is a limit; the limit is a constructor argument. Use <code>--xla_unsupported_crash_on_hlo_pass_fix_max_iterations=true</code> as a <strong>detector</strong> — if your program ever hits 25 the compile aborts instead of silently paying. Neither real model comes close. <strong>Do NOT enable <code>--xla_unsupported_crash_on_hlo_pass_noop_change=true</code></strong> — it core-dumps on <code>jax.jit(lambda x: x*2)(jnp.ones(4))</code>. It is a landmine, not a diagnostic.</p>
+  <p><strong>Invisible fixpoints.</strong> XLA also uses <code>HloPassFix&lt;SinglePass&gt;</code> (<code>GpuAlgebraicSimplifier</code>, <code>ReductionSplitter</code>, <code>TreeReductionRewriter</code>, <code>MoveCopyToUsers</code>, …). Those emit <em>one</em> <code>HLO pass algsimp time: X</code> line that already contains an unknown number of internal iterations, with no pipeline marker. Solver A's <code>algsimp</code> 497.71 ms over 23 brackets may each have spun several times; there is no in-log way to see it.</p>
+
+  <h4>Which passes grow the module, and which JAX construct feeds them</h4>
+  <p>Read this as diagnosis, not an attack list. The expansion is reaped <em>before</em> fusion runs.</p>
+  <div class="scroll"><table class="dense">
+    <tr><th>grower</th><th class="num">Δ eth</th><th class="num">Δ solver B</th><th>feeder opcode</th><th class="num">eth rate</th><th>JAX construct</th></tr>
+    <tr><td><strong>priority-fusion</strong></td><td class="num">+26128</td><td class="num">+12273</td><td>(all)</td><td class="num">—</td><td>greedy fusion; makes ~4,616 orphan bodies that <code>dce</code> reaps</td></tr>
+    <tr><td>flatten-call-graph</td><td class="num">+2310</td><td class="num">+540</td><td><code>call</code></td><td class="num">+15.2/call</td><td>nested <code>jax.jit</code>, <code>jit(_where)</code>, <code>jit(clip)</code>, <code>pjit</code></td></tr>
+    <tr><td>dot-strength-reduction</td><td class="num">+1467</td><td class="num">+710</td><td><code>dot</code></td><td class="num">+5.5/dot</td><td><code>vmap(vmap(jvp()))/dot_general</code> on tiny non-contracting dims</td></tr>
+    <tr><td>scatter_expander</td><td class="num">+1280</td><td class="num">+1206</td><td><code>scatter</code></td><td class="num"><strong>+38.8/scatter</strong></td><td><code>x.at[i].set()/.add()</code> — each becomes a <code>while</code> loop</td></tr>
+    <tr><td>reshape-mover</td><td class="num">+860</td><td class="num">+144</td><td>reshape/transpose</td><td class="num">+0.5</td><td>reshapes between elementwise ops</td></tr>
+    <tr><td>layout_normalization</td><td class="num">+575</td><td class="num">+285</td><td>transpose/reshape</td><td class="num">+0.4</td><td>non-default layouts</td></tr>
+    <tr><td>gather_expander</td><td class="num"><strong>+41</strong></td><td class="num"><strong>+0</strong></td><td><code>gather</code></td><td class="num">+0.8</td><td><em>negligible here</em> — on every canonical grower list, does nothing</td></tr>
+    <tr><td><strong>shrinkers</strong></td><td class="num">dce −15672<br>cse −8906<br>algsimp −2812</td><td class="num">dce −8788<br>cse −3803<br>algsimp −1944</td><td colspan="3">—</td></tr>
+  </table></div>
+  <p>Solver A's trajectory: JAX hands over 8,701 instructions → <code>flatten-call-graph</code> 10,228 → <code>call-inliner</code> 9,448 → <code>simplification</code> iter-0 peaks at <strong>12,925</strong> after <code>dot-strength-reduction</code> → <code>cse</code> −3,917 → 7,330 → after 10 fixpoint iterations <strong>5,491</strong> → <code>priority-fusion</code> <strong>31,754</strong> → dce/cse → <code>multi_output_fusion</code> 13,470 → final 11,848. <strong>priority-fusion is handed 5,491 instructions, not the 12,925 peak</strong>, and the whole simplification nest is 15.0% of leaf pass time against fusion's 62.1%. This is why removing scatters is not a lever (see §7).</p>
+
+
+  <h3 id="s1-fusion">1.8 · Fusion and emitter selection — where the seconds actually are</h3>
+
+  <p><strong>The algorithm.</strong> <code>priority-fusion</code> runs once per module and builds a fresh <code>PriorityFusionQueue</code> per fusible computation. Post-order walk sets priorities; <strong>priority = <code>time_unfused − time_fused</code></strong> from <code>CombinedGpuPerformanceModel::EstimateRunTimes</code>. A bit-width-preserving bitcast gets <code>+inf</code> (fused first), a constant gets <code>−inf</code> (fused last in an unfueled epilogue), and anything computing to a negative priority is <em>erased from the queue, not re-inserted</em>. Pop the max, fuse the producer into every consumer, then <strong>re-cost the grown fusion and all of its operands</strong> — invalidating four caches and re-running the cost model on each.</p>
+
+  <p class="thesis">The cost is (candidates) × (cost-model work per candidate), and BOTH factors were measured on this box in the same session at 8,300× different per-merge cost. That is why no static graph quantity predicts it.</p>
+
+  <h4>Regime A — cost lives in the CANDIDATE COUNT</h4>
+  <p>solver&nbsp;A, 10,064 instructions. XLA writes its own ledger to <code>&lt;module&gt;.priority_fusion_dump.txt</code> with three step kinds:</p>
+<pre><code>update_priority     20,261      = 3.68 cost-model evaluations per accepted merge
+fusion               5,503
+producer_ineligible  4,928
+(producer,consumer) PAIRS costed  73,921   = 13.43 per accepted merge
+  mean 3.65 consumers per update, max 70
+priority distribution (us_unfused - us_fused):
+  min -196.2   p10 -1.373   median 0.000   p90 +1.011   max +2.397
+  29.5% of updates are NEGATIVE -> producer dropped from the queue, never merged</code></pre>
+  <p>The largest of the 244 <code>PriorityFusion::Run</code> invocations is <em>not</em> <code>main</code> — it is the while-body region <code>region_13.226.clone</code>, 5,400 merges in 2.670 s = <strong>0.494 ms/merge</strong>. Decile means, ms: <code>0.323 0.290 0.430 0.446 0.452 0.934 0.838 0.851 0.344 0.037</code> — <strong>not monotone</strong>, and the last decile is the cheapest. Top 1% of gaps is 9.3% of the time; top 10% is 39.6%.</p>
+
+  <h4>Regime B — cost lives entirely in ONE candidate</h4>
+  <p>A minor-axis reduce-and-broadcast diamond (<code>x - mean(x,-1,keepdims)</code> then <code>/ (sqrt(mean(c*c,-1,keepdims))+eps)</code>) at 2²⁰ f32 elements, rank 8, shape <code>[4,4,4,4,4,4,4,64]</code>:</p>
+<pre><code>whole module: 25 optimized instructions, ONE fusion, fused body kmax = 17, 217 lines of PTX
+leaf pass total 3.104 s  ->  priority-fusion 3.090 s = 99.5%
+process dump: {'update_priority': 1, 'fusion': 1, 'producer_ineligible': 1}</code></pre>
+  <p><strong>One merge. One cost-model evaluation. 3.09 seconds.</strong> Per-merge cost 3,090 ms here against 0.372 ms on solver A — a factor of <strong>8,300× between two real compiles on the same box</strong>, with no graph quantity distinguishing them. The rank ladder at fixed element count and fixed 17-instruction body: rank 4 → 0.751 s, rank 6 → 1.219 s, rank 8 → 9.239 s, rank 10 → <strong>45.199 s</strong> (rank 4→10 = 60×), with PTX lines <em>decreasing</em> 669 → 217 → 153. <code>--xla_gpu_autotune_level=0</code> does not touch it (57.6 s at rank 10) and disabling <code>fusion-block-level-rewriter</code> does not either.</p>
+
+  <div class="box why">
+    <span class="lab">Stop predicting; read the dump. The ratio tells you the regime.</span>
+    <code>update_priority ÷ fusion</code> ≈ <strong>3–4 with thousands of merges</strong> = candidate-count regime — attack instruction count and graph shape. <code>≈ 1 with a handful of merges and seconds on the clock</code> = per-candidate regime — attack the SHAPE that put the region on the Triton path. There is no formula; there is a ledger XLA already writes for you.
+  </div>
+
+  <h4>What actually blocks a fusion — the rejection histogram, in check order</h4>
+  <p><code>PriorityFusion::CanFuse</code> runs checks in a fixed order: producer-is-root → <code>!IsFusible(producer)</code> → <code>!IsFusible(consumer)</code> → <code>CanFuseTriton</code> → consumer-is-bitcast → scatter rules → <em>both sides contain a reduce with ratio ≥ 16</em> → <em>reduce-fusion epilogue would go kLoop</em> → <code>FusionFitsInBudget</code> → <code>ProducerConsumerMergedTooLarge</code> → in-place ops. All 4,928 rejections on the real model:</p>
+  <div class="scroll"><table class="dense">
+    <tr><th class="num">count</th><th>XLA's own reason string</th></tr>
+    <tr><td class="num">1535</td><td>the producer is not fusible</td></tr>
+    <tr><td class="num">1277</td><td>fusion into output of a reduce fusion would create a loop fusion</td></tr>
+    <tr><td class="num">1141</td><td>the consumer is not fusible</td></tr>
+    <tr><td class="num">555</td><td>not fusing because there are only bitcast users</td></tr>
+    <tr><td class="num">206</td><td>do not fuse into the in-place operand of scatter</td></tr>
+    <tr><td class="num">153</td><td>do not fuse into the output of scatter</td></tr>
+    <tr><td class="num">53</td><td>both the producer and the consumer contain a reduce</td></tr>
+    <tr><td class="num">8</td><td>(three misc in-place / no-users reasons)</td></tr>
+    <tr><td class="num"><strong>0</strong></td><td><strong>from any of the three budgets</strong></td></tr>
+  </table></div>
+  <p><code>IsFusible</code> is an <strong>allowlist</strong>: elementwise, bit-width-preserving bitcast, and <code>{fusion(non-kCustom), copy, iota, constant, reduce, broadcast, concatenate, dynamic-slice, dynamic-update-slice, gather, pad, reduce-window, reshape, reverse, scatter, slice, transpose}</code>. Everything else falls to <code>default: return false</code> and is a hard wall — <strong><code>optimization-barrier</code>, <code>while</code>, <code>call</code>, <code>custom-call</code>, <code>sort</code>, side-effecting ops, and any <code>kCustom</code> fusion</strong>. <strong>Reduce and transpose are NOT walls</strong>; they are on the allowlist, and what stops a reduce is the epilogue rule or the ratio-≥16 rule.</p>
+  <p>So on real scientific code the fusion boundaries are set by <strong>(a)</strong> opaque ops your program contains (<code>while</code>, custom-calls to cuSOLVER/cuBLAS, <code>optimization_barrier</code>), <strong>(b)</strong> the reduce-epilogue rule, <strong>(c)</strong> scatter — i.e. by <code>x.at[i].set()</code> and by every <code>lax.while_loop</code>/linear solve. Not by any width or memory cap. To <em>split</em> a fusion, <code>lax.optimization_barrier</code> is the reliable tool (its opcode is not on the allowlist). To <em>join</em> one, removing a scatter or a ratio-≥16 reduce from the middle is what moves it.</p>
+
+  <h4>The four budgets — two of the three you were told about are effectively unreachable</h4>
+  <div class="scroll"><table class="dense">
+    <tr><th>budget</th><th class="num">value</th><th>verdict on this build</th></tr>
+    <tr><td>operands + output buffers per fusion</td><td class="num">96</td><td><strong>REAL, triggerable, irrelevant.</strong> Binds at 94 distinct array operands (K=93 → 1 fusion, 0 rejections; K=94 → 2 fusions, 5 rejections). The <em>widest fusion on the real model has 46 operands</em> and it fired 0 times in 4,928 rejections. Not flag-configurable. A ptxas guard, not a compile-time lever.</td></tr>
+    <tr><td>unnested reductions per fusion</td><td class="num">8</td><td><strong>string present, NEVER triggered.</strong> Every reduce is rejected earlier by the epilogue rule; column reductions need major ≥ 32 to be "unnested", which forces ratio ≥ 16, which fires check 7 first.</td></tr>
+    <tr><td>shared memory per block</td><td class="num">49,152 B</td><td><strong>string present, NEVER triggered.</strong> Read straight out of <code>gpu_device_info</code> in the dump (optin 101,376; warp 32; 76 cores). Six f64 [64,64] transposes that should have exceeded it were folded by <code>algsimp</code> into one.</td></tr>
+    <tr><td><strong><code>GpuHloCostAnalysis::kMaxIRSize</code></strong></td><td class="num"><strong>10,000</strong></td><td><strong>THE budget that actually bounds fusion SIZE — and it was not on the canonical list.</strong> <code>IrSize(producer) × replication + IrSize(consumer) &gt; 10000</code>, where replication is how many times the consumer emits that parameter. A 300-op producer read by K concatenate branches: K=10 → 0 rejections; K=40 → <strong>1,068</strong>; K=80 → <strong>1,443</strong>. This is the real ceiling when a value is re-read. <code>static constexpr</code>, not flag-configurable.</td></tr>
+  </table></div>
+  <p><strong>Do not restructure a program to respect a budget.</strong> Restructure it to change which <em>ops</em> are in the region, or which <em>shape</em> it has.</p>
+
+  <h4>Emitters — XLA picks on SHAPE, and the HLO label lies</h4>
+  <p>Two functions decide "emitter" and only one matters. <code>PriorityFusion::ChooseKind</code> writes the <code>kind=</code> you see in optimized HLO, mapping <code>kTriton, kCustomFusion, kCuDnn, kSort → kCustom</code> and <code>kConcatenate, kReduction, kTranspose, kScatter → kInput</code>. Its own source comment: <em>"This shouldn't matter but some passes downstream still query these instead of fusion analysis."</em> <strong>So <code>kInput</code> does NOT mean "reduction" and <code>kCustom</code> does NOT mean "Triton".</strong> The one that runs at codegen is <code>HloFusionAnalysis::GetEmitterFusionKind</code>, on the FINAL fusion, checking backend_config first, then a real reduction hero, then a tiled transpose hero, then <em>more than one root → kLoop (this beats scatter/sort/concat)</em>, then scatter/sort/concatenate, else kLoop.</p>
+  <p>The shape rules underneath (warp = 32 here): a <strong>row reduction</strong> gets the reduction emitter iff <code>R ≥ 32</code> or <code>32 % R == 0</code>, i.e. R ∈ {1,2,4,8,16,32,…} — <strong>R = 12 falls off the cliff</strong>. A <strong>column reduction</strong> gets it unless major &lt; 32, or major &lt; 64 and minor &lt; 32, or major &lt; 128 and minor &lt; 8, or major &lt; 256 and minor &lt; 3. A <strong>tiled transpose</strong> needs both swapped dims ≥ 16, or both ≥ 8 with product ≥ 8192.</p>
+  <p>Verified on the <em>emitted PTX</em> — reduction and transpose emitters stage through shared memory, the loop emitter never does. 2²⁰ elements everywhere, one probe per process:</p>
+  <div class="scroll"><table class="dense">
+    <tr><th>probe</th><th>shape</th><th>HLO kind</th><th>backend cfg</th><th class="num">.shared</th><th class="num">bar.sync</th><th class="num">shfl</th><th class="num">compile s</th></tr>
+    <tr><td>elementwise</td><td>[1024,1024]</td><td>kLoop</td><td>—</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0.226</td></tr>
+    <tr><td>row R=1024</td><td>[1024,1024]</td><td>kCustom</td><td><code>__triton</code></td><td class="num">14</td><td class="num">9</td><td class="num">128</td><td class="num">1.093</td></tr>
+    <tr><td>row R=8</td><td>[131072,8]</td><td>kInput</td><td>—</td><td class="num">0</td><td class="num">0</td><td class="num">2</td><td class="num">0.454</td></tr>
+    <tr><td><strong>row R=12</strong></td><td>[87381,12]</td><td>kLoop</td><td>—</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0.354 <em>← cliff</em></td></tr>
+    <tr><td>row R=16</td><td>[65536,16]</td><td>kCustom</td><td><code>__triton</code></td><td class="num">6</td><td class="num">1</td><td class="num">8</td><td class="num">0.763</td></tr>
+    <tr><td>col M=1024</td><td>[1024,1024]</td><td>kCustom</td><td><code>__triton</code></td><td class="num">5</td><td class="num">3</td><td class="num">24</td><td class="num">0.757</td></tr>
+    <tr><td><strong>col major=16</strong></td><td>[16,65536]</td><td>kLoop</td><td>—</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0.361 <em>← cliff</em></td></tr>
+    <tr><td>transpose</td><td>[1024,1024]</td><td>kInput</td><td>—</td><td class="num">17</td><td class="num">1</td><td class="num">0</td><td class="num">0.490</td></tr>
+    <tr><td><strong>transpose</strong></td><td>[65536,4,4]</td><td>kLoop</td><td>—</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0.402 <em>← cliff</em></td></tr>
+    <tr><td>diamond r=6</td><td>[4,4,4,4,4,256]</td><td>kCustom</td><td><code>__triton</code></td><td class="num">3</td><td class="num">1</td><td class="num">24</td><td class="num">0.789</td></tr>
+    <tr><td><strong>gemm f64</strong></td><td>[64,64]</td><td>kCustom</td><td><code>__triton_nested_gemm</code></td><td class="num">145</td><td class="num">3</td><td class="num">0</td><td class="num"><strong>4.892</strong></td></tr>
+  </table></div>
+  <p><strong>A single f64 64×64 matmul costs 4.892 s of compile</strong> — 22× a 1024×1024 elementwise kernel — because the GEMM rewriter puts it on <code>__triton_nested_gemm_fusion</code> and it is autotuned. <strong>The compile-expensive emitters are the Triton ones.</strong> The two routes onto Triton here are (a) any <code>dot</code> the GEMM rewriter accepts, (b) minor-axis reduce-and-broadcast diamonds. The cheap ones are <code>kLoop</code> and the LLVM reduction/transpose emitters. Moving a reduction from R=12 to R=16 changes the emitter; that is a shape decision and there is no flag for it.</p>
+
+  <h4>The two dumps: use the text proto, not the visualization</h4>
+  <p><code>--xla_dump_to=DIR --xla_dump_hlo_pass_re=priority-fusion</code> writes <code>&lt;module&gt;.priority_fusion_dump.txt</code> — every candidate, merge and rejection with its exact reason, machine-readable, <strong>6.7 MB for the entire solver A module</strong>. <code>--xla_dump_fusion_visualization</code> renders a radius-4 subgraph per decision to DOT and embeds it: on solver A it produced <strong>one 198 MB HTML for a single computation</strong> and had not finished after 5 minutes. Both are gated on <code>DumpingEnabledForHloPass</code>. Enabling the dump changes timing (rank-8 diamond 7.9 → 12.5 s): read structure from the dump run, seconds from a clean run.</p>
+
+  <div class="box lens">
+    <span class="lab">Correction: the rank pathology is the Triton path, not CoalescingAnalysis indexing maps</span>
+    A prior report attributed the rank pathology to <code>GpuPerformanceModel::EstimateRunTimeForFusion → CoalescingAnalysis::Create → ComputeThreadIdToInputIndexing</code>, "an <code>IndexingMap</code> whose <code>DimVar</code> count is the rank". Reading the code, that cannot be the route: <code>CoalescingAnalysis::Create</code> is declared with <code>use_heuristic = true</code> by default and <em>both</em> call sites in <code>gpu_performance_model.cc</code> pass neither the context nor the flag — so <code>ComputeThreadIdToInputIndexing</code> is never entered from the priority-fusion cost model. The heuristic is opcode pattern-matching. The maintainers' own cost-model discussion (<a href="https://github.com/openxla/xla/discussions/10065">openxla/xla&nbsp;#10065</a>) says the same: read coalescing uses heuristic pattern matching, and indexing analysis is still being developed.<br><br>
+    What <em>is</em> localised by measurement: every arm on the rank ladder is a generic <code>__triton</code> fusion with a 17-instruction body, and 99.5% of leaf pass time at rank 8 is priority-fusion on a 25-instruction module with one merge. Inside <code>CanFuse</code>, a Triton-bound fusion goes down <code>CanFuseTriton → GetTiledRunTimeDataCached → TryFindBestTilingForFusion</code> — <code>SymbolicTileAnalysis</code> plus a tiling <em>search</em> whose space is a product over the fusion's dimensions, consistent with the binary's own strings (<code>"Generating configs from search space: "</code>, <code>"TryFindTopKBestTilingsForFusion found "</code>). That the search consumes the 3.09 s is <span class="pill q">not corroborated</span> — see §8. What is certain and useful: <strong>the rank cost is inside priority-fusion, on a 25-instruction module, in a single candidate evaluation, so "reduce the graph" is aimed at the wrong thing.</strong>
+  </div>
+
+  <div class="box lens">
+  <span class="lab">Measuring emitted code — and why a zero must be attributable</span>
+  <code>scopex.codegen_size(dump_dir)</code>, re-run on both backends. Each backend reports
+  <strong>zero bytes for the other's artifact kind</strong>, which is exactly the shape of a silent
+  instrument failure — so the call returns <code>kinds</code> alongside the totals:
+  <div class="scroll"><table class="dense">
+    <tr><th>program</th><th>backend</th><th class="num">ptx bytes</th><th class="num">obj bytes</th><th>kinds seen</th></tr>
+    <tr><td rowspan="2">unrolled sample</td><td>CPU</td><td class="num">0</td><td class="num">29,952</td><td><code>{'.o': 23, '.ll': 46}</code></td></tr>
+    <tr><td>GPU</td><td class="num">63,369</td><td class="num">0</td><td><code>{'.ll': 12, '.ptx': 6}</code></td></tr>
+    <tr><td rowspan="2">width fan-out</td><td>CPU</td><td class="num">0</td><td class="num">64,976</td><td><code>{'.ll': 2, '.o': 1}</code></td></tr>
+    <tr><td>GPU</td><td class="num">263,129</td><td class="num">0</td><td><code>{'.ll': 264, '.ptx': 132}</code></td></tr>
+  </table></div>
+  An earlier version counted only <code>.ll</code>/<code>.o</code> and therefore reported
+  <strong>0 bytes of generated code on CUDA</strong> — a plausible-looking number that was simply
+  the wrong file extension. <code>kinds</code> is what makes today's zero readable as "this backend
+  does not emit that" rather than "there was nothing to see".
+</div>
+
+<h3 id="s1-backend">1.9 · RunBackend — LLVM per kernel, then ptxas as a subprocess</h3>
+
+  <p><strong>One LLVM module per kernel.</strong> XLA does <em>not</em> build one big module and split it. Measured on both real models:</p>
+  <div class="scroll"><table class="dense">
+    <tr><th>model</th><th class="num">.ir-with-opt.ll</th><th class="num">with exactly 1 <code>define ptx_kernel</code></th><th class="num">with 0</th><th class="num">.ptx</th><th class="num"><code>.visible .entry</code></th></tr>
+    <tr><td>solver C</td><td class="num">71</td><td class="num">70</td><td class="num">1</td><td class="num">71</td><td class="num">70</td></tr>
+    <tr><td>solver A</td><td class="num">167</td><td class="num">166</td><td class="num">1</td><td class="num">167</td><td class="num">166</td></tr>
+  </table></div>
+  <p>The zero-kernel module is the constants module. Consequence: <strong><code>--xla_gpu_enable_llvm_module_compilation_parallelism</code> is inert</strong> — its default in this build is already <code>False</code> yet the 71/167-way split happens anyway, and it is deprecated in <code>xla/xla.proto</code>. <code>llvm::SplitModule</code> is the CPU backend's mechanism, not GPU's.</p>
+
+  <h4>ptxas is a SUBPROCESS here</h4>
+  <p>"ptxas is linked in-process as <code>libnvptxcompiler</code>" is <strong>false for the <code>jax[cuda13]</code> 0.10.2 pip wheel</strong>. XLA says so at <code>assemble_compilation_provider.cc:143</code> (<em>"LibNvPtxCompiler is not supported (disabled during compilation)"</em>) and prints a literal ptxas argv; <code>strace -f -e trace=execve</code> on one solver A process records <strong>415 execve of ptxas, max 12 concurrent</strong>; and no <code>libnvptxcompiler.so</code> is in the wheel — <code>--xla_gpu_enable_libnvptxcompiler=true</code> <strong>aborts at flag parse</strong>. One nvlink execve fires with <code>--version</code> only: selected and never used.</p>
+  <p><strong>To redirect ptxas, set <code>CUDA_ROOT</code>, not the XLA flag.</strong> <code>jax/_src/compiler.py:222-223</code> unconditionally overwrites <code>xla_gpu_cuda_data_dir</code>, and XLA's search order puts the wheel's binary first — which is why a <code>$PATH</code> shim records <strong>zero</strong> invocations while the compile takes 10.84 s.</p>
+
+
+  <div class="box gotcha">
+    <span class="lab">The fixed cost: ~24.6 ms of every ~30 ms ptxas invocation is process startup</span>
+    Offline, on this box: <code>/bin/true</code> 1.87 ms · <code>ptxas --version</code> (48 MB binary, no compilation) 9.34 ms · ptxas on a PTX file with one <strong>empty</strong> kernel <strong>24.6 ms</strong> · ptxas on a median real XLA kernel 29.9 ms. <strong>82% of a median invocation is fixed cost</strong> — fork+exec is only 1.9 ms, loading the 48 MB binary ~7.5 ms, and the remaining ~15 ms is ptxas's own target/pipeline initialisation, paid fresh 167 times per compile.<br><br>
+    For solver A: 167 × 24.6 ms = <strong>4.1 s of the 15.5 s of ptxas CPU is pure process startup</strong> — ~26% of the ptxas bill and ~10% of the whole compile's CPU-seconds. The share scales with <em>kernel count</em>, not program size: a program XLA shatters into many small kernels pays ~24.6 ms × N with almost no assembly work to show for it. <strong>This is exactly what an in-process <code>libnvptxcompiler</code> would eliminate, and it is compiled out of this wheel.</strong> A jaxlib built with <code>--@local_config_cuda//cuda:enable_libnvptxcompiler=true</code> is the real lever here; the size of that win is <span class="pill q">not corroborated</span> (§8).
+    <span class="pill">measured here</span>
+  </div>
+
+  <h4>The codegen split: ptxas is ~2.4× the whole LLVM pipeline that feeds it</h4>
+  <p>Cumulative seconds from <code>TF_CPP_VMODULE=nvptx_compiler=3</code>, <strong>filtered to our module</strong> (unfiltered, the cumulative counter sweeps in every eager-dispatch module):</p>
+  <div class="scroll"><table class="dense">
+    <tr><th>arm</th><th class="num">CompileToPtx (LLVM→PTX)</th><th class="num">PtxToCubin (ptxas)</th><th class="num">ratio</th></tr>
+    <tr><td>solver C base (5 runs)</td><td class="num">3.24–4.29</td><td class="num">7.19–9.83</td><td class="num"><strong>2.2–2.4</strong></td></tr>
+    <tr><td>solver C <code>parallelism=1</code></td><td class="num">1.95–2.45</td><td class="num">4.87–6.23</td><td class="num">2.5</td></tr>
+    <tr><td>solver A base (4 runs)</td><td class="num">10.5–16.2</td><td class="num">26.9–40.0</td><td class="num"><strong>2.4–2.6</strong></td></tr>
+    <tr><td>solver A <code>parallelism=1</code></td><td class="num">7.94–9.82</td><td class="num">23.4–27.9</td><td class="num">2.8–2.9</td></tr>
+  </table></div>
+  <p>These are summed <strong>thread</strong>-seconds, not wall — under the default parallel arm they correctly exceed the wall clock, and they inflate further under contention. For a wall-honest ptxas number take the serial offline measurement: 70 solver C kernels one at a time = <strong>3.83 s</strong>, median 43.9 ms/kernel, min 32.7, max 208.8. Against a 5.26 s base <code>backend_compile</code>, that is the size of the pot parallelism is dividing. Cross-checked against <code>/proc</code> child CPU: the <code>PTX-&gt;CUBIN</code> TraceMe reads 16.42 s where <code>cutime+cstime</code> reads 13.75 s (ratio 1.19; the gap is the parent thread's tempfile write / cubin read / wait around each spawn). Either is defensible; they bracket the truth.</p>
+  <p>And unlike HLO instruction count predicting compile time (ρ = −0.011), <strong>PTX size does predict ptxas time</strong>: Spearman(ptxas_time, PTX instructions) = <strong>+0.796</strong>, SASS +0.820, registers +0.753 over n=70. But the intercept dominates — 36.6 ms for a 6-instruction kernel against 208.8 ms for a 1,154-instruction one.</p>
+
+  <h4>Kernel dedup: 90→70 and 243→166, and none of it is HLO-level CSE</h4>
+  <div class="scroll"><table class="dense">
+    <tr><th></th><th class="num">solver C</th><th class="num">solver A</th></tr>
+    <tr><td>A: <code>fusion</code> HLO instructions</td><td class="num">90 (65 kLoop / 18 kInput / 7 kCustom)</td><td class="num">243 (128 / 97 / 18)</td></tr>
+    <tr><td>B: distinct fused computations called</td><td class="num">90</td><td class="num">243</td></tr>
+    <tr><td>C: distinct <code>.visible .entry</code> in PTX</td><td class="num"><strong>70</strong></td><td class="num"><strong>166</strong></td></tr>
+    <tr><td>dedup A/C</td><td class="num"><strong>1.286</strong></td><td class="num"><strong>1.464</strong></td></tr>
+  </table></div>
+  <p><strong>A/B = 1.000 on both.</strong> There is no HLO-level CSE of fused computations at all — 100% of the saving is at codegen, via <code>KernelReuseCache</code> keyed on <code>GetComputationFingerprint</code>. So chasing HLO-level duplicate elimination is chasing a factor that is already zero. The mapping is validated, not assumed: all 70/166 PTX entries are named after a fusion instruction (0 orphans), and of the 20 solver C fusions with no entry, 18 have a structurally identical sibling that owns one and 2 are dynamic-update-slice fusions that become thunks, not kernels.</p>
+  <p><strong>Two traps.</strong> (i) XLA's key is <em>stricter</em> than an opcode sequence — an opcode-only fingerprint collapses 90 → 64 and 243 → 156, "finding" more dedup than XLA takes, because the real key also carries shapes, layouts, launch dimensions and buffer aliasing. (ii) The HLO metadata field <code>deduplicated_name</code> is <strong>not</strong> the dedup factor: solver C's 90 fusions carry only 12 distinct values, so counting that over-reports dedup by 5.8×.</p>
+
+  <h4>One HLO op = 1 PTX instruction = 112 SASS instructions</h4>
+  <p>Two probes whose emitted kernels are <em>identical 21-instruction PTX modules</em> differing in exactly one opcode:</p>
+  <div class="scroll"><table class="dense">
+    <tr><th>PTX opcode</th><th class="num">PTX instrs</th><th class="num">SASS instrs</th></tr>
+    <tr><td><code>add.rn.f64</code></td><td class="num">21</td><td class="num">24</td></tr>
+    <tr><td><code>div.rn.f64</code></td><td class="num">21</td><td class="num"><strong>136</strong></td></tr>
+    <tr><td><code>div.full.f32</code></td><td class="num">21</td><td class="num">32</td></tr>
+  </table></div>
+  <p><strong>One f64 divide = 1 PTX instruction → +112 SASS instructions</strong>; the identical HLO <code>divide</code> in f32 costs +8. A 14× dtype swing on the same op. sm_89 has no f64 divide instruction; ptxas synthesises it from 2 <code>MUFU</code>, 17 <code>DFMA</code> + 5 <code>DMUL</code> (Newton–Raphson), then 30 <code>IMAD</code>, 18 <code>LOP3</code>, 8 <code>ISETP</code>, 7 <code>FSETP</code>, 11 <code>BRA</code> for exponent scaling and special cases.</p>
+  <p>Over real code the full chain, both models: solver C 1,726 HLO → 6,242 LLVM no-opt → 6,449 LLVM −O3 → 5,818 PTX → 7,648 SASS; solver A 7,956 → 19,347 → 23,279 → 21,317 → 31,664. Aggregate SASS/HLO is a tidy 4.0–4.4 on both — and <strong>per kernel it runs 0.6 to 53.3 (solver C) and 0.6 to 58.0 (solver A), a ~100× spread.</strong> Note also that <strong>LLVM's −O3 pipeline does not shrink the IR — it grows it</strong> (×1.03 on solver C, ×1.20 on solver A).</p>
+
+  <h3 id="s1-load">1.10 · Load and launch — and the cache that is not yours</h3>
+
+  <p><code>cuModuleLoadFatBinary</code> receives a <strong>pure sm_89 cubin</strong> — <code>cuobjdump -ptx</code> on it returns nothing. There is no PTX for the driver to JIT, so <strong>the CUDA driver's PTX→SASS cache (<code>~/.nv/ComputeCache</code>) is never touched by an XLA compile.</strong> Five independent confirmations, including a <em>positive control</em>: a warp-lang module load in the identical setup produced 3 files / 230,010 B where JAX produced 0, so the zeros are a real negative and not a silently-ignored env var.</p>
+  <p><strong>Therefore <code>CUDA_CACHE_DISABLE=1</code> is a no-op for a JAX compile benchmark</strong> — there is no warm-cache confound to remove. The 334× cold/warm effect this project measured belongs to Warp/NVRTC, which hands the driver PTX (§7, Mode G). The shared cache stays a live hazard for <em>mixed</em> jax+warp benchmarks: it sits here at 1,648 files / 1.07 GB, on its cap and evicting.</p>
+
+  <h3 id="s1-cpu">1.11 · Where the CPU backend diverges — a different machine, not a slower one</h3>
+
+  <p>The headline is that <strong>the XLA CPU backend compiles the same real f64 solver in 0.59–0.72× the GPU's time</strong>, and does it by a completely different mechanism. Interleaved rounds (both backends back-to-back inside each round, order alternated, median of per-round ratios, 5 rounds):</p>
+  <div class="scroll"><table class="dense">
+    <tr><th>model</th><th class="num">opt instr (gpu)</th><th class="num">cpu/gpu compile</th><th>the 5 per-round ratios</th></tr>
+    <tr><td>solver C</td><td class="num">2,266</td><td class="num"><strong>0.667×</strong></td><td>0.567, 0.618, 0.667, 0.686, 0.697</td></tr>
+    <tr><td>solver B</td><td class="num">4,722</td><td class="num"><strong>0.590×</strong></td><td>0.792, 0.590, 0.564, 0.522, 0.601</td></tr>
+    <tr><td>solver A</td><td class="num">10,064</td><td class="num"><strong>0.715×</strong></td><td>0.607, 0.809, 0.684, 0.737, 0.715</td></tr>
+  </table></div>
+
+  <p><strong>100% of that advantage is in the HLO-pass half; the codegen halves cost the same within ±8%:</strong></p>
+  <div class="scroll"><table class="dense">
+    <tr><th>model</th><th class="num">RunHloPasses gpu→cpu</th><th class="num">RunBackend gpu→cpu</th><th class="num">Σ per-kernel LLVM (cpu)</th></tr>
+    <tr><td>solver C</td><td class="num">1.40 → 0.75 s (<strong>0.539×</strong>)</td><td class="num">1.36 → 1.28 s (0.941×)</td><td class="num">8.85 s</td></tr>
+    <tr><td>solver B</td><td class="num">4.31 → 1.66 s (<strong>0.385×</strong>)</td><td class="num">2.14 → 2.30 s (1.075×)</td><td class="num">20.60 s</td></tr>
+    <tr><td>solver A</td><td class="num">6.86 → 3.80 s (<strong>0.554×</strong>)</td><td class="num">5.91 → 5.80 s (0.981×)</td><td class="num">50.04 s</td></tr>
+  </table></div>
+
+  <p><strong>The CPU is codegen-bound; the GPU is pass-bound.</strong> Classifier <code>RunBackend ÷ (RunHloPasses + RunBackend)</code> = 0.63 / 0.58 / 0.60 on CPU against 0.49 / 0.33 / 0.46 on GPU, and 0.93 vs 0.25 on a 256-op elementwise chain. On CPU this never dropped below 0.5 in anything measured. Note the Σ-of-per-kernel figures exceed <code>RunBackend</code> wall by 6.9× / 9.0× / 8.6× — the ORC JIT thread pool is doing real work, splitting at <strong>LLVM-function granularity</strong>, which is why one huge kernel function is one indivisible unit and gets no parallelism at all.</p>
+
+  <h4>What is architecturally different</h4>
+  <ul>
+    <li><strong>No <code>priority-fusion</code>.</strong> Zero occurrences in any CPU pass log. CPU runs a pass literally named <code>fusion</code> = <code>CpuInstructionFusion</code>, a classic <code>InstructionFusion</code> subclass with <strong>no cost-model re-costing</strong> — none of the O(merges) × O(re-cost) loop. Its limits are hard constants, and one exists <em>explicitly to bound compile time</em>: <code>kMaxReductionsInFusion = 5</code>, with the source comment <em>"Fusing too many reductions together can lead to a giant LLVM modules after loop unrolling… to avoid excessive compilation times."</em> The CPU backend does automatically what the GPU blueprint tells you to do by hand.</li>
+    <li><strong>No autotuner.</strong> Three checks agree: no <code>LlvmKernelAutotuner</code>/<code>CpuCodegenBackend</code>/<code>CpuProfiler</code> symbol in <code>libjax_common.so</code>; no pass named <code>autotuner</code> in any CPU pass log (against 226 invocations and 4.12 s on GPU for the same program); and <code>--xla_gpu_autotune_level=0</code> parses on CPU and is a measured no-op. <strong>The autotune-bound regime cannot exist on CPU.</strong></li>
+    <li><strong>189 GPU passes vs 93 CPU passes, 72 shared.</strong> GPU-only (so disabling them on CPU is a provable no-op): <code>autotuner</code>, <code>priority-fusion</code>, <code>cublas-gemm-rewriter</code>, <code>multi_output_fusion</code>, <code>remat-pipeline</code>, <code>triton-softmax-rewriter</code>, <code>layout_normalization</code>, … CPU-only: <code>fusion</code>, <code>post_scatter_expansion_simplification</code>, <code>while-loop-invariant-code-motion</code>, <code>cpu-parallel-task-assigner</code>, <code>gemv-rewriter</code>, <code>dot-library-rewriter</code>, <code>triangular_solve_expander</code>, <code>conditional-to-select</code>, …</li>
+    <li><strong>There is no single pass to attack on CPU.</strong> The biggest is <code>fusion</code> at 22.8% of the pass half, which is itself ~40% of compile — so the best possible pass-level win is ~9%. (GPU, same program: <code>priority-fusion</code> 64.6%.)</li>
+  </ul>
+
+  <div class="box dead">
+    <span class="lab">Refuted: "StableHLO is backend-independent, so the pre-backend half is shared"</span>
+    False for any JAX program containing linear algebra, and the divergence starts one stage earlier than everyone assumes. The <strong>jaxpr is byte-identical</strong> across backends on all three models (sha match, 153,963 / 195,832 / 429,444 chars). The <strong>StableHLO is not</strong>: solver C lowers <code>3× cusolver_getrf_ffi</code> + <code>6× stablehlo.triangular_solve</code> on GPU and <code>3× lapack_dgetrf_ffi</code> + <code>6× lapack_dtrsm_ffi</code> + <strong>zero</strong> <code>triangular_solve</code> on CPU. That is <code>mlir.py:960 _platform_specific_lowerings</code> doing its job.<br><br>
+    Timing consequence: tracing is backend-independent to within noise (cpu/gpu 1.062 / 1.092 / 0.936), but <code>jaxpr_to_mlir_module_duration</code> is <strong>1.332 / 1.767 / 1.162</strong>. On solver B that is 0.494 → 0.873 s of pure lowering every cold compile.<br><br>
+    <strong>Practical rule:</strong> <code>jax.make_jaxpr(f)(x)</code> is portable and cacheable across backends. <code>jax.jit(f).lower(x)</code> is not — it is already a per-platform artifact, which is also why the persistent cache keys on platform.
+    <span class="pill">measured here</span>
+  </div>
+
+  <div class="box gotcha">
+    <span class="lab">The CPU cost law is the LARGEST SINGLE KERNEL, and it turns over hard</span>
+    <span class="pill s">synthetic, labelled</span> From a chain sweep, CPU compile against <code>kmax</code> (largest fused computation): kmax 312 → 0.47 s · 728 → 0.91 s · 1560 → 1.71 s · 3224 → <strong>7.28 s</strong>. Roughly linear to ~1,500 ops in one kernel, then ×4.26 for the next doubling. GPU over the same sweep grows about linearly in <em>total</em> fused instructions (~2.4 ms per instruction), because priority-fusion caps kmax at ~1,173 by itself.<br><br>
+    <strong>On GPU you watch total fused work; on CPU you watch <code>max(per-computation instruction count)</code>.</strong> Over ~1,500 you are in the superlinear region and, worse, that kernel cannot use the JIT thread pool at all. Stage split on the extreme: chain-256 on GPU is RunHloPasses 8.38 s / RunBackend 2.78 s with priority-fusion 6.51 s (78%); on CPU it is RunHloPasses 0.28 s / RunBackend 3.48 s of which <strong>ONE LLVM module is 2.80 s ≈ 80% of the compile</strong>. On CPU the entire HLO pass pipeline is 7%.
+  </div>
+
+  <p><strong>The one genuinely new CPU recommendation.</strong> If your program is dot-heavy (MLP / transformer / anything the GPU autotunes), <code>JAX_PLATFORMS=cpu</code> compiles it <strong>~60× faster</strong> — <span class="pill s">synthetic</span> <code>dot-8</code>: 61 optimized instructions and 24 custom-calls at 6.58 s on GPU against 35 instructions, 0 custom-calls, <strong>0.11 s</strong> on CPU (0.016×, measured twice). That makes CPU a real shape-and-shard debugging loop even for a GPU target — with the caveat above that the lowered module is <em>not the same program</em>, so it validates shapes and structure, not the GPU's fusion decisions.</p>
+
+  <hr class="rule">
+
+
+<div class="footer">Part of the <a href="blueprint_scopex.html">scopex blueprint</a>.
+Flags that touch these stages are in <a href="FLAGS.html">Flags</a>; the parsers that read them are
+in <a href="HARDENING.html">Hardening</a>.</div>
+</main></body></html>

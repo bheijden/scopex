@@ -160,6 +160,30 @@ upgrade. They fail loudly.</div>
     scopex for XLA source. Read it to decide whether to believe a claim.</p></div>
     <div class="to">investigations &rarr;</div></a>
 
+  <a class="doc" href="METHOD.html">
+    <div><p class="q">How do I know this measurement is real?</p>
+    <p class="d">Which regime you are in, how to run a comparison that cannot lie to you, and the
+    eight ways this project fooled itself anyway — the ceiling mistaken for a lever, the proxy that
+    anti-correlates, the statistic that improves with your campaign. Read it before believing a
+    result, including one of your own.</p></div>
+    <div class="to">method &rarr;</div></a>
+
+  <a class="doc" href="PIPELINE.html">
+    <div><p class="q">What actually happens between my jaxpr and a kernel?</p>
+    <p class="d">The machine, stage by stage: eager dispatch, tracing, lowering, the cache key, the
+    chlo expansion that happens <em>after</em> it, 30 pass pipelines, fusion and emitter selection,
+    one LLVM module per kernel, then ptxas. What each stage costs, what sees it, and where the CPU
+    backend is a different machine rather than a slower one.</p></div>
+    <div class="to">pipeline &rarr;</div></a>
+
+  <a class="doc" href="FLAGS.html">
+    <div><p class="q">Is there a flag for this?</p>
+    <p class="d">Usually no, and that is the useful part. Every <code>XLA_FLAGS</code> and JAX config
+    option set and observed here, with the measurement — including the group that actually pays
+    (the persistent cache), the four traps where a flag fails <em>silently</em>, and the 107 names
+    that circulate widely and do not exist in this build.</p></div>
+    <div class="to">flags &rarr;</div></a>
+
   <a class="doc" href="HARDENING.html">
     <div><p class="q">I am changing a parser, or I just upgraded jax.</p>
     <p class="d">Every place scopex reads text a compiler printed, what produces that text, what

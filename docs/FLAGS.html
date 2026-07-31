@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flags — scopex</title>
+<style>
+  :root{
+    --bg:#fbfaf7; --ink:#181b1f; --muted:#5c6470; --rule:#e4e0d7;
+    --accent:#0f766e; --accent-soft:#d7eee9; --accent-ink:#0b544e;
+    --warn:#b45309; --warn-soft:#fbe7cf; --warn-ink:#7c3a06;
+    --bad:#b42318; --bad-soft:#fbe3e0; --bad-ink:#7a1c14;
+    --lens:#5b4bb7; --lens-soft:#e7e3fb; --lens-ink:#3f3486;
+    --code-bg:#0e1116; --code-ink:#e6edf3;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --maxw:900px;
+  }
+  *{box-sizing:border-box} html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{display:grid;grid-template-columns:270px minmax(0,1fr);max-width:1240px;margin:0 auto}
+  nav.toc{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;padding:34px 22px 60px;border-right:1px solid var(--rule);font-size:13.5px}
+  nav.toc .kicker{font:600 11px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+  nav.toc h1{font-size:15px;margin:0 0 6px;line-height:1.3}
+  nav.toc .wip{font:600 10px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--warn-ink);background:var(--warn-soft);padding:3px 7px;border-radius:5px;display:inline-block;margin-bottom:16px}
+  nav.toc a{display:block;color:var(--muted);text-decoration:none;padding:4px 0 4px 12px;border-left:2px solid transparent}
+  nav.toc a:hover{color:var(--ink)}
+  main{padding:46px 52px 140px;min-width:0}
+  .doc{max-width:var(--maxw)}
+  .kicker{font:600 12px/1.4 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  h1.title{font-size:34px;line-height:1.15;margin:6px 0 10px;letter-spacing:-.01em}
+  .lede{font-size:18px;color:var(--muted);margin:0 0 14px;max-width:66ch}
+  .meta{font:12.5px/1.5 var(--mono);color:var(--muted);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:10px 0;margin:22px 0 34px}
+  h2{font-size:24px;margin:52px 0 8px;letter-spacing:-.01em;scroll-margin-top:20px}
+  h2 .num{font:600 14px/1 var(--mono);color:var(--accent);display:block;margin-bottom:8px}
+  h3{font-size:17.5px;margin:28px 0 6px}
+  h4{font-size:13.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:22px 0 4px}
+  p{margin:12px 0;color:#23282e} strong{font-weight:650}
+  code{font:13px/1.5 var(--mono);background:#efece4;padding:1.5px 5px;border-radius:4px;color:#3a3f46}
+  pre{background:var(--code-bg);color:var(--code-ink);padding:16px 18px;border-radius:10px;overflow-x:auto;margin:14px 0;font:12.5px/1.6 var(--mono)}
+  pre code{background:none;padding:0;color:inherit}
+  pre .c{color:#8b98a5} pre .k{color:#ff7b72} pre .s{color:#a5d6ff} pre .f{color:#d2a8ff} pre .g{color:#7ee787}
+  .box{border-left:3px solid;border-radius:0 8px 8px 0;padding:13px 18px;margin:18px 0;font-size:15px}
+  .box .lab{font:600 11px/1.4 var(--mono);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:5px}
+  .why{background:var(--accent-soft);border-color:var(--accent)} .why .lab{color:var(--accent-ink)}
+  .keep{background:var(--accent-soft);border-color:var(--accent)} .keep .lab{color:var(--accent-ink)}
+  .gotcha{background:var(--warn-soft);border-color:var(--warn)} .gotcha .lab{color:var(--warn-ink)}
+  .anti{background:var(--bad-soft);border-color:var(--bad)} .anti .lab{color:var(--bad-ink)}
+  .lens{background:var(--lens-soft);border-color:var(--lens)} .lens .lab{color:var(--lens-ink)}
+  .directive{border:1px solid var(--warn);background:linear-gradient(180deg,#fdf5ea,#fbfaf7);border-radius:14px;padding:4px 30px 24px;margin:26px 0;box-shadow:0 3px 22px rgba(180,83,9,.07)}
+  .directive .tag{display:inline-block;font:700 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:#fff;background:var(--warn);padding:7px 12px;border-radius:0 0 7px 7px}
+  .thesis{font-size:17px;font-weight:600;color:var(--accent-ink);margin:16px 0;line-height:1.5;border-left:3px solid var(--accent);padding-left:16px}
+  table{border-collapse:collapse;width:100%;margin:16px 0;font-size:14px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+  th{font:600 11px/1.4 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  td code{font-size:12px}
+  ul,ol{margin:12px 0;padding-left:22px} li{margin:7px 0}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+  .cols h4{margin-top:0}
+  .col-bad h4{color:var(--bad-ink)} .col-good h4{color:var(--accent-ink)}
+  @media (max-width:1000px){.wrap{grid-template-columns:1fr} nav.toc{display:none} main{padding:30px 22px 100px} .cols{grid-template-columns:1fr}}
+  .footer{margin-top:70px;padding-top:18px;border-top:1px solid var(--rule);font-size:13px;color:var(--muted)}
+  .pill{display:inline-block;font:600 10.5px/1 var(--mono);padding:4px 8px;border-radius:20px;margin-right:6px}
+  .pill.keep{background:var(--accent-soft);color:var(--accent-ink)} .pill.new{background:var(--lens-soft);color:var(--lens-ink)} .pill.cut{background:var(--bad-soft);color:var(--bad-ink)}
+  /* evidence marks: s = read at the source, x = refuted with the killing measurement, q = not corroborated */
+  .pill.s{background:var(--accent-soft);color:var(--accent-ink)} .pill.x{background:var(--bad-soft);color:var(--bad-ink)} .pill.q{background:var(--warn-soft);color:var(--warn-ink)}
+  .scroll{overflow-x:auto;margin:18px 0} .scroll table{margin:0}
+  table.dense{font-size:13px} table.dense th,table.dense td{padding:7px 10px} table.dense td code{font-size:12px}
+  .rule{border:0;border-top:1px solid var(--rule);margin:46px 0}
+</style>
+<style>
+  main{padding:46px 52px 140px;max-width:1060px;margin:0 auto}
+  .backlink{font:600 12px/1.4 var(--mono);letter-spacing:.12em;text-transform:uppercase;
+             color:var(--accent);text-decoration:none;display:inline-block;margin-bottom:18px}
+</style>
+<body><main>
+<a class="backlink" href="index.html">&larr; scopex docs</a>
+
+<div class="kicker">scopex</div>
+<h1 class="title">Flags</h1>
+<p class="lede">Every XLA flag and JAX config option this project set and observed, with what it
+measured and what it costs. Most of them are nulls — that is the finding, and it is why the list is
+worth having: it is a list of things you do not need to try.</p>
+<div class="meta">
+  Measured on jax / jaxlib <strong>0.10.2</strong>, <code>jax[cuda13]</code>, sm_89, CUDA 13.0, 20 cores.
+  309 of 416 probed <code>--xla_*</code> names parse in this build.<br>
+  <strong>Read the four traps first</strong> — three of them fail <em>silently</em>, which is worse
+  than failing. Then §A, which is the highest-leverage group here by a wide margin.
+</div>
+
+<div class="box gotcha">
+  <span class="lab">Before you set anything: a flag is not a lever until you know your regime</span>
+  The same flag measured <strong>41× on one program and 1.00× on another</strong>. Classify first
+  with <code>scopex.regime(scopex.record(fn, *args))</code>, and confirm with
+  <code>scopex.custom_calls(compiled)</code> — a <strong>zero</strong> count of
+  <code>gemm_fusion_dot</code> / <code>triton_softmax</code> makes the matching flag a
+  <em>provable</em> no-op, confirmed by a byte-identical optimized module. Presence is necessary,
+  not sufficient.<br><br>
+  And <strong>XLA_FLAGS is read once, when the backend is constructed.</strong> Setting it after
+  your first compile is a silent no-op — <code>scopex.dump()</code> and
+  <code>scopex.backend_initialized()</code> both raise rather than let that happen quietly.
+</div>
+
+<p>309 of 416 probed <code>--xla_*</code> names parse in this build. Every entry below was either set and observed, or its absence was confirmed by the flag parser aborting. Read the four traps first — three of them fail <em>silently</em>, which is worse than failing.</p>
+
+  <h3>The four traps on pass-disabling flags</h3>
+
+  <div class="box gotcha">
+    <span class="lab">Trap 1 — an unknown PASS NAME is silently ignored, and the log echoes your typo</span>
+    <div class="scroll"><table class="dense">
+      <tr><th>you write</th><th>result</th></tr>
+      <tr><td><code>this-pass-does-not-exist</code></td><td>rc 0, module <strong>byte-identical</strong> (163 instr / 21537 bytes), 189 passes still ran</td></tr>
+      <tr><td><code>priority_fusion</code> (underscore; the real name has a <strong>dash</strong>)</td><td>rc 0, <code>priority-fusion</code> <strong>still ran</strong>, module byte-identical</td></tr>
+      <tr><td><code>dce, algsimp</code> (<strong>one space</strong> after the comma)</td><td><code>dce</code> disabled, <strong><code>algsimp</code> still ran</strong> — the list splits on <code>,</code> and <code>" algsimp"</code> never matches</td></tr>
+      <tr><td><code>" dce"</code> (leading space)</td><td><strong>nothing disabled at all</strong>, 93/93 passes ran, the VLOG echo is empty</td></tr>
+      <tr><td><code>DCE</code> (wrong case)</td><td>nothing disabled, 93/93 passes ran</td></tr>
+    </table></div>
+    The VLOG line <code>Passes disabled by --xla_disable_hlo_passes: X</code> <strong>echoes whatever you typed</strong>, existing or not. It is not confirmation. The only real confirmations are (a) the pass name vanishing from the <code>HLO pass: &lt;name&gt; time:</code> lines, (b) a moved structural panel <em>with <code>autotune_level=0</code> pinned</em>, or (c) an <code>Out of fuel for</code> line.<br><br>
+    <strong>The asymmetry that will save you:</strong> an unknown <code>--xla_*</code> <strong>flag</strong> is FATAL — <code>F… parse_flags_from_env.cc:234] Unknown flag in XLA_FLAGS</code>. An unknown <strong>pass name inside a valid flag</strong> is silent. So <code>--xla_disable_hlo_passes=&lt;garbage&gt;</code> always "works". This bites both directions: <code>instruction_fusion</code> and <code>fusion_merger</code> both parse cleanly and neither pass exists.
+    <span class="pill">measured here</span>
+  </div>
+
+  <div class="box gotcha">
+    <span class="lab">Trap 2 — a PIPELINE name matches too, and only TOP-LEVEL ones tell you</span>
+    <code>GetEnabledPasses</code> first checks the <em>pipeline's own name</em> and returns <code>{}</code>.<br>
+    · <code>=fusion</code> (a <strong>top-level</strong> pipeline) prints <code>Disable the full pass: fusion</code>, kills <code>priority-fusion</code> and <code>multi_output_fusion</code>, takes a synthetic module 163 → <strong>402</strong> instructions and 15 → 107 computations, and compiles <strong>1.79× SLOWER</strong>.<br>
+    · <code>=simplification</code> (a <strong>nested</strong> pipeline) prints <strong>NO confirmation line at all</strong>, because the parent's filter removes it and the sub-pipeline is never entered — while still changing the module (189 → 178 distinct passes). <strong>You get zero feedback for the nested case.</strong><br><br>
+    <strong>The one that will actually break your program:</strong> <code>post-scheduling-passes → remat-pipeline</code> contains <code>rematerialization</code> + <code>stream-attribute-annotator</code> + <strong><code>cse_barrier_expander</code></strong>, which is <code>OptimizationBarrierExpander</code>. So <code>--xla_disable_hlo_passes=remat-pipeline</code> gives <code>JaxRuntimeError: INTERNAL: Unsupported instruction opcode: opt-barrier</code> on any program using <code>lax.optimization_barrier</code> — and one real program's entry module carried <strong>168</strong> of them. Disable the child pass <code>rematerialization</code> by name; that is rc 0 with a byte-identical module and is <strong>your NULL ARM</strong>.
+    <span class="pill">measured here</span>
+  </div>
+
+  <div class="box gotcha">
+    <span class="lab">Trap 3 — both flags together ABORT; and <code>disable_all</code> does not work on GPU</span>
+    <code>--xla_disable_hlo_passes</code> + <code>--xla_enable_hlo_passes_only</code> together trip <code>CHECK(disabled.empty() || enabled.empty())</code>: rc <strong>−6 (SIGABRT)</strong>, <code>F… hlo_pass_pipeline.cc:254</code>. Both echo lines print first, so a log showing both is a log of a process that died.<br><br>
+    <code>--xla_disable_all_hlo_passes=true</code> takes <em>precedence</em> and short-circuits before that CHECK (so combining them gives rc 1, not −6) — and it fails with <code>INTERNAL: Unsupported instruction opcode: iota</code> inside <code>apply_primitive</code>, i.e. on an <strong>eager op before your jit ever runs</strong>. Some passes are legalization, not optimization. <code>--xla_enable_hlo_passes_only</code> is unusable for the same reason: <code>=dce</code> → 1 pass → <code>iota</code> failure; <code>=simplification</code> → a pipeline name <em>clears</em> the filter and enables everything inside it (20 passes) → still fails. Corroborated upstream by <a href="https://github.com/openxla/xla/issues/12850">openxla/xla&nbsp;#12850</a>, closed with no answer.
+    <span class="pill">measured here</span>
+  </div>
+
+  <div class="box gotcha">
+    <span class="lab">Trap 4 — a <code>strings</code> hit in the binary does NOT prove a flag exists</span>
+    <code>--xla_gpu_enable_dot_strength_reduction</code>, <code>--xla_gpu_simplify_gathers</code> and <code>--xla_gpu_simplify_scatters</code> all appear in the plugin's string table and all three die with <code>Unknown flag in XLA_FLAGS</code> — they are <code>reserved</code> names in <code>xla.proto</code>, and reserved names are still compiled in. <strong>Always set the flag in a subprocess and see whether XLA dies.</strong> <span class="pill x">this bit us — a prior campaign used all three as measurement arms; those arms aborted the process rather than producing null results</span><br><br>
+    And <code>XLA_FLAGS=--help</code> is <em>not</em> the flag list: tsl prints the whole usage inside one absl <code>LOG(FATAL)</code>, which truncates at 15,000 bytes — the dump stops mid-word after <strong>78 of the 309 flags that exist</strong>. Enumerate with <code>strings -n 8 &lt;plugin&gt;.so</code>, then confirm each one parses.
+  </div>
+
+  <h3>A · Persistent cache — the highest-leverage group in this document</h3>
+  <div class="scroll"><table class="dense">
+    <tr><th>knob</th><th>default</th><th>what it does · effect · caution</th></tr>
+    <tr><td><code>jax_compilation_cache_dir</code></td><td><code>None</code></td><td>The master switch; nothing else turns the persistent cache on. Warm hits measured on three f64 solvers: 8.56 → 4.81–5.11 s wall, 30.08 → 13.76–14.13, and 30.81 → 11.17–12.62. <strong>It also silently enables the per-fusion autotune cache</strong> (below) and bakes its own absolute path into every cache key.</td></tr>
+    <tr><td><code>jax_persistent_cache_min_compile_time_secs</code></td><td><strong>1.0</strong></td><td><strong>Set this to 0.</strong> The largest measured saving in the project: <strong>0.51×</strong> of per-edit compile on a 10k-instruction solver (36.45 → 18.68 s; 0 hits → 347 hits / 17 misses) and 5.5× on a smaller program's second run. At the default, every sub-second module — i.e. the entire eager-construction tail — is never written and is re-paid on every process start, forever. <strong>The trap is self-concealing:</strong> the cache directory still fills with <code>xla_gpu_per_fusion_autotune_cache_dir/*.textproto</code>, so <code>ls</code> says it works. Check the <code>cache_misses</code> event (which counts <em>writes</em>) instead. Not an <code>XLA_FLAGS</code> value, so not a cache-key input.</td></tr>
+    <tr><td><code>jax_persistent_cache_enable_xla_caches</code></td><td><code>'xla_gpu_per_fusion_autotune_cache_dir'</code></td><td>Default already gives you the per-fusion autotune cache — <strong>0.08×</strong> on an edit recompile of an autotune-bound MLP. <code>'all'</code> adds <code>xla_gpu_kernel_cache_file</code> <em>and</em> force-sets <code>xla_gpu_enable_llvm_module_compilation_parallelism=True</code>; measured, the kernel cache gives <strong>~4% kernel reuse</strong> on the friendliest possible edit and <strong>+7% cold</strong>. <code>'none'</code> is what makes the cache <strong>portable across directory paths</strong> (§1.5). Changing this value at all invalidates every existing entry.</td></tr>
+    <tr><td><code>jax_compilation_cache_max_size</code></td><td><code>-1</code></td><td><strong>Leave it.</strong> Any other value needs <code>filelock</code> (not installed here) and, without it, kills the cache for the whole process with one <code>UserWarning</code> per read: 0 hits / 0 misses / 0 entries on both runs, against 3 misses / 4 entries then 3 hits without. <code>max_size=0</code> does <em>not</em> "disable caching" as its help text claims — it hits the filelock error first.</td></tr>
+    <tr><td><code>jax_persistent_cache_min_entry_size_bytes</code></td><td><code>0</code></td><td>Documentation-only in this OSS build: <code>default_min_cache_entry_size()</code> returns 0, so the documented "override" never fires and 0 behaves as −1.</td></tr>
+    <tr><td><code>jax_compilation_cache_include_metadata_in_key</code></td><td><code>False</code></td><td><strong>Leave False.</strong> True skips the <code>strip-debuginfo</code> pass, so file names and line numbers enter the key and the entire 18-item free-edit list turns off — a bare comment becomes a full recompile.</td></tr>
+    <tr><td><code>jax_compilation_cache_check_contents</code></td><td><code>False</code></td><td>Debug only. <code>VerificationCache.get</code> returns <code>None</code> the first time a key is seen in a process, forcing a recompile, then compares against disk. Warm run: <strong>0 hits, 2 re-writes</strong> — it destroys the cache benefit by construction. Its <code>CacheVerificationError</code> is re-raised regardless of <code>raise_persistent_cache_errors</code>.</td></tr>
+    <tr><td><code>jax_raise_persistent_cache_errors</code></td><td><code>False</code></td><td>Genuinely useful in CI: turns the silent-cache-death mode into a crash. Without it a broken cache costs you every compile and prints one warning you will not read.</td></tr>
+    <tr><td><code>jax_enable_compilation_cache</code></td><td><code>True</code></td><td>Master off switch; emits <code>task_disabled_cache</code>. Use <code>JAX_ENABLE_COMPILATION_CACHE=false</code> in any timing harness, or <code>assert not jax.config.jax_compilation_cache_dir</code>.</td></tr>
+    <tr><td><em>host callbacks</em></td><td>—</td><td>Not a knob — a landmine. A single <code>jax.debug.print</code>, <code>io_callback</code> or <code>breakpoint()</code> anywhere in the module means the entry is <strong>never written</strong> (<code>compiler.py:809-813</code>), forever, silently. <strong>Undocumented</strong> on the official persistent-cache page, which lists only the <code>custom_partitioning</code> caveat.</td></tr>
+  </table></div>
+
+  <h3>B · JAX config — diagnostics and dumping</h3>
+  <div class="scroll"><table class="dense">
+    <tr><th>knob</th><th>default</th><th>what it does · caution</th></tr>
+    <tr><td><code>jax_log_compiles</code></td><td><code>False</code></td><td>Four WARNING lines per cold module. Same intervals as <code>jax.monitoring</code>; prefer the listener. Trace line uses the bare name, lower/compile use <code>jit(name)</code>.</td></tr>
+    <tr><td><code>jax_explain_cache_misses</code></td><td><code>False</code></td><td>Explains <em>tracing</em>-cache misses with a diff against the closest previous key. Blind to non-user filenames and to persistent-cache misses.</td></tr>
+    <tr><td><code>jax_no_tracing</code> / <code>jax_no_execution</code></td><td><code>False</code></td><td>Turn a retrace / an execution into a hard error. The best CI guards available.</td></tr>
+    <tr><td><code>JAX_DUMP_IR_TO</code> + <code>JAX_DUMP_IR_MODES</code></td><td><code>''</code> / <code>stablehlo</code></td><td>Modes: <code>stablehlo</code>, <code>jaxpr</code>, <code>jaxpr_html</code>, <code>eqn_count_pprof</code>. <strong>An unrecognised mode dumps nothing and warns nothing.</strong> The <code>.mlir</code> file is sha-identical to <code>as_text(debug_info=True)</code>, <em>not</em> to <code>as_text()</code>. Set the env vars <em>before</em> importing jax — these are <code>string_flag</code>s, so <code>getattr(jax.config,'jax_dump_ir_to')</code> raises <code>AttributeError</code> and falsely reports them absent.</td></tr>
+    <tr><td><code>jax_include_debug_info_in_dumps</code></td><td><strong><code>True</code></strong></td><td>Why the dump is 2.26–2.32× the bytes of <code>as_text()</code>. Off shrinks dumps 47–52%; affects the dump only.</td></tr>
+    <tr><td><code>jax_logging_level</code></td><td>current jax logger level</td><td>Sets jax/jaxlib logger levels <em>and</em> the C++ absl level via <code>absl_set_min_log_level</code> — a supported alternative to <code>TF_CPP_MIN_LOG_LEVEL</code>. Its handler is <strong>additive</strong>: with an existing root handler you get every line twice (331 vs 162). An invalid value aborts at import.</td></tr>
+    <tr><td><code>jax_debug_log_modules</code></td><td><code>''</code></td><td><strong>A SILENT NO-OP by default.</strong> <code>_DebugHandlerFilter.filter</code> returns <code>logging.getLogger('jax').level &gt; logging.DEBUG</code>, and that logger is <code>NOTSET</code> (0), so <code>0 &gt; 10</code> is False and every record is dropped. Measured: 0 stderr lines. Fix — raise the jax logger <em>first</em> (<code>jax_logging_level='WARNING'</code> or <code>logging.getLogger('jax').setLevel(logging.WARNING)</code>), then set the modules: 12 lines.</td></tr>
+    <tr><td><code>jax_captured_constants_warn_bytes</code></td><td><code>2_000_000_000</code></td><td>Warns when lowering captures a large constant. The 2 GB default means you normally never see it. <a href="https://github.com/jax-ml/jax/issues/30642">jax&nbsp;#30642</a> reports the companion <code>report_frames=-1</code> path itself crashing.</td></tr>
+  </table></div>
+
+  <h3>C · JAX config — behaviour, and what it costs</h3>
+  <div class="scroll"><table class="dense">
+    <tr><th>knob</th><th>default</th><th>effect · caution</th></tr>
+    <tr><td><code>jax_enable_x64</code></td><td><code>False</code></td><td><strong>Not a persistent-cache-key input.</strong> x32 vs x64 is 0.54–0.88× compile and 0.18× warm, but it <em>changes the answer</em> (max delta 1.2e-1 on a converged profile). Pinning your dtypes explicitly buys the freedom to flip it in a dev session for free. It costs by silently promoting unannotated literals, not by the flag itself.</td></tr>
+    <tr><td><code>jax_default_matmul_precision</code></td><td><code>None</code></td><td>19 accepted values here (6 legacy + 13 <code>DotAlgorithmPreset</code>). <code>include_in_jit_key</code>, so it always retraces. It moves the cache key <strong>only when the program has a 32-bit dot</strong> — and it moves it through the <code>computation</code> component (the StableHLO <code>precision_config</code>), not <code>compile_options</code>.</td></tr>
+    <tr><td><code>eager_constant_folding</code> / <code>jax.ensure_compile_time_eval</code></td><td><code>False</code></td><td><strong>A 1.5–3.0× REGRESSION on this GPU.</strong> See §1.3. Hoist to host <code>math</code>/<code>numpy</code> instead: 0.21×.</td></tr>
+    <tr><td><code>jax_use_direct_linearize</code></td><td><strong><code>True</code></strong></td><td>No win to collect — only a warning: turning it <em>off</em> cost 1.37× on second-order tracing (hessian 1293 → 1767 ms) at a byte-identical 6,125-equation jaxpr.</td></tr>
+    <tr><td><code>jax_softmax_custom_jvp</code></td><td><code>False</code></td><td>Cuts a grad jaxpr <strong>1322 → 882 equations (−33%)</strong> while making tracing 19% slower. It changes your program — gate on parity (value · grad · vmap(grad) · HVP). Only relevant if your graph has a softmax.</td></tr>
+    <tr><td><code>jax_use_simplified_jaxpr_constants</code> · <code>jax_embedded_constants_max_bytes</code></td><td><code>False</code> · 32</td><td><span class="pill q">quarantined</span> — the documented constant-hoisting behaviour did not reproduce here (an 80 KB closed-over array stayed embedded at both settings, module 161 KB → 321 KB, wrong direction). See §8.</td></tr>
+    <tr><td><code>jax_debug_nans</code> / <code>jax_debug_infs</code></td><td><code>False</code></td><td><strong>Not an HLO change</strong> (instruction count 9 vs 9) — a host-side <code>np.any(np.isnan(...))</code> over every inexact output <em>after</em> execution, i.e. a forced device-to-host sync and a numpy scan per output per call, plus a de-optimized re-run on a hit. It also <strong>silently disables donation</strong>.</td></tr>
+    <tr><td><code>jax_traceback_filtering</code></td><td><code>auto</code></td><td>Counter-intuitive, measured on a real nested-jit shape error: <code>quiet_remove_frames</code> 4 frames / 1111 chars · <code>auto</code> 4 / 1066 · <code>off</code> 30 / 6985 · <code>tracebackhide</code> 30 / 7015 · <strong><code>remove_frames</code> 34 / 8197</strong> — the LONGEST, longer than <code>off</code>, because it chains the unfiltered traceback as <code>__cause__</code>.</td></tr>
+    <tr><td><code>jax_disable_jit</code></td><td><code>False</code></td><td><strong>Does NOT skip compilation.</strong> All three stage events still fire — eager dispatch compiles one tiny module per primitive instead of one big one.</td></tr>
+    <tr><td><code>jax_check_tracer_leaks</code></td><td><code>False</code></td><td>Moves an <code>UnexpectedTracerError</code> to the leak site. "Some caching is disabled" per its own help — a debugging tool, never a benchmark setting. Not in <code>trace_context()</code>, so it does not itself retrace.</td></tr>
+    <tr><td><code>jax_platforms</code> · <code>jax_num_cpu_devices</code></td><td><code>None</code> · <code>-1</code></td><td><code>JAX_PLATFORMS=cpu</code> is the CPU-backend switch; a bad value is fatal with a good message. <code>jax_num_cpu_devices</code> supersedes <code>--xla_force_host_platform_device_count</code> and must be set before backend init.</td></tr>
+    <tr><td><code>jax_disable_most_optimizations</code></td><td><code>False</code></td><td>Exactly <code>xla_backend_optimization_level=0</code> + <code>xla_llvm_disable_expensive_passes=True</code> + <code>xla_test_all_input_layouts=False</code>. Use the XLA flags so you can see what it does. <strong>Not reachable as <code>jax.config.jax_disable_most_optimizations</code></strong> (AttributeError) — it is a <code>bool_flag</code>, not a State; use <code>jax.config.values[...]</code>. Also why it is absent from the official <code>config_options</code> doc page, which is generated from the 110 States, not the 133 values.</td></tr>
+    <tr><td><code>jax_compiler_detailed_logging_min_ops</code></td><td><code>10</code></td><td><strong>A pure logging knob that invalidates your entire persistent cache.</strong> It flows into <code>debug_options.xla_detailed_logging</code>, which is serialized into <code>CompileOptions</code> and is not on the exclusion list. Raising it to quiet XLA's logs throws away every cached executable.</td></tr>
+  </table></div>
+
+  <h3>D · API-level knobs</h3>
+  <div class="scroll"><table class="dense">
+    <tr><th>knob</th><th>effect · caution</th></tr>
+    <tr><td><code>static_argnums</code> / <code>static_argnames</code></td><td><strong>2,872×</strong> in seconds for 5 distinct static values vs 5 identical, on a 60-op chain. Static args are boxed in <code>_HashableWithStrictTypeEquality</code>, whose <code>__eq__</code> is <code>type(a) is type(b) and a == b</code> — so <strong><code>1</code> ≠ <code>1.0</code></strong> despite <code>1 == 1.0</code> and <code>hash(1) == hash(1.0)</code>, <code>1</code> ≠ <code>True</code>, <code>2.0</code> ≠ <code>np.float64(2.0)</code>. Each mismatch is 2 traces. <strong>Normalise numeric statics at the boundary</strong> (<code>int(k)</code>), and give any config/dataclass passed as a static arg <strong>value-based <code>__eq__</code>/<code>__hash__</code></strong> — 3 freshly-constructed configs with default identity hashing gave 3 traces; with value hashing, 1. An unhashable static arg raises rather than silently missing.</td></tr>
+    <tr><td><code>jax.jit(..., compiler_options={...})</code><br><code>Lowered.compile(compiler_options={...})</code></td><td><strong>The recommended transport for XLA options.</strong> In-process, per-jit, no restart, no <code>XLA_FLAGS</code>. Typos and type errors are <strong>loud</strong> here (<code>INVALID_ARGUMENT: No such compile option</code>; <code>'not_an_int' is not a valid int32 value</code>) where XLA_FLAGS gives a bare parse failure. Lets you A/B two settings in one process — verified <code>autotune_level=0</code> taking a 6.614 s compile to 0.530 s in the same process. <strong>Two gotchas:</strong> lowercase <code>"true"</code> is REJECTED (pass a Python <code>bool</code>, <code>"True"</code>, or <code>1</code>); and a bad <em>pass name</em> inside <code>xla_disable_hlo_passes</code> is still silent. Four keys are intercepted by JAX and set on <code>build_options</code> directly: <code>exec_time_optimization_effort</code>, <code>memory_fitting_effort</code>, <code>optimization_level</code>, <code>memory_fitting_level</code>. It <em>is</em> hashed into the persistent-cache key.</td></tr>
+    <tr><td><code>jax.export.export</code> / <code>Exported.call</code></td><td><strong>13.98× / 14.57× / 18.35× on trace+lower</strong> with byte-identical post-opt HLO and bit-identical outputs. See §1.4. Does not touch XLA compile; produces a second cache entry; costs one full trace to build.</td></tr>
+    <tr><td><code>jax.jit(f).trace(*a)</code> → <code>Traced</code></td><td>The cheap inspection point: <code>.jaxpr .in_avals .out_avals .in_tree .out_tree .args_info .out_info .fun_name .donate_argnums .lojax .lower()</code>. <code>in_avals</code>, <code>in_tree</code> and <code>donate_argnums</code> come from the <code>Stage</code> base and are not on the AOT doc page. <code>Traced.lower(lowering_platforms=('cpu',))</code> lowers for a platform you are not on — the supported way to compare backends without a second machine.</td></tr>
+    <tr><td><code>jax.eval_shape</code></td><td><strong>NOT a cheap shape-inference shortcut</strong> — in 0.10.2 it is literally <code>jit(fun).trace(*args).out_info</code>, measured 169.2 ms against 188.9 for a full <code>.trace()</code> on the same cold program. It <em>is</em> useful: it shares the tracing cache (so it pre-warms), and it returns in 6.4 ms on a (1e5,1e5) f64 matmul with no device memory. <strong>An unhashable <code>fun</code> is silently wrapped in <code>functools.partial</code></strong> — a new object every call, so it can never hit the cache (3 calls → 3 traces).</td></tr>
+    <tr><td><code>lax.scan(..., unroll=k)</code></td><td>Free at trace time (recursive equations constant at 6 for unroll 1→256); 2.08× on lowering at unroll=256. Safe up to k≈16 (~0.02 ms/iteration against 89 ms for a full unroll). Compile-stage effect <span class="pill q">not measured</span>.</td></tr>
+    <tr><td><code>lax.optimization_barrier</code></td><td>A real fusion boundary (its opcode is off <code>IsFusible</code>'s allowlist), surviving grad, jvp, vmap and grad² with bit-identical outputs. <strong>GPU-specific as a compile lever</strong>, ~5.7 ms per barrier, and see §7 for how badly it fails to transfer. Counting it via <code>compiled.as_text().count('opt-barrier(')</code> always returns <strong>0</strong> — <code>OptimizationBarrierExpander</code> erases them post-scheduling. Count in <code>lowered.compiler_ir('hlo').as_hlo_text()</code>.</td></tr>
+    <tr><td><code>jf.clear_cache()</code> / <code>jax.clear_caches()</code></td><td>Required for honest cold-trace benchmarking. <code>jax.clear_caches()</code> clears <strong>110</strong> registered caches process-wide. <strong>Caution:</strong> it also drops <code>xla_primitive_callable</code>'s cache, so any eager op in your benchmark re-compiles its one-op module every round — that inflated one arm by 1.26× until isolated. Neither touches the persistent cache.</td></tr>
+    <tr><td><code>jax.named_call</code> / <code>jax.named_scope</code></td><td><strong>INERT in 0.10.2.</strong> 7 scopes added to a real program left the jaxpr at exactly 7,658 equations, a byte-identical primitive dict, before-opt HLO at exactly 9,412 lines, and a byte-identical cache key. <code>named_call</code> is documented here as "a version of <code>fun</code> wrapped in a <code>named_scope</code>". Advice to avoid it as a fusion barrier is stale. It also does <strong>not</strong> appear in a profiler trace (0 hits / 34,403 events) — it is HLO metadata only; use <code>jax.profiler.TraceAnnotation</code>.</td></tr>
+    <tr><td><code>jax.Inline</code></td><td><strong>Does not exist here.</strong> Landed in jax 0.11.0 (2026-07-16). <code>jax.jit</code> already takes <code>inline: bool</code>; 0.11.0 turns that into a policy enum. The one forward-looking knob plausibly aimed at the unrolled-chain problem — worth re-testing after a version bump.</td></tr>
+  </table></div>
+
+  <h3>E · XLA_FLAGS — fusion, autotuning, Triton</h3>
+  <div class="scroll"><table class="dense">
+    <tr><th>flag</th><th>pass-bound solver</th><th>autotune-bound (MLP)</th><th>caution</th></tr>
+    <tr><td><code>--xla_gpu_autotune_level=0</code></td><td class="num">1.052 <em>unresolved</em></td><td class="num"><strong>0.144</strong></td><td>Also <strong>makes the structural panel deterministic</strong> — use it for every panel comparison. Disqualified as a shipping dial on ML code: <strong>3.09–3.18× WARM</strong> on a transformer. Removes the <code>autotuner</code> pass row entirely.</td></tr>
+    <tr><td><code>--xla_gpu_enable_triton_gemm=false</code></td><td class="num">0.970 <em>unresolved</em></td><td class="num"><strong>0.024 (41×)</strong></td><td>The single biggest compile lever found, and it is a <em>runtime</em> tradeoff — you give up Triton matmuls. Also <strong>changes f32 numerics non-trivially</strong>: a transformer output sum moved 1.2% (1.8552e6 → 1.8770e6) from accumulation order. f64 is ~1e-16. Dev-loop flag, not production.</td></tr>
+    <tr><td><code>--xla_gpu_triton_gemm_any=false</code></td><td class="num">1.089 <em>unresolved</em></td><td class="num"><strong>0.205 (5×)</strong></td><td><strong>Default is <code>true</code> here</strong> — <a href="https://docs.jax.dev/en/latest/gpu_performance_tips.html">docs.jax.dev</a> says False; contradicted by measurement (setting it false cut MLP compile 16.30 → 3.34 s, only possible if it was on).</td></tr>
+    <tr><td><code>--xla_gpu_gemm_rewrite_size_threshold=1e8</code></td><td class="num">1.128 <em>unresolved</em></td><td class="num"><strong>0.036 (28×)</strong></td><td>deepwiki predicted a large value would <em>increase</em> autotuning work. <strong>Measured opposite:</strong> a huge threshold marks every dot too small to rewrite, so GemmFusion emits nothing to autotune.</td></tr>
+    <tr><td><code>--xla_gpu_exhaustive_tiling_search=true</code></td><td class="num">0.980 <em>unresolved</em></td><td class="num"><strong>TIMEOUT &gt;25×</strong></td><td>Its own help text says it increases compile time. Never put it in a sweep without a hard timeout.</td></tr>
+    <tr><td><code>--xla_gpu_experimental_autotuner_cache_dir</code></td><td class="num">1.112</td><td class="num"><strong>0.066 (15×)</strong></td><td>First run pays full price. For <em>reproducible</em> autotuning prefer <code>--xla_gpu_dump_autotune_results_to</code> once then <code>--xla_gpu_load_autotune_results_from</code> — <a href="https://github.com/openxla/xla/issues/37902">openxla/xla&nbsp;#37902</a> reports the per-fusion dir failing to persist everything, producing non-determinism.</td></tr>
+    <tr><td><code>--xla_gpu_experimental_autotune_cache_mode</code></td><td colspan="2">unmeasured</td><td>The bare spellings <code>READ</code>/<code>UPDATE</code> that casual reading suggests are <strong>REJECTED and abort the process</strong>. Write <code>AUTOTUNE_CACHE_MODE_READ</code>/<code>_UPDATE</code>. JAX sets it for you. On the cache-key exclusion list.</td></tr>
+    <tr><td><code>--xla_fuel=priority-fusion=N</code></td><td colspan="2">bisection tool; every truncated arm is <strong>slower</strong></td><td>Process-global and consumed in compile order; the constant epilogue is unfueled; the "never consumed — may be a typo" warning <strong>also fires on correct usage</strong>. Grep <code>Out of fuel for</code>.</td></tr>
+    <tr><td><code>--xla_gpu_experimental_enable_triton_heroless_priority_fusion=true</code><br><code>--xla_gpu_experimental_enable_fusion_block_level_rewriter=true</code></td><td colspan="2"><strong>BOTH BREAK the compile</strong> on an elementwise-heavy f64 solver: <code>rc=1, INVALID_ARGUMENT: Reshape input and output shapes must be the same, got  -&gt; 2</code></td><td>Documented upstream to skip gracefully; they do not here. Harmless but useless on the MLP (1.021, 1.031). Treat as unusable on elementwise-heavy solver graphs.</td></tr>
+    <tr><td><code>--xla_gpu_deterministic_ops</code></td><td colspan="2">unmeasured</td><td>Implies <code>exclude_nondeterministic_ops</code> AND disables autotuning — so in the GEMM regime it is <em>also</em> a compile-time lever, and a runtime penalty. <code>--xla_gpu_exclude_nondeterministic_ops</code> alone does <strong>not</strong> make <em>compilation</em> deterministic, only execution.</td></tr>
+  </table></div>
+
+  <h3>F · XLA_FLAGS — codegen and ptxas</h3>
+  <div class="scroll"><table class="dense">
+    <tr><th>flag</th><th>effect</th><th>caution</th></tr>
+    <tr><td><code>--xla_gpu_force_compilation_parallelism=N</code></td><td><strong><code>=1</code> is 2.579× and 2.650× SLOWER on two f64 solvers; 5.133× on an MLP.</strong> <code>=4</code> → 1.197×. <code>=20</code> → 0.967/0.973 (unresolved). <code>=32</code> → 1.136 (oversubscription).</td><td>THE largest single penalty found. <code>0</code> = default = no enforcement already yields 6–10 concurrent ptxas on this 20-core box. The autotuner sets it to 1 <em>internally</em>, deliberately, and people copy it out of tuning recipes. Corroborated externally by <a href="https://github.com/jax-ml/jax/issues/33364">jax&nbsp;#33364</a>: 1/8/16 threads → 2338.6 / 570.2 / 420.0 s.</td></tr>
+    <tr><td><code>--xla_gpu_enable_llvm_module_compilation_parallelism</code></td><td><strong>INERT.</strong> Default already <code>False</code> yet the 71/167-way split happens anyway. Setting false: 1.057 / 0.950 medians, both inside noise.</td><td>Deprecated in <code>xla/xla.proto</code>. <code>llvm::SplitModule</code> is the CPU path. Required <code>True</code> for the kernel cache, which JAX sets for you.</td></tr>
+    <tr><td><code>--xla_gpu_disable_gpuasm_optimizations=true</code> (ptxas −O0)</td><td>Per-kernel ptxas is only <strong>9% faster</strong> (paired median 0.910, n=70). Whole compile: <strong>1.012 / 1.013 — no win.</strong></td><td><strong>A trap.</strong> You pay <strong>3.55× more SASS</strong> (7,648 → 27,160 on 70 kernels) and 40% more max registers (80 → 114). Verified reaching the argv as <code>-O0</code>. It also moved the panel — but that is autotuner-mediated; with <code>autotune_level=0</code> the panel returns exactly to baseline.</td></tr>
+    <tr><td><code>--xla_backend_optimization_level=0|1</code></td><td><strong>INERT on GPU:</strong> 1.071 / 0.994 (n=4). Stacked with <code>autotune_level=0</code> it gave 0.49× on a synthetic, 0.55× and <strong>0.83×</strong> on two real solvers — decaying as the program approaches the real pathology.</td><td>The proto comment says interpretation is left to the backend; on GPU it does essentially nothing to codegen time. On <strong>CPU</strong> it maps to LLVM <code>CodeGenOptLevel</code> and is the only knob that moves anything — at 1.35–2.81× warm.</td></tr>
+    <tr><td><code>--xla_gpu_ptx_compiler_extra_flags=…</code></td><td>Lands verbatim on the ptxas argv (verified: <code>--maxrregcount=32</code>; a bogus value gives <code>ptxas fatal : Unknown option</code>).</td><td>The name most guides give, <code>--xla_gpu_asm_extra_flags</code>, is <strong>NOT a registered flag here</strong> despite the string being in the binary.</td></tr>
+    <tr><td><code>--xla_gpu_enable_libnvptxcompiler=true</code></td><td><strong>UNAVAILABLE.</strong> Aborts <em>at flag parse</em> (custom setter → <code>IsLibNvPtxCompilerSupported()</code> false). <code>=false</code> is accepted.</td><td>This is the missing lever worth ~4.1 s of pure ptxas process startup on a 167-kernel program. Requires rebuilding jaxlib with <code>--@local_config_cuda//cuda:enable_libnvptxcompiler=true</code>.</td></tr>
+    <tr><td><code>--xla_gpu_enable_libnvjitlink=true</code></td><td>Parses, then <code>UNAVAILABLE: LibNvJitLink is not supported.</code></td><td><code>libnvJitLink.so.13</code> <em>is</em> present in the venv (98 MB) — presence of the .so proves nothing. <code>--xla_gpu_libnvjitlink_mode</code> does not exist here.</td></tr>
+    <tr><td><code>--xla_backend_extra_options=X</code></td><td>Forwards <code>X</code> to LLVM's <code>cl::opt</code> parser (a bad value gives <code>xla: Unknown command line argument</code>).</td><td>No validation — a typo is <em>not</em> caught by the XLA flag parser. <code>-time-passes</code> produced <strong>no report</strong> in this build, so per-LLVM-pass timing is unavailable this way.</td></tr>
+    <tr><td><code>--xla_gpu_use_inprocess_lld=true</code></td><td>1.100 on a 10k-instruction solver (3 pairs 1.10/1.07/1.11) — just outside the ±13% null band, all three agreeing.</td><td>Probably a real small regression; three pairs is thin. Do not ship either way.</td></tr>
+  </table></div>
+
+  <h3>G · XLA_FLAGS — dumping (fresh directory per arm; counts exact, ratios fixed-order)</h3>
+  <div class="scroll"><table class="dense">
+    <tr><th>arm</th><th class="num">ratio</th><th class="num">files</th><th class="num">MB</th><th>note</th></tr>
+    <tr><td><strong><code>--xla_dump_to</code> ALONE</strong>, no <code>as_*</code> flag</td><td class="num">0.99</td><td class="num">509</td><td class="num">11.22</td><td><strong>328 <code>.ll</code> + 164 <code>.ptx</code> + only 10 <code>.txt</code></strong>. The per-kernel IR and PTX are gated on <code>xla_dump_to</code> itself, not on the selector. There is no flag to suppress them.</td></tr>
+    <tr><td>+ <code>hlo_as_text</code></td><td class="num">0.99</td><td class="num">509</td><td class="num">11.23</td><td>free; adds ~10 files</td></tr>
+    <tr><td>+ <code>hlo_as_proto</code></td><td class="num">0.99</td><td class="num">506</td><td class="num">8.58</td><td>7 <code>.pb</code></td></tr>
+    <tr><td>+ <code>hlo_as_html</code> / <code>hlo_as_dot</code></td><td class="num">1.10 / 1.13</td><td class="num">4 / 3 files</td><td class="num">— / 30.4</td><td><strong>Near no-ops</strong> for a 520-computation module — the OSS build registers no graph renderer.</td></tr>
+    <tr><td><code>--xla_dump_hlo_pass_re=.*</code></td><td class="num"><strong>1.29–1.35</strong></td><td class="num">883</td><td class="num">196</td><td>125 snapshots/compile. <strong>Never take a timing from this run.</strong></td></tr>
+    <tr><td><code>--xla_dump_hlo_pass_re=priority-fusion</code></td><td class="num">0.97</td><td class="num">533</td><td class="num">22</td><td><strong>FREE.</strong> Always narrow it.</td></tr>
+    <tr><td><code>--xla_gpu_dump_llvmir=true</code></td><td class="num"><strong>1.52</strong></td><td class="num">9707</td><td class="num">334</td><td>A dump before <strong>every LLVM pass</strong>, not "how you dump LLVM IR". 8 → 154 <code>.ll</code> on a trivial jit. <strong>Not on the cache-key exclusion list.</strong></td></tr>
+    <tr><td><code>--xla_dump_fusion_visualization</code></td><td class="num"><strong>&gt;45×</strong></td><td class="num">—</td><td class="num">198 MB / computation</td><td><strong>UNUSABLE</strong> at real scale. Killed after 5m49s CPU with 16 of ~520 files.</td></tr>
+    <tr><td><code>--xla_dump_hlo_module_re=NOSUCHMODULE</code></td><td class="num">0.95</td><td class="num">4</td><td class="num">1.20</td><td>Does <strong>not</strong> suppress everything — <code>module.mlir</code>, <code>compile_options.textproto</code>, <code>topology.textproto</code>, <code>.config.pbtxt</code> are written above the filter.</td></tr>
+  </table></div>
+  <p><strong>Cache-key note:</strong> <code>--xla_dump_to</code>, <code>--xla_dump_hlo_pass_re</code>, <code>--xla_dump_hlo_module_re</code> and the whole <code>--xla_dump_hlo_as_*</code> family are on the exclusion list, so dumping does <em>not</em> invalidate your persistent cache. <code>--xla_gpu_dump_llvmir</code> is not excluded. Note also that MaxText disables its cache entirely when HLO dumping is on, with the comment <em>"HLO dumping requires recompilation"</em> — worth adopting.</p>
+
+  <div class="box lens">
+    <span class="lab"><code>--xla_dump_hlo_pass_re</code> semantics — the web gets the boolean backwards</span>
+    The dump condition is <code>!dump_regex.empty() &amp;&amp; (pass_changed || dump_regex != ".*")</code>. Read it carefully:<br>
+    · <code>".*"</code> → <code>(pass_changed || false)</code> → dumps <strong>only where the pass reported <code>changed</code></strong>.<br>
+    · any <strong>narrow</strong> regex → <code>(pass_changed || true)</code> → dumps <strong>UNCONDITIONALLY</strong>.<br><br>
+    Proof: pointing a narrow regex at <code>triton-softmax-rewriter</code> — a pass previously <em>proved</em> to be a byte-identical no-op on that program — still produced exactly 2 snapshot files per compile. DeepWiki states the opposite. Also: the regex is tested against <em>both</em> <code>before_pass_name</code> and <code>after_pass_name</code>, which is why one narrow name yields a matched before/after <strong>pair</strong>. And <strong>"changed" is the pass's returned bool, not an instruction-count diff</strong> — under <code>.*</code> you will see rows with Δinstr = 0 (<code>sanitize-constant-names</code> renames without adding anything). A snapshot existing does not mean the pass grew the graph.
+    <span class="pill">measured here</span>
+  </div>
+
+  <h3>H · CUDA environment — every one is a null, and that is the finding</h3>
+  <p>Nine arms × 2 reps × 4 usable rounds on a 10k-instruction f64 solver. <strong>The NULL arm came out top of the table at 1.092×</strong>, and a second null pair agreed to 0.999× — so the whole group spans 0.962–1.092 and <em>the noise is the largest effect in it</em>. Nothing here is a compile knob. Three entries still matter, for reasons other than speed:</p>
+  <ul>
+    <li><strong><code>CUDA_LAUNCH_BLOCKING=1</code> is runtime poison, not a compile knob.</strong> Compile untouched; first launch ×2.12 and <strong>warm launch ×2.40</strong>. The asymmetry makes it easy to misread as "compile got faster". <code>assert not os.environ.get("CUDA_LAUNCH_BLOCKING")</code>.</li>
+    <li><strong><code>CUDA_CACHE_*</code> does nothing</strong> — <strong>0 files written in every arm and rep</strong>, because the driver JIT cache is not on XLA's path at all (§1.10). A warp-lang positive control in the same setup wrote 3 files, so this is a real negative.</li>
+    <li><strong><code>ptxas</code> 12.8 vs the wheel's 13.3 is a silent-swap hazard, not a speed knob</strong> — 1.020× end to end, and offline on 40 kernels the <strong>SASS instruction counts are IDENTICAL in 40/40</strong>.</li>
+  </ul>
+  <p><strong><code>CUDA_VISIBLE_DEVICES</code> deserves its own line</strong>, because the failure mode is silent: <code>""</code> or a nonexistent index gives <strong>rc 0, no warning</strong>, and <code>jax.devices()</code> quietly becomes <code>[CpuDevice(id=0)]</code>. Your "GPU compile benchmark" just became a CPU compile benchmark on a different pass pipeline with no ptxas at all. It also <em>renumbers</em>, so any pinning downstream mismatches <code>nvidia-smi</code>'s physical indices.</p>
+  <p><strong><code>CUDA_ROOT</code></strong> is read by <code>jax._src.lib._cuda_path()</code> <em>first</em> and becomes <code>xla_gpu_cuda_data_dir</code> — i.e. it decides <em>which ptxas binary compiles your kernels</em>. Point it at an empty directory and XLA silently falls through to <code>/usr/local/cuda/bin/ptxas</code>. Always print the <code>assemble_compilation_provider.cc:227</code> line when reporting a compile number. Dumped PTX is version-locked: XLA emits <code>.version 9.0</code> and ptxas 12.8 rejects it outright, so any offline ptxas study must use the wheel's binary.</p>
+
+  <h3>I · CPU-backend flags — nothing wins, and here is the null that proves it</h3>
+  <p>A 4.7k-instruction f64 solver on CPU, 3 rounds, arm order rotated, median of per-round ratios. <strong>The critical control:</strong> <code>--xla_gpu_autotune_level=0</code> on the CPU backend cannot possibly change a CPU compile, and it measured <strong>1.149×</strong>. That is the noise floor of the protocol, and <strong>eight of the nine arms sit inside it</strong> — including <code>--xla_cpu_opt_preset=FAST_COMPILE</code> at 1.107 <em>despite its name</em>, and despite demonstrably taking (8885→8770 instructions).</p>
+  <p><strong>The one arm below the floor is <code>--xla_backend_optimization_level=0</code> at 0.854 — and it costs 1.35–2.81× WARM.</strong> On CPU this flag maps to LLVM <code>CodeGenOptLevel</code> and is the only knob that moves anything at all; on GPU it is inert. Everything else measured null: <code>llvm_disable_expensive_passes</code>, <code>cpu_parallel_codegen_split_count</code> at 1 <em>and</em> 128 (splitting is at LLVM-function granularity, so one huge kernel is indivisible regardless of N), <code>cpu_use_xnnpack=false</code>, and both <code>xla_backend_extra_options</code> LLVM toggles.</p>
+  <p><strong>Six <code>xla_cpu_*</code> names in the binary are NOT flags</strong> and abort the process if passed via <code>XLA_FLAGS</code>: <code>disable_loop_unrolling</code>, <code>disable_slp_vectorizer</code>, <code>disable_tiled_emitter</code>, <code>disable_new_fusion_emitters</code>, <code>flatten_after_fusion</code>, <code>use_multi_output_fusion</code>. They are keys of the <code>xla_backend_extra_options</code> map — pass them that way. And <code>--xla_cpu_use_thunk_runtime</code> warns <em>"no longer supported"</em>: any advice telling you to toggle it is out of date.</p>
+
+  <h3>J · Flags that do not exist in this build</h3>
+  <p><strong>107 of 416 probed names abort the process at the first jit</strong>, and every one of them appears in a blog post, an issue, or older release notes. The list is not worth reproducing — <strong>probe, don't trust</strong>: set the flag in a subprocess and see whether XLA dies. Four patterns cover almost all of it.</p>
+  <ul>
+    <li><strong>Renamed:</strong> <code>--xla_gpu_asm_extra_flags</code> → <code>--xla_gpu_ptx_compiler_extra_flags</code> · <code>--xla_gpu_autotune_cache_dir</code> → <code>--xla_gpu_experimental_autotuner_cache_dir</code> · <code>--xla_gpu_enable_cuda_graphs</code> and the whole graph family → <code>--xla_gpu_enable_command_buffer</code> (pass the <strong>empty string</strong> to disable; <code>NONE</code> is not a value) · <code>--xla_gpu_enable_address_computation_fusion</code> → <code>_enable_dynamic_slice_fusion</code>. All four of the most-cited <strong>dump</strong> flags (<code>--xla_dump_optimized_hlo_proto_to</code> and siblings) are gone — use <code>--xla_dump_to</code> + <code>--xla_dump_hlo_as_proto</code>.</li>
+    <li><strong>Never existed as a flag:</strong> <code>--xla_gpu_enable_priority_fusion</code> (priority fusion is unconditional) and <code>--xla_gpu_enable_triton_softmax_fusion</code> (<strong>there is no flag to turn off the diamond rewriter</strong>; only <code>--xla_disable_hlo_passes=triton-softmax-rewriter</code> reaches it).</li>
+    <li><strong>Documented upstream, absent here:</strong> six names on <a href="https://openxla.org/xla/flags_guidance">openxla.org/xla/flags_guidance</a> (<code>--xla_gpu_pipeline_all_gather</code>, <code>--xla_memory_scheduler</code>, …) exist in none of this build. <strong>That page is written against a different, largely TPU, build.</strong></li>
+    <li><strong>Pass names that parse and do nothing:</strong> <code>instruction_fusion</code>, <code>fusion_merger</code>, <code>horizontal_loop_fusion</code> — <strong>zero occurrences in the plugin <code>.so</code></strong>, yet <code>--xla_disable_hlo_passes=&lt;any of them&gt;</code> returns rc 0. See Trap 1.</li>
+  </ul>
+  <p>Two API-level entries belong here too. <code>jax.custom_transpose</code> <strong>does not exist</strong> in 0.10.2 (deepwiki asserted otherwise); use <code>jax.interpreters.ad.deflinear2</code>. And <code>JAX_XLA_BACKEND</code>, <code>JAX_CUDA_VISIBLE_DEVICES</code> and their siblings are <strong>dead env vars</strong> — the config options work via <code>jax.config.update</code>, but these are <code>*_flag</code> declarations whose call sites never call <code>os.getenv</code>.</p>
+
+  <div class="box why">
+    <span class="lab">The env-var rule that tells you which JAX config options read the environment</span>
+    Every <code>*_state</code> helper (<code>bool_state</code>, <code>enum_state</code>, <code>optional_enum_state</code>, <code>enum_class_state</code>, <code>int_state</code>, <code>float_state</code>, <code>string_or_object_state</code>) auto-reads <code>os.getenv(name.upper())</code> at import — so <code>jax_persistent_cache_min_compile_time_secs</code> → <code>JAX_PERSISTENT_CACHE_MIN_COMPILE_TIME_SECS</code> with no per-option code. The <strong>23 <code>*_flag</code> options do NOT</strong>; they only get an env default if the call site passes one explicitly. That is the entire explanation for the dead env vars above.<br><br>
+    Two corollaries. A <strong>bad env value aborts at <code>import jax</code></strong>, it is not ignored (<code>JAX_LOG_COMPILES=maybe</code> → exit 1). And Flag-type options have <strong>no attribute access and no context manager</strong> — <code>config_states</code> holds 110 entries while <code>config.values</code> holds 133; use <code>jax.config.values[name]</code> or <code>_read(name)</code>. This is also why introspecting a <code>string_flag</code> with <code>getattr</code> produces a false "ABSENT" verdict.
+    <span class="pill">measured here</span>
+  </div>
+
+  <hr class="rule">
+
+<div class="footer">Part of the <a href="blueprint_scopex.html">scopex blueprint</a>.
+Every number measured on jax 0.10.2; absolute seconds are properties of one box, ratios transfer
+better, structural counts transfer best.</div>
+</main></body></html>
